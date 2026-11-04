@@ -1,0 +1,11 @@
+title = "agentshield gitleaks config"
+
+[extend]
+useDefault = true
+
+# False positive: the task title "Auth SIWE: nonce/verify/me/logout" in docs/runbook
+# looks like `auth: <high-entropy value>` to the generic-api-key rule. It is a list of endpoints.
+[[allowlists]]
+description = "SIWE endpoint list in the task plan"
+regexTarget = "line"
+regexes = ['''Auth SIWE: nonce/verify/me/logout''']
