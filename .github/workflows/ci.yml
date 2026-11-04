@@ -1,0 +1,113 @@
+name: ci
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
+
+env:
+  NODE_VERSION: 22
+
+jobs:
+  # Static guards for invariants P2/P4/P5 + secrets
+  invariants:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # gitleaks scans full history
+      - run: bash scripts/check-invariants.sh
+      - run: node scripts/sync-skills.mjs --check
+      - uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # Typecheck + lint + unit tests for every JS workspace
+  node:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    services:
+      redis:
+        image: redis:7
+        ports: ["6379:6379"]
+        options: >-
+          --health-cmd "redis-cli ping" --health-interval 5s --health-timeout 3s --health-retries 10
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: agentshield_test
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres" --health-interval 5s --health-timeout 3s --health-retries 10
+    env:
+      REDIS_URL: redis://localhost:6379
+      DATABASE_URL: postgres://postgres:postgres@localhost:5432/agentshield_test
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      # shared: regenerated ABIs/schemas must match what is committed
+      - name: shared codegen is up to date
+        if: ${{ hashFiles('packages/shared/package.json') != '' }}
+        run: |
+          pnpm --filter shared gen
+          git diff --exit-code -- packages/shared
+      - run: pnpm -r --if-present run lint
+      - run: pnpm typecheck
+      - run: pnpm test
+      - run: pnpm build
+
+  # Solidity: skipped until packages/contracts exists
+  contracts:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: packages/contracts
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - id: has
+        working-directory: .
+        run: echo "present=$([ -f packages/contracts/foundry.toml ] && echo true || echo false)" >> "$GITHUB_OUTPUT"
+      - uses: foundry-rs/foundry-toolchain@v1
+        if: steps.has.outputs.present == 'true'
+      - if: steps.has.outputs.present == 'true'
+        run: forge fmt --check
+      - if: steps.has.outputs.present == 'true'
+        run: forge build --sizes
+      - if: steps.has.outputs.present == 'true'
+        run: forge test -vvv --fuzz-runs 1000
+        env:
+          FOUNDRY_PROFILE: ci
+      - name: Slither (non-blocking for now)
+        if: steps.has.outputs.present == 'true'
+        continue-on-error: true
+        uses: crytic/slither-action@v0.4.0
+        with:
+          target: packages/contracts
+          fail-on: none
+
+  # Single required check for branch protection later: "ci-pass"
+  ci-pass:
+    if: always()
+    needs: [invariants, node, contracts]
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          echo '${{ toJSON(needs) }}'
+          if echo '${{ toJSON(needs) }}' | grep -qE '"result": "(failure|cancelled)"'; then exit 1; fi
