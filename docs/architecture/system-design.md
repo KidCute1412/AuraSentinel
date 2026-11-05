@@ -358,6 +358,8 @@ erDiagram
 
 ## 8. API & event contract
 
+> **Lưu ý:** bảng REST dưới đây là bản đơn-vault ban đầu. Bản multi-vault + auth (route `/vaults/:safe/...`) nằm ở [`api.md`](./api.md).
+
 ### 8.1 REST
 | Method | Route | Mô tả |
 |---|---|---|
