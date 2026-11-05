@@ -25,6 +25,7 @@ Review (read-only) the diff vs `main` (or the given target). Read `.agents/skill
 8. **Contract** (if touched) per-token caps, no caller path/recipient, `Call` not `DelegateCall`, exact approval + allowance 0, custom errors mapped in shared, tests present (unit/fuzz/invariant).
 9. **Retries** revert retried; infra errors not retried.
 10. **Threats** new surface not mapped to T1-T7.
+11. **Visual (web diffs, `docs/product/design-system.md`)** rounded corners other than count pill/tag, blur shadows (`shadow-sm..2xl`), hex or Tailwind palette colors outside tokens, fonts other than Hanken Grotesk/Geist Mono, money not in mono, emoji icons, Team1/Avalanche logos, motion > 200ms or ignoring reduced-motion, missing hover/focus/disabled/loading/error states.
 
 ## Output
 Table of findings: severity (blocker/major/minor), rule violated, `file:line`, concrete fix. End with "No violations" per rule that passed. Do not edit files.
