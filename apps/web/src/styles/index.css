@@ -240,7 +240,12 @@
   .animate-shake { animation: shake 200ms ease-out; }
 }
 
+@layer utilities {
+  .gate-move { transition: transform 600ms cubic-bezier(0.3, 0.8, 0.3, 1), fill 300ms ease-out; }
+}
+
 @media (prefers-reduced-motion: reduce) {
+  .gate-move { transition: none !important; }
   .animate-marquee, .hazard-move, .animate-packet-ok, .animate-packet-bad { animation: none !important; }
   .animate-packet-ok { left: 40%; opacity: 1; }
   .animate-packet-bad { left: 56%; opacity: 1; }

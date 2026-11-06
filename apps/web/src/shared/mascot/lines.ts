@@ -15,6 +15,14 @@ export const LINES = {
   kill: "please don't press that.",
   shadesOn: "now i'm unstoppable.",
   shadesOff: "ok, back to work.",
+  gate: {
+    connect: "show me your wallet.",
+    sign: "read before you sign.",
+    verify: "checking the list...",
+    ok: "welcome in.",
+    refused: "no sig, no entry.",
+    email: "email? how retro.",
+  },
 } as const;
 
 export const pick = (list: readonly string[]): string =>

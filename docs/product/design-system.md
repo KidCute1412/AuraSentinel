@@ -105,6 +105,16 @@ Linh vật của AgentShield. SVG inline (`shared/mascot/AuraKun.tsx`), không �
 - **Thoại:** bong bóng chamfer, mono 12px, tối đa ~24 ký tự, giãn cách ≥ 2.5s, **chỉ tiếng Anh**, giọng khô và ngắn (`nice try.`, `skill issue.`). Có `role="status"` ẩn cho trình đọc màn hình; mascot là `<button>` có `aria-label`.
 - **Motion:** ≤ 200ms hoặc chạy một lần; `prefers-reduced-motion` tắt bob/zzz/hop và tắt theo dõi con trỏ.
 
+## 4c. Cổng truy cập (Sign in / Sign up)
+
+Một layout `AccessGate` cho cả `/signin` và `/signup` (`features/auth/`):
+- Thẻ Chamfer `ACCESS-01` (tab Sign in / Sign up, phương thức Wallet / Email) bên cạnh **cửa két blueprint** (`GateDoor`, SVG, chỉ dùng token). Cửa mở dần theo 3 bước: Connect, Sign, Verify (bánh xe xoay, chốt rút, khoá bật lên, 3 đèn). Bị từ chối thì khoá đổi sang `danger` kèm stamp có icon. Đỏ chỉ dành cho từ chối/lỗi; trạng thái khoá bình thường là highlight.
+- Đăng nhập chính là **ví (SIWE)**: hiện nguyên văn thông điệp trong khung mono, nhắc "miễn phí, không gas". Identicon pixel suy ra từ địa chỉ ví. Sign up = ví mới rồi dẫn tới `/vaults/new`.
+- Form Email có sẵn nhưng chỉ là UI: backend là wallet-first (D12) nên submit báo "Not live yet" và dẫn về ví.
+- Luôn có lối thoát "Try the demo, no wallet needed" (khách không cần ví).
+- Aura-kun đứng cạnh cửa (`data-ground="gate-card"`, `gate-door`) và đổi mood theo từng bước. Chuyển động cửa tôn trọng reduced motion (`.gate-move`).
+- Trạng thái luồng nằm ở `gateFlow.ts` (reducer thuần, có test). Khi nối wagmi/SIWE thật chỉ thay phần gọi, không đổi UI.
+
 ## 5. Trạng thái & a11y
 - Hover = dịch bóng/đổi nền, không đổi layout. Focus-visible: ring 2px `highlight` offset 2px, không bỏ outline. Disabled: opacity 0.4 + `cursor-not-allowed`. Loading: skeleton vuông, không spinner tròn.
 - Tương phản chữ ≥ 4.5:1 (đã đạt với token). Cỡ chữ demo ≥ 16px, nút ≥ 40px cao. Không dùng màu làm tín hiệu duy nhất (kèm nhãn mono hoặc icon).

@@ -2,6 +2,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Link, Route, Routes } from "react-router-dom";
 import { AuraLayer } from "@/shared/mascot/AuraLayer";
 import { MascotController } from "@/shared/mascot/MascotController";
+import { AccessGate } from "@/features/auth/AccessGate";
 import { LandingPage } from "@/features/landing/LandingPage";
 
 const queryClient = new QueryClient({
@@ -26,6 +27,8 @@ export function App() {
       <BrowserRouter>
         <Routes>
           <Route path="/" element={<LandingPage />} />
+          <Route path="/signin" element={<AccessGate mode="signin" />} />
+          <Route path="/signup" element={<AccessGate mode="signup" />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
         <MascotController />
