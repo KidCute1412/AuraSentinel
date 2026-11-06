@@ -26,7 +26,7 @@ export function Stats() {
 
   return (
     <section aria-label="Fuji proof" className="border-b border-line bg-surface">
-      <dl className="mx-auto grid max-w-6xl gap-px px-6 py-12 sm:grid-cols-3">
+      <dl className="mx-auto grid max-w-6xl gap-4 px-4 py-12 sm:px-6 sm:grid-cols-3">
         {items.map((i) => (
           <div key={i.label} className="border border-line p-5">
             <dt className="mono-label">{i.label}</dt>

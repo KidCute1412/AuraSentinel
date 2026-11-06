@@ -1,5 +1,6 @@
 import { AttackCards } from "./AttackCards";
 import { Footer } from "./Footer";
+import { Header } from "./Header";
 import { Hero } from "./Hero";
 import { KillSwitch } from "./KillSwitch";
 import { Stats } from "./Stats";
@@ -9,6 +10,7 @@ import { TwoShields } from "./TwoShields";
 export function LandingPage() {
   return (
     <div className="min-h-screen bg-bg text-fg">
+      <Header />
       <Hero />
       <Ticker />
       <TwoShields />

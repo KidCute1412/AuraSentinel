@@ -3,7 +3,17 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="color-scheme" content="dark light" />
     <title>AgentShield</title>
+    <script>
+      // Resolve theme before first paint (no flash). Mirrors shared/theme/theme.ts.
+      (function () {
+        var m = "auto";
+        try { m = localStorage.getItem("agentshield-theme") || "auto"; } catch (e) {}
+        var light = m === "light" || (m !== "dark" && window.matchMedia("(prefers-color-scheme: light)").matches);
+        document.documentElement.setAttribute("data-theme", light ? "light" : "dark");
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>
