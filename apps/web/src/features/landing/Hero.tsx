@@ -2,28 +2,26 @@ import { Link } from "react-router-dom";
 import { primaryCta, secondaryCta } from "./cta";
 import { LiveFeed } from "./LiveFeed";
 
+const COLS = ["A", "B", "C", "D", "E", "F"];
+
 export function Hero() {
   return (
-    <header className="hero-grid border-b border-line">
-      <nav className="mx-auto flex max-w-6xl items-center justify-between px-6 py-5">
-        <span className="font-mono text-sm font-bold uppercase tracking-widest">
-          <span className="text-accent">[</span> AgentShield <span className="text-accent">]</span>
-        </span>
-        <div className="flex items-center gap-6 text-base">
-          <Link to="/demo" className="text-soft hover:text-fg">Demo</Link>
-          <Link to="/vaults/new" className="text-soft hover:text-fg">Create vault</Link>
-          <Link to="/proof" className="text-soft hover:text-fg">Proof</Link>
-        </div>
-      </nav>
-      <div className="mx-auto grid max-w-6xl items-center gap-12 px-6 pb-24 pt-16 lg:grid-cols-[1.1fr_1fr]">
-        <div>
-          <span className="mono-label">Kill-switch armed · Avalanche Fuji</span>
-          <span className="ml-3 inline-block -rotate-3 bg-highlight px-2 py-1 font-mono text-xs font-bold uppercase tracking-widest text-bg">funds lost: 0</span>
-          <h1 className="mt-4 text-5xl leading-[1.05] md:text-6xl">
-            Let AI trade 24/7.{" "}
-            <span className="text-accent">It still can't rug you.</span>
+    <header className="blueprint overflow-hidden border-b border-line">
+      {/* Blueprint coordinates */}
+      <div aria-hidden className="pointer-events-none absolute inset-x-0 top-2 mx-auto hidden max-w-6xl justify-between px-6 font-mono text-[10px] uppercase tracking-widest text-muted lg:flex">
+        {COLS.map((c) => <span key={c}>{c}</span>)}
+      </div>
+      <div className="mx-auto grid max-w-6xl items-center gap-12 px-4 pb-20 pt-14 sm:px-6 lg:grid-cols-[1.15fr_1fr] lg:pt-20">
+        <div className="min-w-0">
+          <div className="flex flex-wrap items-center gap-3">
+            <span className="mono-label">Kill-switch armed · Avalanche Fuji</span>
+            <span className="inline-block -rotate-3 bg-highlight px-2 py-1 font-mono text-xs font-bold uppercase tracking-widest text-[#141414]">funds lost: 0</span>
+          </div>
+          <h1 className="mt-5 text-[clamp(2.25rem,6.2vw,5rem)] font-black italic uppercase leading-[0.92] tracking-[-0.05em]">
+            Let AI trade 24/7.
+            <span className="outline-text mt-1 block">It still can't rug you.</span>
           </h1>
-          <p className="mt-6 max-w-xl text-lg text-soft">
+          <p className="mt-7 max-w-xl text-lg text-soft">
             Your funds stay in a Safe vault. The agent holds only a limited
             session key, and an on-chain policy decides what it may do. You
             keep the Kill-Switch.
@@ -33,7 +31,7 @@ export function Hero() {
             <span className="drop-hard"><Link to="/vaults/new" className={secondaryCta}>Create your vault</Link></span>
           </div>
         </div>
-        <LiveFeed />
+        <div className="min-w-0"><LiveFeed /></div>
       </div>
     </header>
   );

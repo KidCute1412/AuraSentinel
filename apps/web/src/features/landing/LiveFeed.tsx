@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Chamfer } from "@/shared/ui/Chamfer";
+import { Stamp } from "@/shared/ui/Stamp";
 
 type Verdict = "APPROVE" | "BLOCKED";
 interface Row { id: number; action: string; verdict: Verdict; note: string }
@@ -44,29 +45,29 @@ export function LiveFeed() {
 
   return (
     <div>
-      <Chamfer>
+      <Chamfer code="SEC-0412 / LIVE">
         <div key={shake} className={shake ? "animate-shake" : ""} aria-label="Live transaction feed">
           <div className="flex items-center justify-between border-b border-line px-4 py-2">
             <span className="mono-label">sentinel · live</span>
-            <span className="mono-label text-ok">STATUS: PROTECTED</span>
+            <span className="mono-label !text-accent-text">STATUS: PROTECTED</span>
           </div>
-          <ol className="min-h-[15.5rem] divide-y divide-line font-mono text-sm" aria-live="off">
+          <ol className="min-h-[17rem] divide-y divide-line font-mono text-sm" aria-live="off">
             {rows.map((r) => (
               <li
                 key={r.id}
-                className={`animate-feed-in flex items-center gap-3 px-4 py-3 ${r.verdict === "BLOCKED" ? "bg-tint-pink" : ""}`}
+                className={`animate-feed-in flex items-center gap-3 px-3 py-3 sm:px-4 ${r.verdict === "BLOCKED" ? "bg-tint-pink" : ""}`}
               >
-                <span className={`w-20 shrink-0 text-xs font-bold uppercase tracking-widest ${r.verdict === "BLOCKED" ? "text-danger" : "text-ok"}`}>
-                  {r.verdict}
+                <span className="w-24 shrink-0">
+                  <Stamp tone={r.verdict === "BLOCKED" ? "danger" : "ok"} animate>{r.verdict}</Stamp>
                 </span>
                 <span className="min-w-0 flex-1 truncate text-fg">{r.action}</span>
                 <span className="hidden shrink-0 text-xs text-muted sm:inline">{r.note}</span>
               </li>
             ))}
           </ol>
-          <div className="flex items-center justify-between gap-3 border-t border-line px-4 py-2">
+          <div className="flex items-center justify-between gap-3 border-t border-line px-4 py-2 pb-5">
             <span className="mono-label">
-              You tried {blocked}× · funds lost <span className="text-ok">0</span>
+              You tried {blocked}× · funds lost <span className="text-accent-text">0</span>
             </span>
           </div>
         </div>

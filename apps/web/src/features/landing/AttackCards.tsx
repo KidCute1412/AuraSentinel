@@ -1,17 +1,18 @@
 import { Ban, Globe, Infinity as InfinityIcon, UserX, type LucideIcon } from "lucide-react";
 import { Chamfer } from "@/shared/ui/Chamfer";
+import { Stamp } from "@/shared/ui/Stamp";
 
-const attacks: { icon: LucideIcon; title: string; body: string; tint: string; code: string }[] = [
-  { icon: Ban, title: "Over-withdraw", body: "Tries to move more than the daily cap.", tint: "bg-tint-pink", code: "ExceedsPerTxCap" },
-  { icon: UserX, title: "Wrong recipient", body: "Sends funds outside the whitelist.", tint: "bg-tint-pink", code: "RecipientLocked" },
-  { icon: InfinityIcon, title: "Unlimited approval", body: "Requests an infinite allowance.", tint: "bg-tint-pink", code: "UnlimitedApproval" },
-  { icon: Globe, title: "Bypass website", body: "Skips the app, calls the contract directly.", tint: "bg-tint-pink", code: "reverted on-chain" },
+const attacks: { icon: LucideIcon; title: string; body: string; code: string }[] = [
+  { icon: Ban, title: "Over-withdraw", body: "Tries to move more than the daily cap.", code: "ExceedsPerTxCap" },
+  { icon: UserX, title: "Wrong recipient", body: "Sends funds outside the whitelist.", code: "RecipientLocked" },
+  { icon: InfinityIcon, title: "Unlimited approval", body: "Requests an infinite allowance.", code: "UnlimitedApproval" },
+  { icon: Globe, title: "Bypass website", body: "Skips the app, calls the contract directly.", code: "reverted on-chain" },
 ];
 
 export function AttackCards() {
   return (
     <section className="border-b border-line bg-surface">
-      <div className="mx-auto grid max-w-6xl gap-10 px-6 py-20 lg:grid-cols-12">
+      <div className="mx-auto grid max-w-6xl gap-10 px-4 py-20 sm:px-6 lg:grid-cols-12">
         <div className="lg:col-span-4">
           <span className="mono-label">02 · Red team</span>
           <h2 className="mt-2 text-3xl md:text-4xl">4 real attacks. 4 blocks.</h2>
@@ -20,13 +21,13 @@ export function AttackCards() {
             code, never in lost funds.
           </p>
         </div>
-        <ul className="grid gap-4 sm:grid-cols-2 lg:col-span-8">
-          {attacks.map(({ icon: Icon, title, body, tint, code }, i) => (
+        <ul className="grid gap-5 sm:grid-cols-2 lg:col-span-8">
+          {attacks.map(({ icon: Icon, title, body, code }, i) => (
             <li key={title} className={i % 2 === 1 ? "sm:translate-y-6" : ""}>
-              <Chamfer edge="bg-danger" fill={tint} innerClassName="p-5">
+              <Chamfer edge="bg-danger" fill="bg-tint-pink" code={`ATK-0${i + 1}`} innerClassName="p-5 pb-9">
                 <div className="flex items-center justify-between">
                   <Icon aria-hidden className="size-6" />
-                  <span className="mono-label text-danger">Blocked</span>
+                  <Stamp tone="danger">Blocked</Stamp>
                 </div>
                 <h3 className="mt-4 text-xl">{title}</h3>
                 <p className="mt-2 text-soft">{body}</p>

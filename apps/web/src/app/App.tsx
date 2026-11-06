@@ -11,7 +11,7 @@ function NotFound() {
     <main className="mx-auto max-w-3xl px-6 py-24">
       <span className="mono-label">404</span>
       <h1 className="mt-2 text-4xl">Page not found</h1>
-      <Link to="/" className="mt-6 inline-block text-accent underline">
+      <Link to="/" className="mt-6 inline-block text-accent-text underline">
         Back to home
       </Link>
     </main>

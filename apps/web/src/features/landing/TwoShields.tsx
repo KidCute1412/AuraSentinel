@@ -11,7 +11,7 @@ const steps = [
 export function TwoShields() {
   return (
     <section className="border-b border-line">
-      <div className="mx-auto grid max-w-6xl gap-10 px-6 py-20 lg:grid-cols-12">
+      <div className="mx-auto grid max-w-6xl gap-10 px-4 py-20 sm:px-6 lg:grid-cols-12">
         <div className="lg:col-span-4">
           <span className="mono-label">01 · How it works</span>
           <h2 className="mt-2 text-3xl md:text-4xl">Two shields. Both must say yes.</h2>
@@ -19,20 +19,32 @@ export function TwoShields() {
             A trade reaches the vault only after passing the off-chain auditor
             and the on-chain policy. Fail either one and nothing moves.
           </p>
+          <p className="mono-label mt-6 hidden md:block" aria-hidden>
+            <span className="text-accent-text">■</span> valid trade passes ·{" "}
+            <span className="text-danger-text">■</span> attack dies at the gate
+          </p>
         </div>
-        <ol className="grid gap-4 md:grid-cols-4 md:pb-24 lg:col-span-8">
-          {steps.map(({ icon: Icon, label, title, body, edge, fill, offset }, i) => (
-            <li key={title} className={offset}>
-              <Chamfer edge={edge} fill={fill} innerClassName="p-4">
-                <span className="tabular text-xs text-muted">0{i + 1}</span>
-                <Icon aria-hidden className="mt-2 size-6 text-accent" />
-                <span className="mono-label mt-3 block">{label}</span>
-                <h3 className="mt-1 text-lg">{title}</h3>
-                <p className="mt-2 text-sm text-soft">{body}</p>
-              </Chamfer>
-            </li>
-          ))}
-        </ol>
+        <div className="lg:col-span-8">
+          {/* Packet rail: decorative, desktop only. */}
+          <div aria-hidden className="relative mb-6 hidden h-6 md:block">
+            <div className="absolute inset-x-0 top-1/2 border-t-2 border-dashed border-line-strong" />
+            <span className="animate-packet-ok absolute top-1/2 size-3 -translate-y-1/2 bg-accent" />
+            <span className="animate-packet-bad absolute top-1/2 size-3 -translate-y-1/2 bg-danger" />
+          </div>
+          <ol className="grid gap-4 md:grid-cols-4 md:pb-24">
+            {steps.map(({ icon: Icon, label, title, body, edge, fill, offset }, i) => (
+              <li key={title} className={offset}>
+                <Chamfer edge={edge} fill={fill} code={`STEP 0${i + 1}`} innerClassName="p-4 pb-8">
+                  <span className="tabular text-xs text-muted">0{i + 1}</span>
+                  <Icon aria-hidden className="mt-2 size-6 text-accent-text" />
+                  <span className="mono-label mt-3 block">{label}</span>
+                  <h3 className="mt-1 text-lg">{title}</h3>
+                  <p className="mt-2 text-sm text-soft">{body}</p>
+                </Chamfer>
+              </li>
+            ))}
+          </ol>
+        </div>
       </div>
     </section>
   );

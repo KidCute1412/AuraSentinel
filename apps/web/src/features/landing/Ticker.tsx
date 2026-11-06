@@ -10,7 +10,7 @@ const ITEMS = [
 export function Ticker() {
   const row = [...ITEMS, ...ITEMS];
   return (
-    <div className="overflow-hidden border-b border-line bg-accent text-bg" aria-hidden>
+    <div className="overflow-hidden border-b border-line bg-accent text-on-accent" aria-hidden>
       <div className="animate-marquee flex w-max whitespace-nowrap py-2 font-mono text-xs font-bold uppercase tracking-widest">
         {[0, 1].map((k) => (
           <div key={k} className="flex">
