@@ -10,32 +10,31 @@
 @import "tw-animate-css";
 
 :root {
-  --bg: #0a0a0b;
-  --surface: #141416;
-  --hover: #1d1d21;
-  --fg: #f4f2ec;
-  --ink: #e9e6df;
-  --soft: #c9c6be;
-  --muted: #a5a39c;
-  --line: #2a2a2e;
-  --line-strong: #3d3d43;
+  --bg: #17140f;
+  --surface: #201c16;
+  --hover: #2a251d;
+  --fg: #f4efe3;
+  --ink: #ece6d6;
+  --soft: #cfc8b6;
+  --muted: #a39b87;
+  --line: #3a342a;
+  --line-strong: #5a5242;
   --accent: #2ee59d;
   --accent-text: #2ee59d;
   --on-accent: #0a0a0b;
+  --outline: #f4efe3;
   --danger: #e6212f;
-  --danger-text: #ff5a66;
+  --danger-text: #ff6b6b;
   --ok: #2ee59d;
   --warn: #ffb020;
   --highlight: #ffd23f;
-  /* Night Radar: pure black vanishes on a near-black page, so the hard shadow is deep green. */
-  --shadow-color: #15694b;
-  --tint-mint: #123d2e;
-  --tint-sky: #12304f;
-  --tint-pink: #4a1a29;
-  --tint-amber: #3b3010;
-  --grid: rgb(46 229 157 / 0.07);
-  --glow: rgb(46 229 157 / 0.16);
-  --sweep: rgb(46 229 157 / 0.10);
+  /* Carbon Paper: the same print as light, struck on charcoal. Cream hard shadow mirrors the ink shadow. */
+  --shadow-color: #e6dec9;
+  --tint-mint: #16382c;
+  --tint-sky: #1a2b3c;
+  --tint-pink: #43202a;
+  --tint-amber: #3a2f14;
+  --grid: rgb(244 239 227 / 0.07);
 }
 
 /* Day Blueprint: warm paper, ink shadow, technical-drawing grid. */
@@ -52,6 +51,7 @@
   --accent: #14b57c;
   --accent-text: #0a7a52;
   --on-accent: #0a0a0b;
+  --outline: #0a7a52;
   --danger: #d4202c;
   --danger-text: #b3121d;
   --ok: #0a7a52;
@@ -63,8 +63,6 @@
   --tint-pink: #f8d9de;
   --tint-amber: #f5e6b8;
   --grid: rgb(30 80 150 / 0.10);
-  --glow: rgb(20 181 124 / 0.14);
-  --sweep: rgb(20 181 124 / 0.0);
 }
 
 @theme inline {
@@ -153,25 +151,15 @@
   .drop-hard {
     filter: drop-shadow(5px 5px 0 var(--shadow-color));
   }
-  /* Blueprint field: square grid + soft glow. Radar sweep (dark only) sits on ::after. */
+  /* Blueprint field: square grid. Light = blue pencil on paper, dark = cream chalk on charcoal. */
   .blueprint {
     position: relative;
     isolation: isolate;
     background-color: var(--bg);
     background-image:
-      radial-gradient(ellipse at 50% 35%, var(--glow), transparent 62%),
       linear-gradient(var(--grid) 1px, transparent 1px),
       linear-gradient(90deg, var(--grid) 1px, transparent 1px);
-    background-size: auto, 32px 32px, 32px 32px;
-  }
-  .blueprint::after {
-    content: "";
-    position: absolute;
-    inset: -50%;
-    z-index: -1;
-    background: conic-gradient(from 0deg, transparent 0deg, var(--sweep) 40deg, transparent 41deg);
-    animation: sweep 18s linear infinite;
-    pointer-events: none;
+    background-size: 32px 32px, 32px 32px;
   }
   /* Hazard stripes: Kill-Switch zone only. */
   .hazard {
@@ -181,7 +169,7 @@
   /* Outlined poster type. */
   .outline-text {
     color: transparent;
-    -webkit-text-stroke: 2px var(--accent-text);
+    -webkit-text-stroke: 2px var(--outline);
   }
   /* Rubber-stamp verdict. */
   .stamp {
@@ -207,7 +195,6 @@
   .animate-feed-in { animation: feed-in 200ms ease-out both; }
 }
 
-@keyframes sweep { to { transform: rotate(360deg); } }
 @keyframes hazard { to { background-position: 34px 0; } }
 @keyframes stamp-in {
   0% { opacity: 0; transform: scale(1.5) rotate(-8deg); }
@@ -247,7 +234,7 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .animate-marquee, .blueprint::after, .hazard-move, .animate-packet-ok, .animate-packet-bad { animation: none !important; }
+  .animate-marquee, .hazard-move, .animate-packet-ok, .animate-packet-bad { animation: none !important; }
   .animate-packet-ok { left: 40%; opacity: 1; }
   .animate-packet-bad { left: 56%; opacity: 1; }
 }

@@ -1,6 +1,6 @@
 ---
 name: ui-design-system
-description: MANDATORY visual design system for AgentShield (style "Sentinel Terminal", brutalist base inspired by team1vn.xyz but with its own green identity) - dark near-black background, square corners, 1px borders, hard offset shadows, green accent (red only for danger), Hanken Grotesk + Geist Mono. Read BEFORE creating or editing any UI in apps/web - components, pages, layouts, Tailwind classes, shadcn components, colors, fonts, spacing, motion, empty/loading/error states. Overrides frontend-design, shadcn defaults and web-design-guidelines on aesthetics.
+description: MANDATORY visual design system for AgentShield (style "Sentinel Terminal", brutalist base inspired by team1vn.xyz but with its own green identity) - dark charcoal "Carbon Paper" background (warm #17140f, cream hard shadow) with a light "Day Blueprint" twin, square corners, 1px borders, hard offset shadows, green accent (red only for danger), Hanken Grotesk + Geist Mono. Read BEFORE creating or editing any UI in apps/web - components, pages, layouts, Tailwind classes, shadcn components, colors, fonts, spacing, motion, empty/loading/error states. Overrides frontend-design, shadcn defaults and web-design-guidelines on aesthetics.
 paths: "apps/web/**"
 metadata:
   owner: FS2
@@ -23,8 +23,8 @@ Full spec: `docs/product/design-system.md`. Tokens live in `apps/web/src/styles/
 - **Shadows:** hard offset only (`shadow-hard` 5px, `shadow-hard-sm` 3px, black, zero blur). Never `shadow-md/lg/xl`.
 - **Color:** no hex or Tailwind palette colors (`blue-500`, `#fff`). Green `accent` (= `ok`) = brand, primary action, links, APPROVE/safe. Red `danger` = ONLY BLOCK, revert, Kill-Switch, errors. Amber `warn` = caution. `highlight` yellow = counts, notices, focus ring.
 - **Type:** Hanken Grotesk for text (headings weight 800-900, tracking -2%), Geist Mono for numbers, addresses, hashes, labels, badges (11px, uppercase, wide tracking). Money always `font-mono tabular`.
-- **Two themes, always.** Every UI must work in dark (Night Radar) and light (Day Blueprint) via tokens only. Check both before finishing. Use `text-accent-text` / `text-danger-text` for colored text (not `text-accent`/`text-danger`), `text-on-accent` on green fills. Hard shadow color comes from `--shadow-color` (green in dark, ink in light).
-- **Signature details:** `Stamp` for verdicts, `Chamfer code="…"` brackets, `.blueprint` hero field, `.hazard` only around Kill-Switch, `.outline-text` for poster headlines.
+- **Two themes, always.** Every UI must work in dark (Carbon Paper) and light (Day Blueprint) via tokens only. Check both before finishing. Use `text-accent-text` / `text-danger-text` for colored text (not `text-accent`/`text-danger`), `text-on-accent` on green fills. Hard shadow color comes from `--shadow-color` (cream in dark, ink in light).
+- **Signature details:** `Stamp` for verdicts, `Chamfer code="…"` brackets, `.blueprint` hero field (no glow/radar), `.hazard` only around Kill-Switch, `.outline-text` for poster headlines.
 - **Primary button:** `bg-accent text-on-accent font-bold` (dark text on green, never white), hover dips by `-translate-x-px -translate-y-px` with smaller shadow, active flattens. Secondary: transparent + `border-line-strong`.
 - **Motion:** <= 200ms, flash/slide/shadow-shift only, honor `prefers-reduced-motion` (already global). No bounce, no spinners (use square skeletons).
 - **Focus:** keep `:focus-visible` yellow ring; never remove outlines.

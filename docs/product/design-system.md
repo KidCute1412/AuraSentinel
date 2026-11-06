@@ -8,30 +8,30 @@ Neo-brutalist tối, kiểu "terminal + poster": nền gần đen, viền 1px c�
 
 ## 2. Token
 
-### 2.1 Màu (hai chất liệu: Night Radar = dark, Day Blueprint = light; cả hai đều bắt buộc hỗ trợ)
+### 2.1 Màu (hai chất liệu: Carbon Paper = dark, Day Blueprint = light; cả hai đều bắt buộc hỗ trợ)
 | Token | Giá trị | Dùng cho |
 |---|---|---|
-| `bg` | `#0a0a0b` | nền trang |
-| `surface` | `#141416` | card, panel, input |
-| `hover` | `#1d1d21` | hover hàng/nút phụ |
-| `fg` | `#f4f2ec` | chữ chính (ấm, không dùng `#fff` thuần cho body) |
-| `ink` | `#e9e6df` | chữ trong khối kem |
-| `soft` | `#c9c6be` | chữ phụ mức 1 |
-| `muted` | `#a5a39c` | chữ phụ mức 2, nhãn |
-| `line` | `#2a2a2e` | đường kẻ, viền mặc định |
-| `line-strong` | `#3d3d43` | viền nhấn, tab, input |
-| `accent` | `#2ee59d` | màu thương hiệu: nút chính (chữ `#0a0a0b`), link, tab gạch chân, glow hero |
+| `bg` | `#17140f` | nền trang |
+| `surface` | `#201c16` | card, panel, input |
+| `hover` | `#2a251d` | hover hàng/nút phụ |
+| `fg` | `#f4efe3` | chữ chính (kem ấm, không dùng `#fff` thuần cho body) |
+| `ink` | `#ece6d6` | chữ trong khối kem |
+| `soft` | `#cfc8b6` | chữ phụ mức 1 |
+| `muted` | `#a39b87` | chữ phụ mức 2, nhãn |
+| `line` | `#3a342a` | đường kẻ, viền mặc định |
+| `line-strong` | `#5a5242` | viền nhấn, tab, input |
+| `accent` | `#2ee59d` | màu thương hiệu: nút chính (chữ `#0a0a0b`), link, tab gạch chân |
 | `ok` | `#2ee59d` | trạng thái an toàn / APPROVE (cùng giá trị với `accent`: xanh = an toàn) |
 | `danger` | `#e6212f` | **chỉ** BLOCK, revert, Kill-Switch, lỗi |
 | `warn` | `#ffb020` | cảnh báo |
 | `highlight` | `#ffd23f` | badge đếm, ô chú ý (chữ trên nó `#141414`) |
-| `shadow` | `#000` | màu bóng cứng |
-| `tint-mint` `#123d2e` · `tint-sky` `#12304f` · `tint-pink` `#4a1a29` · `tint-amber` `#3b3010` | | khối nền nhóm/section, một màu mỗi nhóm |
+| `shadow` | `#e6dec9` (dark, kem) · `#141414` (light, mực) | màu bóng cứng |
+| `tint-mint` `#16382c` · `tint-sky` `#1a2b3c` · `tint-pink` `#43202a` · `tint-amber` `#3a2f14` | | khối nền nhóm/section, một màu mỗi nhóm |
 
 **Hai theme** qua `html[data-theme=dark|light]`; mặc định theo `prefers-color-scheme`, nút `ThemeToggle` xoay AUTO → LIGHT → DARK, lưu `localStorage` (try/catch), script inline trong `index.html` đặt theme trước first paint. Bảng trên là dark. Light "Day Blueprint": `bg #fbf7ef`, `surface #fffdf8`, `fg #141414`, `line #d9d0bd`, `line-strong #8f8670`, `accent #14b57c` (nền nút), `danger #d4202c`, tint nhạt (`mint #d3efe1`, `sky #d6e5f6`, `pink #f8d9de`, `amber #f5e6b8`).
-Token riêng cho chữ để đạt ≥ 4.5:1 ở cả hai theme: `accent-text` (dark `#2ee59d`, light `#0a7a52`), `danger-text` (dark `#ff5a66`, light `#b3121d`), `warn` (light `#8a5a00`). Chữ trên nền `accent` luôn là `on-accent #0a0a0b` (không dùng `text-bg`). Link và icon xanh dùng `text-accent-text`.
-**Bóng cứng theo theme:** `--shadow-color` dark = `#15694b` (xanh đậm, vì `#000` biến mất trên nền gần đen), light = `#141414` (mực).
-Không dùng màu ngoài bảng này. Không gradient pastel; gradient duy nhất cho phép là glow xanh lục, lưới blueprint 32px và radar sweep (chỉ dark, 18s, tắt khi reduced-motion) ở hero, cùng sọc hazard đỏ quanh khối Kill-Switch.
+Token riêng cho chữ để đạt ≥ 4.5:1 ở cả hai theme: `accent-text` (dark `#2ee59d`, light `#0a7a52`), `danger-text` (dark `#ff6b6b`, light `#b3121d`), `warn` (light `#8a5a00`). Chữ trên nền `accent` luôn là `on-accent #0a0a0b` (không dùng `text-bg`). Link và icon xanh dùng `text-accent-text`.
+**Bóng cứng theo theme:** `--shadow-color` dark = kem `#e6dec9` (vì `#000` biến mất trên nền than; bóng kem phản chiếu bóng mực của light, tạo cảm giác poster in nổi), light = mực `#141414`. Dark là "ấn bản đêm" của cùng tờ giấy in: nền than ấm, nét kẻ và chữ nổi màu kem; xanh lục chỉ dành cho nút chính, trạng thái an toàn, `APPROVE` (không rải ở viền/bóng/glow). Token `outline` = màu nét chữ rỗng (kem ở dark, xanh đậm ở light).
+Không dùng màu ngoài bảng này. Không gradient pastel; gradient duy nhất cho phép là lưới blueprint 32px ở hero (bút chì xanh trên giấy ở light, phấn kem trên than ở dark) và sọc hazard đỏ quanh khối Kill-Switch. Không glow, không radar sweep.
 
 ### 2.2 Chữ
 - Sans: `Hanken Grotesk` (500–900). Mono: `Geist Mono`. Không dùng font khác. Self-host qua `@fontsource` (demo offline không được fail).
@@ -78,7 +78,7 @@ Không dùng màu ngoài bảng này. Không gradient pastel; gradient duy nhấ
 | Shield rail | đường nét đứt có gói tin vuông: xanh đi hết, đỏ chết tại cổng Shield 2 (chỉ desktop, trang trí, `aria-hidden`) |
 | Kill zone | khung sọc hazard đỏ/nền bao quanh khối Kill-Switch; đây là nơi đỏ nhiều nhất trên trang |
 | Skeleton | khối vuông `hover`, nhấp nháy opacity |
-| Hero (nếu có) | nền blueprint (lưới 32px + glow xanh lục, tọa độ A–F ở mép trên), tiêu đề poster in nghiêng uppercase với dòng thứ hai chữ rỗng (`outline-text`), dòng phụ mono uppercase; **LiveFeed**: khung terminal vuông phát lần lượt các dòng giao dịch (`APPROVE` xanh / `BLOCKED` đỏ), tĩnh khi `prefers-reduced-motion` |
+| Hero (nếu có) | nền blueprint (lưới 32px, tọa độ A–F ở mép trên), tiêu đề poster in nghiêng uppercase với dòng thứ hai chữ rỗng (`outline-text`), dòng phụ mono uppercase; **LiveFeed**: khung terminal vuông phát lần lượt các dòng giao dịch (`APPROVE` xanh / `BLOCKED` đỏ), tĩnh khi `prefers-reduced-motion` |
 
 ## 4. Pattern riêng AgentShield
 - **Verdict card:** APPROVE = viền/nhãn `ok`, tiêu đề "An toàn, tiêu 13,3% hạn mức ngày"; BLOCK = viền `danger`, nền `tint-pink`, lý do ngắn gọn. Badge nguồn giải thích `LLM` / `TEMPLATE` (mono, kem).

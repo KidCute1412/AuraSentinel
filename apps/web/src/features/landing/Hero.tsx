@@ -15,7 +15,7 @@ export function Hero() {
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-3">
             <span className="mono-label">Kill-switch armed · Avalanche Fuji</span>
-            <span className="inline-block -rotate-3 bg-highlight px-2 py-1 font-mono text-xs font-bold uppercase tracking-widest text-[#141414]">funds lost: 0</span>
+            <span className="inline-block -rotate-3 bg-highlight px-2 py-1 font-mono text-xs font-bold uppercase tracking-widest text-on-accent">funds lost: 0</span>
           </div>
           <h1 className="mt-5 text-[clamp(2.25rem,6.2vw,5rem)] font-black italic uppercase leading-[0.92] tracking-[-0.05em]">
             Let AI trade 24/7.
