@@ -91,6 +91,7 @@ export function LiveFeed() {
           <button
             type="button"
             onClick={attack}
+            data-cursor="danger"
             className="chamfer h-12 bg-danger px-6 font-bold text-white transition-transform duration-150 hover:-translate-x-px hover:-translate-y-px active:translate-x-0 active:translate-y-0"
           >
             Try to rob it
