@@ -9,6 +9,7 @@ export function Footer() {
       <div className="flex gap-6">
         <Link to="/demo" className="hover:text-fg">Demo</Link>
         <Link to="/proof" className="hover:text-fg">Proof</Link>
+        <Link to="/about" className="hover:text-fg">About</Link>
         <button type="button" onClick={() => setHidden(!hidden)} className="hover:text-fg">
           {hidden ? "Show Aura-kun" : "Hide Aura-kun"}
         </button>

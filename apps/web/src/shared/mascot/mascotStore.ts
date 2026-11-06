@@ -12,7 +12,8 @@ export type Mood =
   | "whoa"
   | "guard"
   | "kill"
-  | "stunned";
+  | "stunned"
+  | "inspect";
 
 interface Line {
   id: number;

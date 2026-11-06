@@ -4,7 +4,7 @@ import { Header } from "./Header";
 import { Hero } from "./Hero";
 import { KillSwitch } from "./KillSwitch";
 import { Stats } from "./Stats";
-import { Ticker } from "./Ticker";
+import { StatusStrip } from "./StatusStrip";
 import { TwoShields } from "./TwoShields";
 
 export function LandingPage() {
@@ -12,7 +12,7 @@ export function LandingPage() {
     <div className="min-h-screen bg-bg text-fg">
       <Header />
       <Hero />
-      <Ticker />
+      <StatusStrip />
       <TwoShields />
       <AttackCards />
       <KillSwitch />

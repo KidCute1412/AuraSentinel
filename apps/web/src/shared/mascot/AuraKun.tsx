@@ -21,6 +21,7 @@ export function AuraKun({ mood, shades = false, blinking = false, className }: A
   const closed = CLOSED_EYES.includes(mood);
   const wide = WIDE_EYES.includes(mood);
   const annoyed = mood === "annoyed";
+  const inspect = mood === "inspect";
   const stunned = mood === "stunned";
   const armsUp = ARMS_UP.includes(mood);
   const blink = blinking ? "mk-blink" : "";
@@ -54,7 +55,7 @@ export function AuraKun({ mood, shades = false, blinking = false, className }: A
         <g className="mk-arm" style={{ transform: armsUp ? "translateY(-16px)" : undefined }}>
           <rect className="mk-limb" x="2" y="56" width="12" height="14" />
         </g>
-        <g className="mk-arm" style={{ transform: armsUp ? "translateY(-16px)" : undefined }}>
+        <g className="mk-arm" style={{ transform: armsUp || inspect ? "translateY(-16px)" : undefined }}>
           <rect className="mk-limb" x="110" y="56" width="12" height="14" />
           {mood === "kill" && (
             <>
@@ -98,6 +99,14 @@ export function AuraKun({ mood, shades = false, blinking = false, className }: A
               <rect className="mk-shine" x="35" y="39" width="6" height="6" />
               <rect className="mk-eye" x="72" y="36" width="20" height="26" />
               <rect className="mk-shine" x="75" y="39" width="6" height="6" />
+            </>
+          ) : inspect ? (
+            <>
+              <rect className="mk-eye" x="34" y="40" width="16" height="20" />
+              <rect className="mk-shine" x="37" y="43" width="5" height="5" />
+              {/* right eye magnified behind the lens */}
+              <rect className="mk-eye" x="72" y="36" width="22" height="26" />
+              <rect className="mk-shine" x="76" y="40" width="6" height="6" />
             </>
           ) : annoyed ? (
             <>
@@ -160,6 +169,15 @@ export function AuraKun({ mood, shades = false, blinking = false, className }: A
             <rect className="mk-eye" x="55" y="88" width="14" height="10" />
             <rect className="mk-body-fill" x="61" y="91" width="2" height="4" />
           </>
+        )}
+
+        {/* magnifier (square frame, like everything else) */}
+        {inspect && (
+          <g>
+            <polyline className="mk-handle" points="96,64 112,50" />
+            <rect className="mk-lens" x="66" y="30" width="36" height="36" />
+            <polyline className="mk-lens-glint" points="72,38 80,38 72,46" />
+          </g>
         )}
 
         {/* extras */}

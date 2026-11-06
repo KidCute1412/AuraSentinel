@@ -15,6 +15,11 @@ export const LINES = {
   kill: "please don't press that.",
   shadesOn: "now i'm unstoppable.",
   shadesOff: "ok, back to work.",
+  notFound: "wrong door.",
+  about: "read the fine print.",
+  proof: "show me the receipts.",
+  drill: "drill. just a drill.",
+  inspect: "reading the fine print.",
   gate: {
     connect: "show me your wallet.",
     sign: "read before you sign.",

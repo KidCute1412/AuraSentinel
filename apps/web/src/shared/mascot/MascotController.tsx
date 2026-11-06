@@ -1,18 +1,29 @@
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
+import { useLocation } from "react-router-dom";
+import { resolveTheme, readMode } from "@/shared/theme/theme";
+import { maybeDarkIntro } from "./darkIntro";
 import { LINES } from "./lines";
 import { idleForMs, react, touch, useMascot } from "./mascotStore";
 
 const SLEEP_AFTER_MS = 20_000;
+/** Pages where reading is the whole job, so Aura-kun nods off sooner. */
+const SLEEP_AFTER_BY_ROUTE: Record<string, number> = { "/proof": 10_000 };
 
 /** Page-level behavior: falls asleep when idle, wakes on input, gets nervous near the Kill-Switch. */
 export function MascotController() {
+  const { pathname } = useLocation();
+  const sleepAfter = useRef(SLEEP_AFTER_MS);
+  sleepAfter.current = SLEEP_AFTER_BY_ROUTE[pathname] ?? SLEEP_AFTER_MS;
+
   useEffect(() => {
+    maybeDarkIntro(resolveTheme(readMode()));
+
     const onInput = () => touch();
     const events = ["pointerdown", "keydown", "touchstart", "scroll"] as const;
     events.forEach((e) => window.addEventListener(e, onInput, { passive: true }));
 
     const sleepCheck = setInterval(() => {
-      if (idleForMs() > SLEEP_AFTER_MS && useMascot.getState().mood === "idle") {
+      if (idleForMs() > sleepAfter.current && useMascot.getState().mood === "idle") {
         react("sleep", { text: LINES.sleep, hold: 0, passive: true });
       }
     }, 1000);
