@@ -12,6 +12,8 @@ interface GateDoorProps {
   className?: string;
 }
 
+const IDLE_SPEED = 14; // deg/s, the wheel never fully stops
+const MAX_SPEED = 1400;
 const CX = 160;
 const CY = 162;
 const BOLTS = [78, 154, 230];
@@ -31,14 +33,59 @@ const COINS = [
 export function GateDoor({ stage, denied, busy, onOverspin, className }: GateDoorProps) {
   const open = stage === 3;
   const svg = useRef<SVGSVGElement>(null);
-  const [extra, setExtra] = useState(0);
+  const wheel = useRef<SVGGElement>(null);
+  const ring = useRef<SVGCircleElement>(null);
+  // Wheel physics lives in refs and is painted straight to the DOM: no React render per frame.
+  const spin = useRef({ angle: 0, vel: IDLE_SPEED });
+  const calm = useRef(false);
   const [dragging, setDragging] = useState(false);
-  const drag = useRef<{ last: number; total: number } | null>(null);
+  const drag = useRef<{ last: number; lastT: number; total: number } | null>(null);
   const [shaking, setShaking] = useState(false);
 
-  // A short shake every time the stage changes: the bolts "clunk".
   useEffect(() => {
-    if (stage > 0 && stage < 3) setShaking(true);
+    const mq = window.matchMedia("(prefers-reduced-motion: reduce)");
+    calm.current = mq.matches;
+    const onChange = () => {
+      calm.current = mq.matches;
+    };
+    mq.addEventListener("change", onChange);
+    let raf = 0;
+    let prev = performance.now();
+    const paint = () => {
+      const a = spin.current.angle;
+      wheel.current?.setAttribute("transform", `rotate(${a} ${CX} ${CY})`);
+      ring.current?.setAttribute("transform", `rotate(${-a * 0.6} ${CX} ${CY})`);
+    };
+    const tick = (now: number) => {
+      const dt = Math.min((now - prev) / 1000, 0.05);
+      prev = now;
+      const st = spin.current;
+      if (!drag.current && !calm.current) {
+        // ease back to the idle speed: a flick spins down, a stage kick settles
+        st.vel += (IDLE_SPEED - st.vel) * (1 - Math.exp(-dt * 1.4));
+        st.angle += st.vel * dt;
+        paint();
+      }
+      raf = requestAnimationFrame(tick);
+    };
+    paint();
+    raf = requestAnimationFrame(tick);
+    return () => {
+      cancelAnimationFrame(raf);
+      mq.removeEventListener("change", onChange);
+    };
+  }, []);
+
+  // Every finished step: the bolts "clunk" (short shake) and the wheel gets a kick.
+  useEffect(() => {
+    if (stage === 0) return;
+    if (stage < 3) setShaking(true);
+    if (calm.current) {
+      spin.current.angle += 120;
+      wheel.current?.setAttribute("transform", `rotate(${spin.current.angle} ${CX} ${CY})`);
+    } else {
+      spin.current.vel = Math.min(spin.current.vel + 420, MAX_SPEED);
+    }
   }, [stage]);
 
   const angleAt = (e: PointerEvent): number => {
@@ -51,7 +98,8 @@ export function GateDoor({ stage, denied, busy, onOverspin, className }: GateDoo
   const onDown = (e: PointerEvent<SVGGElement>) => {
     if (open) return;
     e.currentTarget.setPointerCapture(e.pointerId);
-    drag.current = { last: angleAt(e), total: 0 };
+    drag.current = { last: angleAt(e), lastT: performance.now(), total: 0 };
+    spin.current.vel = 0;
     setDragging(true);
   };
   const onMove = (e: PointerEvent<SVGGElement>) => {
@@ -63,7 +111,15 @@ export function GateDoor({ stage, denied, busy, onOverspin, className }: GateDoo
     if (delta < -180) delta += 360;
     d.last = a;
     d.total += Math.abs(delta);
-    setExtra((x) => x + delta);
+    const now = performance.now();
+    const dt = Math.max((now - d.lastT) / 1000, 0.001);
+    d.lastT = now;
+    const st = spin.current;
+    st.angle += delta;
+    // smoothed finger speed becomes the flick when released
+    st.vel = Math.max(-MAX_SPEED, Math.min(MAX_SPEED, st.vel * 0.6 + (delta / dt) * 0.4));
+    wheel.current?.setAttribute("transform", `rotate(${st.angle} ${CX} ${CY})`);
+    ring.current?.setAttribute("transform", `rotate(${-st.angle * 0.6} ${CX} ${CY})`);
   };
   const onUp = () => {
     const d = drag.current;
@@ -73,7 +129,6 @@ export function GateDoor({ stage, denied, busy, onOverspin, className }: GateDoo
   };
 
   const lamp = (i: number) => (i < stage ? "var(--accent)" : denied && i === stage ? "var(--danger)" : "var(--line)");
-  const wheelDeg = stage * 120 + extra;
 
   return (
     <svg
@@ -122,15 +177,16 @@ export function GateDoor({ stage, denied, busy, onOverspin, className }: GateDoo
         ))}
 
         <g
-          className={cn(!dragging && "gate-move", !open && "cursor-grab touch-none", dragging && "cursor-grabbing")}
-          style={{ transform: `rotate(${wheelDeg}deg)`, transformOrigin: `${CX}px ${CY}px`, touchAction: "none" }}
+          ref={wheel}
+          className={cn(!open && "cursor-grab touch-none", dragging && "cursor-grabbing")}
+          style={{ touchAction: "none" }}
           onPointerDown={onDown}
           onPointerMove={onMove}
           onPointerUp={onUp}
           onPointerCancel={onUp}
         >
           <circle cx={CX} cy={CY} r="84" fill="var(--bg)" stroke="var(--shadow-color)" strokeWidth="3" />
-          <circle cx={CX} cy={CY} r="68" fill="none" stroke="var(--line-strong)" strokeWidth="1.5" strokeDasharray="2 6" />
+          <circle ref={ring} cx={CX} cy={CY} r="68" fill="none" stroke="var(--line-strong)" strokeWidth="1.5" strokeDasharray="2 6" />
           {[0, 60, 120].map((deg) => (
             <rect key={deg} x="154" y="82" width="12" height="160" fill="var(--hover)" stroke="var(--shadow-color)" strokeWidth="2.5" transform={`rotate(${deg} ${CX} ${CY})`} />
           ))}
@@ -140,7 +196,7 @@ export function GateDoor({ stage, denied, busy, onOverspin, className }: GateDoo
         </g>
 
         {/* lock */}
-        <g pointerEvents="none">
+        <g pointerEvents="none" className={cn(stage === 0 && !busy && "gate-jiggle")}>
           <path d="M142 150V134a18 18 0 0 1 36 0V150" fill="none" stroke="var(--shadow-color)" strokeWidth="8" />
           <rect x="132" y="148" width="56" height="44" fill={denied ? "var(--danger)" : stage >= 2 ? "var(--accent)" : "var(--highlight)"} stroke="var(--shadow-color)" strokeWidth="3" className="gate-move" />
           {denied ? (
