@@ -1,6 +1,9 @@
+import { Check, TriangleAlert, X } from "lucide-react";
 import { cn } from "@/shared/lib/cn";
 
 export type StampTone = "ok" | "danger" | "warn";
+
+const ICON = { ok: Check, danger: X, warn: TriangleAlert } as const;
 
 const TONE: Record<StampTone, string> = {
   ok: "text-accent-text",
@@ -16,12 +19,14 @@ interface StampProps {
   className?: string;
 }
 
-/** Rubber-stamp verdict. Always carries a text label, so color is never the only signal. */
+/** Rubber-stamp verdict. Carries a text label and an icon, so color is never the only signal. */
 export function Stamp({ tone, children, animate, className }: StampProps) {
+  const Icon = ICON[tone];
   return (
     <span
-      className={cn("stamp -rotate-3 text-xs", TONE[tone], animate && "animate-stamp", className)}
+      className={cn("stamp -rotate-3 inline-flex items-center gap-1 text-xs", TONE[tone], animate && "animate-stamp", className)}
     >
+      <Icon aria-hidden strokeWidth={3} className="size-3" />
       {children}
     </span>
   );

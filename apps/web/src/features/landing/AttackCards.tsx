@@ -11,7 +11,7 @@ const attacks: { icon: LucideIcon; title: string; body: string; code: string }[]
 
 export function AttackCards() {
   return (
-    <section className="border-b border-line bg-surface">
+    <section className="border-b border-line">
       <div className="mx-auto grid max-w-6xl gap-10 px-4 py-20 sm:px-6 lg:grid-cols-12">
         <div className="lg:col-span-4">
           <span className="mono-label">02 · Red team</span>
@@ -24,14 +24,14 @@ export function AttackCards() {
         <ul className="grid gap-5 sm:grid-cols-2 lg:col-span-8">
           {attacks.map(({ icon: Icon, title, body, code }, i) => (
             <li key={title} className={i % 2 === 1 ? "sm:translate-y-6" : ""}>
-              <Chamfer edge="bg-danger" fill="bg-tint-pink" code={`ATK-0${i + 1}`} innerClassName="p-5 pb-9">
+              <Chamfer edge="bg-line-strong" fill="bg-surface" code={`ATK-0${i + 1}`} innerClassName="p-5 pb-9">
                 <div className="flex items-center justify-between">
                   <Icon aria-hidden className="size-6" />
                   <Stamp tone="danger">Blocked</Stamp>
                 </div>
-                <h3 className="mt-4 text-xl">{title}</h3>
-                <p className="mt-2 text-soft">{body}</p>
-                <span className="tabular mt-4 block text-xs text-muted">{code}</span>
+                <h3 className="mt-4 border-l-4 border-danger pl-3 text-xl">{title}</h3>
+                <p className="mt-2 pl-4 text-soft">{body}</p>
+                <span className="tabular mt-4 block pl-4 text-xs text-danger-text">{code}</span>
               </Chamfer>
             </li>
           ))}
