@@ -1,4 +1,6 @@
 import { useEffect, useRef, useState } from "react";
+import { LINES, pick } from "@/shared/mascot/lines";
+import { react } from "@/shared/mascot/mascotStore";
 import { Chamfer } from "@/shared/ui/Chamfer";
 import { Stamp } from "@/shared/ui/Stamp";
 
@@ -33,7 +35,16 @@ export function LiveFeed() {
 
   useEffect(() => {
     if (reducedMotion()) return;
-    const id = setInterval(() => push(EVENTS[cursor.current++ % EVENTS.length]), 1800);
+    const id = setInterval(() => {
+      const e = EVENTS[cursor.current++ % EVENTS.length];
+      push(e);
+      const blockedEvent = e.verdict === "BLOCKED";
+      react(blockedEvent ? "alarm" : "happy", {
+        passive: true,
+        hold: 1000,
+        text: Math.random() < 0.4 ? pick(blockedEvent ? LINES.blocked : LINES.approve) : undefined,
+      });
+    }, 1800);
     return () => clearInterval(id);
   }, []);
 
@@ -41,6 +52,7 @@ export function LiveFeed() {
     push({ action: "YOU → drain vault 10,000 USDC", verdict: "BLOCKED", note: "ExceedsPerTxCap" });
     setBlocked((b) => b + 1);
     setShake((s) => s + 1);
+    react("guard", { text: LINES.rob, hold: 1500 });
   };
 
   return (

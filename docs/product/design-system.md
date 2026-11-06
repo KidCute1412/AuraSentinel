@@ -90,6 +90,17 @@ Không dùng màu ngoài bảng này. Không gradient pastel; gradient duy nhấ
 - **Giọng văn trạng thái:** kiểu báo cáo an ninh, mono uppercase: `STATUS: PROTECTED`, `LAST ATTACK BLOCKED · 2s ago`, `KILL-SWITCH ARMED`.
 - Số tiền: luôn base units → format bằng helper shared (bigint), hiển thị mono; không float.
 
+## 4b. Mascot: Aura-kun
+Linh vật của AgentShield. SVG inline (`shared/mascot/AuraKun.tsx`), không ảnh/Lottie/canvas; mọi màu là token nên light/dark không cần asset riêng.
+- **Hình:** thân khiên cắt chéo hai góc (cùng họa tiết chamfer), ăng-ten vàng (`highlight`) là "aura", hai mắt vuông, má ửng vuông, ổ khóa ở ngực, tay chân vuông. Góc vuông tuyệt đối, không emoji.
+- **Màu:** thân luôn xanh `accent` ở cả hai theme; viền 2-3px và bóng cứng theo `--shadow-color` (mực ở light, kem ở dark); mắt/miệng `on-accent`; má `--blush` (hồng sticker, token mới, chỉ dùng cho má và sparkle); đỏ chỉ cho dấu `X` khi bị tấn công và nút Kill.
+- **Biểu cảm (mood):** `idle, happy, alarm, sleep, annoyed, hug, hop, whoa, guard, kill` + `shades` (kính râm). Store: `shared/mascot/mascotStore.ts`; câu thoại: `lines.ts`.
+- **Tự động:** chớp mắt 3-6s, thở nhẹ, mắt nhìn theo con trỏ/điểm chạm, ngủ sau 20s không thao tác (`zzz`), phản ứng feed (`APPROVE` vui, `BLOCKED` giật mình; feed không làm gián đoạn khi đang ngủ/ôm/cáu), lo lắng khi cuộn tới Kill-Switch.
+- **Người dùng:** chạm = nhảy + câu thoại; chạm 5 lần/4s = cáu; giữ 0.55s = ôm; "Try to rob it" = giơ tay chặn; đổi theme = "whoa, lights."; chạm logo 5 lần/3s = kính râm.
+- **Vị trí:** bản lớn đứng trên khung LiveFeed ở hero; khi hero cuộn khỏi màn hình hiện bản nhỏ 64px ở góc dưới phải (chỉ một bản hiển thị tại một thời điểm).
+- **Thoại:** bong bóng chamfer, mono 12px, tối đa ~24 ký tự, giãn cách ≥ 2.5s, **chỉ tiếng Anh**, giọng khô và ngắn (`nice try.`, `skill issue.`). Có `role="status"` ẩn cho trình đọc màn hình; mascot là `<button>` có `aria-label`.
+- **Motion:** ≤ 200ms hoặc chạy một lần; `prefers-reduced-motion` tắt bob/zzz/hop và tắt theo dõi con trỏ.
+
 ## 5. Trạng thái & a11y
 - Hover = dịch bóng/đổi nền, không đổi layout. Focus-visible: ring 2px `highlight` offset 2px, không bỏ outline. Disabled: opacity 0.4 + `cursor-not-allowed`. Loading: skeleton vuông, không spinner tròn.
 - Tương phản chữ ≥ 4.5:1 (đã đạt với token). Cỡ chữ demo ≥ 16px, nút ≥ 40px cao. Không dùng màu làm tín hiệu duy nhất (kèm nhãn mono hoặc icon).

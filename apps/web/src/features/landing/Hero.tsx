@@ -1,4 +1,5 @@
 import { Link } from "react-router-dom";
+import { MascotHero } from "@/shared/mascot/Mascot";
 import { primaryCta, secondaryCta } from "./cta";
 import { LiveFeed } from "./LiveFeed";
 
@@ -31,7 +32,10 @@ export function Hero() {
             <span className="drop-hard"><Link to="/vaults/new" className={secondaryCta}>Create your vault</Link></span>
           </div>
         </div>
-        <div className="min-w-0"><LiveFeed /></div>
+        <div className="relative min-w-0 pt-32">
+          <MascotHero />
+          <LiveFeed />
+        </div>
       </div>
     </header>
   );

@@ -1,5 +1,7 @@
 import { Monitor, Moon, Sun } from "lucide-react";
 import { useEffect, useState } from "react";
+import { LINES } from "@/shared/mascot/lines";
+import { react } from "@/shared/mascot/mascotStore";
 import { applyMode, readMode, type ThemeMode } from "./theme";
 
 const NEXT: Record<ThemeMode, ThemeMode> = { auto: "light", light: "dark", dark: "auto" };
@@ -25,6 +27,7 @@ export function ThemeToggle() {
         const next = NEXT[mode];
         applyMode(next);
         setMode(next);
+        react("whoa", { text: LINES.theme, hold: 900 });
       }}
       aria-label={`Theme: ${mode}. Click to change.`}
       className="inline-flex h-10 items-center gap-2 border border-line-strong px-3 font-mono text-[11px] font-bold uppercase tracking-widest text-fg transition-colors duration-150 hover:bg-hover"

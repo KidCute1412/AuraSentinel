@@ -3,7 +3,7 @@ import { Chamfer } from "@/shared/ui/Chamfer";
 
 export function KillSwitch() {
   return (
-    <section className="border-b border-line">
+    <section id="kill-switch" className="border-b border-line">
       <div className="mx-auto flex max-w-6xl flex-col items-start gap-10 px-4 py-20 sm:px-6 md:flex-row md:items-center md:justify-between">
         <div className="max-w-2xl">
           <span className="mono-label">03 · Kill-Switch · armed</span>

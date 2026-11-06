@@ -35,6 +35,8 @@
   --tint-pink: #43202a;
   --tint-amber: #3a2f14;
   --grid: rgb(244 239 227 / 0.07);
+  --blush: #ff9ebc;
+  --shine: #fffdf8;
 }
 
 /* Day Blueprint: warm paper, ink shadow, technical-drawing grid. */
@@ -63,6 +65,8 @@
   --tint-pink: #f8d9de;
   --tint-amber: #f5e6b8;
   --grid: rgb(30 80 150 / 0.10);
+  --blush: #ff7fa5;
+  --shine: #fffdf8;
 }
 
 @theme inline {
@@ -78,6 +82,7 @@
   --color-accent: var(--accent);
   --color-accent-text: var(--accent-text);
   --color-on-accent: var(--on-accent);
+  --color-blush: var(--blush);
   --color-danger-text: var(--danger-text);
   --color-danger: var(--danger);
   --color-ok: var(--ok);
@@ -239,6 +244,42 @@
   .animate-marquee, .hazard-move, .animate-packet-ok, .animate-packet-bad { animation: none !important; }
   .animate-packet-ok { left: 40%; opacity: 1; }
   .animate-packet-bad { left: 56%; opacity: 1; }
+}
+
+
+/* Aura-kun mascot: every color is a theme token, so light/dark need no extra art. */
+@layer utilities {
+  .mk { overflow: visible; --lx: 0px; --ly: 0px; }
+  .mk-body { fill: var(--accent); stroke: var(--shadow-color); stroke-width: 3; stroke-linejoin: miter; }
+  .mk-limb { fill: var(--accent); stroke: var(--shadow-color); stroke-width: 3; }
+  .mk-ink { fill: var(--shadow-color); }
+  .mk-aura { fill: var(--highlight); stroke: var(--shadow-color); stroke-width: 3; }
+  .mk-eye { fill: var(--on-accent); }
+  .mk-shine { fill: var(--shine); }
+  .mk-blush { fill: var(--blush); }
+  .mk-body-fill { fill: var(--accent); }
+  .mk-line { stroke: var(--on-accent); stroke-width: 4; fill: none; stroke-linejoin: miter; stroke-linecap: butt; }
+  .mk-x { stroke: var(--danger); stroke-width: 4; fill: none; }
+  .mk-x-halo { stroke: var(--shine); stroke-width: 8; fill: none; }
+  .mk-sweat { fill: var(--shine); stroke: var(--shadow-color); stroke-width: 2; }
+  .mk-sparkle { stroke: var(--blush); stroke-width: 3; fill: none; }
+  .mk-text { font-family: var(--font-mono); font-weight: 700; fill: var(--fg); }
+  .mk-look { transform: translate(var(--lx), var(--ly)); transition: transform 90ms ease-out; }
+  .mk-arm { transition: transform 120ms ease-out; }
+  .mk-cheek { opacity: 0.9; }
+  .mk-cheek-big { opacity: 1; transform: scale(1.12); transform-box: fill-box; transform-origin: center; }
+  .mk-blink { transform: scaleY(0.12); transform-box: fill-box; transform-origin: center; }
+  .mk-bob { animation: mk-bob 3.2s ease-in-out infinite; }
+  .mk-hop { animation: mk-hop 300ms ease-out; }
+  .mk-z { animation: mk-z 2.4s ease-in-out infinite; }
+  .mk-z2 { animation-delay: 0.8s; }
+}
+@keyframes mk-bob { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-2px); } }
+@keyframes mk-hop { 0% { transform: translateY(0); } 40% { transform: translateY(-10px); } 100% { transform: translateY(0); } }
+@keyframes mk-z { 0% { opacity: 0; transform: translateY(6px); } 40%, 70% { opacity: 1; } 100% { opacity: 0; transform: translateY(-6px); } }
+@media (prefers-reduced-motion: reduce) {
+  .mk-bob, .mk-z, .mk-hop { animation: none !important; }
+  .mk-z { opacity: 1; }
 }
 
 @media (prefers-reduced-motion: reduce) {
