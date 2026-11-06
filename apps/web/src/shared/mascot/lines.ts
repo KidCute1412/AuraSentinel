@@ -21,7 +21,8 @@ export const LINES = {
     verify: "checking the list...",
     ok: "welcome in.",
     refused: "no sig, no entry.",
-    email: "email? how retro.",
+    spin: "easy on the bolts.",
+    hold: "steady... steady...",
   },
 } as const;
 
