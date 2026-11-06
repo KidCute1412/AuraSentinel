@@ -440,3 +440,23 @@
 @media (prefers-reduced-motion: reduce) {
   .animate-boot-line { animation: none !important; }
 }
+
+/* Custom cursors: square-cut shield arrow. CSS cursors cannot read tokens, so each theme has its own art. */
+:root{ --cur: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='32' height='32' viewBox='0 0 32 32' shape-rendering='crispEdges'%3E%3Cpath d='M3 3L3 25L9 19L14 29L19 27L14 17L23 17Z' fill='%23141414' stroke='%23141414' stroke-width='3' transform='translate%282 2%29'/%3E%3Cpath d='M3 3L3 25L9 19L14 29L19 27L14 17L23 17Z' fill='%232ee59d' stroke='%23f4efe3' stroke-width='2' stroke-linejoin='miter'/%3E%3C/svg%3E") 3 3, auto; --cur-hit: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='32' height='32' viewBox='0 0 32 32' shape-rendering='crispEdges'%3E%3Cpath d='M3 3L3 25L9 19L14 29L19 27L14 17L23 17Z' fill='%23141414' stroke='%23141414' stroke-width='3' transform='translate%282 2%29'/%3E%3Cpath d='M3 3L3 25L9 19L14 29L19 27L14 17L23 17Z' fill='%23ffd23f' stroke='%23f4efe3' stroke-width='2' stroke-linejoin='miter'/%3E%3C/svg%3E") 3 3, auto; --cur-danger: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='32' height='32' viewBox='0 0 32 32' shape-rendering='crispEdges'%3E%3Cpath d='M3 3L3 25L9 19L14 29L19 27L14 17L23 17Z' fill='%23141414' stroke='%23141414' stroke-width='3' transform='translate%282 2%29'/%3E%3Cpath d='M3 3L3 25L9 19L14 29L19 27L14 17L23 17Z' fill='%23e6212f' stroke='%23f4efe3' stroke-width='2' stroke-linejoin='miter'/%3E%3C/svg%3E") 3 3, auto; }
+[data-theme="light"]{ --cur: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='32' height='32' viewBox='0 0 32 32' shape-rendering='crispEdges'%3E%3Cpath d='M3 3L3 25L9 19L14 29L19 27L14 17L23 17Z' fill='%23f4efe3' stroke='%23f4efe3' stroke-width='3' transform='translate%282 2%29'/%3E%3Cpath d='M3 3L3 25L9 19L14 29L19 27L14 17L23 17Z' fill='%2314b57c' stroke='%23141414' stroke-width='2' stroke-linejoin='miter'/%3E%3C/svg%3E") 3 3, auto; --cur-hit: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='32' height='32' viewBox='0 0 32 32' shape-rendering='crispEdges'%3E%3Cpath d='M3 3L3 25L9 19L14 29L19 27L14 17L23 17Z' fill='%23f4efe3' stroke='%23f4efe3' stroke-width='3' transform='translate%282 2%29'/%3E%3Cpath d='M3 3L3 25L9 19L14 29L19 27L14 17L23 17Z' fill='%23ffd23f' stroke='%23141414' stroke-width='2' stroke-linejoin='miter'/%3E%3C/svg%3E") 3 3, auto; --cur-danger: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='32' height='32' viewBox='0 0 32 32' shape-rendering='crispEdges'%3E%3Cpath d='M3 3L3 25L9 19L14 29L19 27L14 17L23 17Z' fill='%23f4efe3' stroke='%23f4efe3' stroke-width='3' transform='translate%282 2%29'/%3E%3Cpath d='M3 3L3 25L9 19L14 29L19 27L14 17L23 17Z' fill='%23d4202c' stroke='%23141414' stroke-width='2' stroke-linejoin='miter'/%3E%3C/svg%3E") 3 3, auto; }
+@media (hover: hover) and (pointer: fine) {
+  html, body { cursor: var(--cur); }
+  a, button, summary, label, select, [role="button"], [role="radio"], [role="tab"], input[type="checkbox"], input[type="radio"], input[type="range"] { cursor: var(--cur-hit); }
+  [data-cursor="danger"] { cursor: var(--cur-danger); }
+  :disabled, [aria-disabled="true"] { cursor: not-allowed; }
+  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]), textarea, [contenteditable="true"] { cursor: text; }
+}
+
+@keyframes click-pulse {
+  from { opacity: 1; transform: scale(0.35); }
+  to { opacity: 0; transform: scale(1.7); }
+}
+.click-pulse { animation: click-pulse 260ms ease-out forwards; }
+@media (prefers-reduced-motion: reduce) {
+  .click-pulse { display: none; }
+}
