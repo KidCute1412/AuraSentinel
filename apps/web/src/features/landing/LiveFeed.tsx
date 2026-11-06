@@ -57,7 +57,7 @@ export function LiveFeed() {
 
   return (
     <div>
-      <Chamfer code="SEC-0412 / LIVE">
+      <Chamfer ground="hero-feed" code="SEC-0412 / LIVE">
         <div key={shake} className={shake ? "animate-shake" : ""} aria-label="Live transaction feed">
           <div className="flex items-center justify-between border-b border-line px-4 py-2">
             <span className="mono-label">sentinel · live</span>
@@ -85,7 +85,7 @@ export function LiveFeed() {
         </div>
       </Chamfer>
       <div className="mt-6 flex items-center gap-4">
-        <span className="drop-hard">
+        <span className="drop-hard" data-ground="rob-btn">
           <button
             type="button"
             onClick={attack}

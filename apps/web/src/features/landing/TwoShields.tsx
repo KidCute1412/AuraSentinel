@@ -34,7 +34,7 @@ export function TwoShields() {
           <ol className="grid gap-4 md:grid-cols-4 md:pb-24">
             {steps.map(({ icon: Icon, label, title, body, edge, fill, offset }, i) => (
               <li key={title} className={offset}>
-                <Chamfer edge={edge} fill={fill} code={`STEP 0${i + 1}`} innerClassName="p-4 pb-8">
+                <Chamfer edge={edge} fill={fill} ground={`step-0${i + 1}`} code={`STEP 0${i + 1}`} innerClassName="p-4 pb-8">
                   <span className="tabular text-xs text-muted">0{i + 1}</span>
                   <Icon aria-hidden className="mt-2 size-6 text-accent-text" />
                   <span className="mono-label mt-3 block">{label}</span>

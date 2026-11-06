@@ -9,6 +9,8 @@ interface ChamferProps {
   fill?: string;
   /** Registration brackets on the two uncut corners plus a mono serial label. */
   code?: string;
+  /** Lets Aura-kun stand on the top edge of this card. Unique per page. */
+  ground?: string;
   className?: string;
   innerClassName?: string;
 }
@@ -19,11 +21,12 @@ export function Chamfer({
   edge = "bg-line-strong",
   fill = "bg-surface",
   code,
+  ground,
   className,
   innerClassName,
 }: ChamferProps) {
   return (
-    <div className={cn("drop-hard", className)}>
+    <div className={cn("drop-hard", className)} data-ground={ground}>
       <div className={cn("chamfer p-px", edge)}>
         <div className={cn("chamfer relative h-full", fill, innerClassName)}>
           {code && (

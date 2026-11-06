@@ -272,10 +272,12 @@
   .mk-bob { animation: mk-bob 3.2s ease-in-out infinite; }
   .mk-hop { animation: mk-hop 300ms ease-out; }
   .mk-z { animation: mk-z 2.4s ease-in-out infinite; }
+  .mk-squash { animation: mk-squash 180ms ease-out; transform-origin: 50% 87%; }
   .mk-z2 { animation-delay: 0.8s; }
 }
 @keyframes mk-bob { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-2px); } }
 @keyframes mk-hop { 0% { transform: translateY(0); } 40% { transform: translateY(-10px); } 100% { transform: translateY(0); } }
+@keyframes mk-squash { 0% { transform: scale(1.18, 0.82); } 55% { transform: scale(0.96, 1.05); } 100% { transform: scale(1, 1); } }
 @keyframes mk-z { 0% { opacity: 0; transform: translateY(6px); } 40%, 70% { opacity: 1; } 100% { opacity: 0; transform: translateY(-6px); } }
 @media (prefers-reduced-motion: reduce) {
   .mk-bob, .mk-z, .mk-hop { animation: none !important; }

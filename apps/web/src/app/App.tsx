@@ -1,5 +1,7 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Link, Route, Routes } from "react-router-dom";
+import { AuraLayer } from "@/shared/mascot/AuraLayer";
+import { MascotController } from "@/shared/mascot/MascotController";
 import { LandingPage } from "@/features/landing/LandingPage";
 
 const queryClient = new QueryClient({
@@ -26,6 +28,8 @@ export function App() {
           <Route path="/" element={<LandingPage />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
+        <MascotController />
+        <AuraLayer />
       </BrowserRouter>
     </QueryClientProvider>
   );

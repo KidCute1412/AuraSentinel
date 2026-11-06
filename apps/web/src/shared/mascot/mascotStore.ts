@@ -11,7 +11,8 @@ export type Mood =
   | "hop"
   | "whoa"
   | "guard"
-  | "kill";
+  | "kill"
+  | "stunned";
 
 interface Line {
   id: number;
@@ -22,22 +23,31 @@ interface MascotState {
   mood: Mood;
   shades: boolean;
   line: Line | null;
-  /** Hero mascot is on screen; the docked one hides meanwhile. */
-  heroVisible: boolean;
+  /** Person chose to hide Aura-kun (remembered in localStorage). */
+  hidden: boolean;
 }
+
+const HIDE_KEY = "agentshield-aura-hidden";
+const readHidden = (): boolean => {
+  try {
+    return localStorage.getItem(HIDE_KEY) === "1";
+  } catch {
+    return false;
+  }
+};
 
 export const useMascot = create<MascotState>(() => ({
   mood: "idle",
   shades: false,
   line: null,
-  heroVisible: true,
+  hidden: readHidden(),
 }));
 
 const set = useMascot.setState;
 const get = useMascot.getState;
 
 /** Moods the page feed must not interrupt (user is interacting, or the user is asleep/near Kill). */
-const STICKY: Mood[] = ["sleep", "hug", "annoyed", "guard", "kill"];
+const STICKY: Mood[] = ["sleep", "hug", "annoyed", "guard", "kill", "whoa", "stunned"];
 const SAY_GAP_MS = 2500;
 const LINE_MS = 2800;
 
@@ -93,7 +103,14 @@ export function toggleShades(): void {
   say(next ? LINES.shadesOn : LINES.shadesOff, true);
 }
 
-export const setHeroVisible = (heroVisible: boolean): void => set({ heroVisible });
+export function setHidden(hidden: boolean): void {
+  set({ hidden });
+  try {
+    localStorage.setItem(HIDE_KEY, hidden ? "1" : "0");
+  } catch {
+    /* storage can be blocked */
+  }
+}
 
 /** Test helper: reset all module state. */
 export function resetMascot(): void {
@@ -101,5 +118,5 @@ export function resetMascot(): void {
   clearTimeout(lineTimer);
   lastSay = 0;
   lastTouch = Date.now();
-  set({ mood: "idle", shades: false, line: null, heroVisible: true });
+  set({ mood: "idle", shades: false, line: null, hidden: false });
 }

@@ -18,7 +18,7 @@ export function KillSwitch() {
         </div>
         {/* Guard cover: hazard stripes frame the one red zone on the page. */}
         <div className="hazard hazard-move w-full max-w-xs shrink-0 p-3 md:w-auto">
-          <Chamfer edge="bg-danger" fill="bg-tint-pink" code="KILL / ARMED" innerClassName="flex items-center gap-3 px-6 pb-9 pt-5">
+          <Chamfer edge="bg-danger" fill="bg-tint-pink" ground="kill-card" code="KILL / ARMED" innerClassName="flex items-center gap-3 px-6 pb-9 pt-5">
             <Power aria-hidden className="size-8 text-danger-text" />
             <span className="tabular text-2xl font-bold">~1.5s</span>
           </Chamfer>

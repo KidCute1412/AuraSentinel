@@ -24,7 +24,7 @@ export function AttackCards() {
         <ul className="grid gap-5 sm:grid-cols-2 lg:col-span-8">
           {attacks.map(({ icon: Icon, title, body, code }, i) => (
             <li key={title} className={i % 2 === 1 ? "sm:translate-y-6" : ""}>
-              <Chamfer edge="bg-line-strong" fill="bg-surface" code={`ATK-0${i + 1}`} innerClassName="p-5 pb-9">
+              <Chamfer edge="bg-line-strong" fill="bg-surface" ground={`atk-0${i + 1}`} code={`ATK-0${i + 1}`} innerClassName="p-5 pb-9">
                 <div className="flex items-center justify-between">
                   <Icon aria-hidden className="size-6" />
                   <Stamp tone="danger">Blocked</Stamp>

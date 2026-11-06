@@ -1,5 +1,4 @@
 import { Link } from "react-router-dom";
-import { MascotHero } from "@/shared/mascot/Mascot";
 import { primaryCta, secondaryCta } from "./cta";
 import { LiveFeed } from "./LiveFeed";
 
@@ -28,12 +27,11 @@ export function Hero() {
             keep the Kill-Switch.
           </p>
           <div className="mt-10 flex flex-wrap gap-4">
-            <span className="drop-hard"><Link to="/demo" className={primaryCta}>Try the demo</Link></span>
-            <span className="drop-hard"><Link to="/vaults/new" className={secondaryCta}>Create your vault</Link></span>
+            <span className="drop-hard" data-ground="cta-demo"><Link to="/demo" className={primaryCta}>Try the demo</Link></span>
+            <span className="drop-hard" data-ground="cta-vault"><Link to="/vaults/new" className={secondaryCta}>Create your vault</Link></span>
           </div>
         </div>
-        <div className="relative min-w-0 pt-32">
-          <MascotHero />
+        <div className="relative min-w-0 pt-24">
           <LiveFeed />
         </div>
       </div>

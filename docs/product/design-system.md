@@ -50,7 +50,7 @@ Không dùng màu ngoài bảng này. Không gradient pastel; gradient duy nhấ
 - Spacing: lưới 4px; container tối đa 1240px, padding ngang 32px (16px mobile); header 56px sticky, sub-nav sticky dưới header.
 - Viền: 1px `line` (mặc định) hoặc `line-strong`. **Radius 0** ở mọi nơi.
 - Bóng: `--shadow-hard: 5px 5px 0 #000` (card nổi bật/nút chính), `3px 3px 0 #000` (nhỏ). Không blur, không bóng mềm.
-- Z-index: header 40, sub-nav 30, dialog 50, toast 60.
+- Z-index: sub-nav 30, Aura-kun 35 (45 khi đang kéo), header 40, dialog 50, toast 60.
 - Motion: ≤ 200ms, `ease-out`; chỉ flash viền/nền, slide ngắn, dịch bóng. Phải tôn trọng `prefers-reduced-motion`.
 - Icon: `lucide`, stroke 2, vuông góc; không emoji làm icon.
 
@@ -94,10 +94,14 @@ Không dùng màu ngoài bảng này. Không gradient pastel; gradient duy nhấ
 Linh vật của AgentShield. SVG inline (`shared/mascot/AuraKun.tsx`), không ảnh/Lottie/canvas; mọi màu là token nên light/dark không cần asset riêng.
 - **Hình:** thân khiên cắt chéo hai góc (cùng họa tiết chamfer), ăng-ten vàng (`highlight`) là "aura", hai mắt vuông, má ửng vuông, ổ khóa ở ngực, tay chân vuông. Góc vuông tuyệt đối, không emoji.
 - **Màu:** thân luôn xanh `accent` ở cả hai theme; viền 2-3px và bóng cứng theo `--shadow-color` (mực ở light, kem ở dark); mắt/miệng `on-accent`; má `--blush` (hồng sticker, token mới, chỉ dùng cho má và sparkle); đỏ chỉ cho dấu `X` khi bị tấn công và nút Kill.
-- **Biểu cảm (mood):** `idle, happy, alarm, sleep, annoyed, hug, hop, whoa, guard, kill` + `shades` (kính râm). Store: `shared/mascot/mascotStore.ts`; câu thoại: `lines.ts`.
+- **Biểu cảm (mood):** `idle, happy, alarm, sleep, annoyed, hug, hop, whoa, guard, kill, stunned` + `shades` (kính râm). Store: `shared/mascot/mascotStore.ts`; câu thoại: `lines.ts`.
 - **Tự động:** chớp mắt 3-6s, thở nhẹ, mắt nhìn theo con trỏ/điểm chạm, ngủ sau 20s không thao tác (`zzz`), phản ứng feed (`APPROVE` vui, `BLOCKED` giật mình; feed không làm gián đoạn khi đang ngủ/ôm/cáu), lo lắng khi cuộn tới Kill-Switch.
 - **Người dùng:** chạm = nhảy + câu thoại; chạm 5 lần/4s = cáu; giữ 0.55s = ôm; "Try to rob it" = giơ tay chặn; đổi theme = "whoa, lights."; chạm logo 5 lần/3s = kính râm.
-- **Vị trí:** bản lớn đứng trên khung LiveFeed ở hero; khi hero cuộn khỏi màn hình hiện bản nhỏ 64px ở góc dưới phải (chỉ một bản hiển thị tại một thời điểm).
+- **Một Aura-kun cho cả app** (`shared/mascot/AuraLayer.tsx`, đặt trong `App` phía trên router): có mặt ở mọi trang, đi theo người dùng khi đổi trang.
+- **Kéo thả:** kéo ≥ 8px thì bắt đầu kéo (`whoa`), thả ra thì rơi theo trọng lực (`physics.ts`, thuần hàm, có test), nảy một lần, có quán tính nếu vuốt. Rơi từ cao (> 420px) thì choáng (`stunned`, "ow."). Giữ yên 0.55s vẫn là ôm; chạm nhanh vẫn là chọc.
+- **Mặt đất:** phần tử nào có `data-ground="<id duy nhất trong trang>"` (card Chamfer qua prop `ground`, nút CTA, ticker, khung feed...) thì Aura-kun đứng được trên mép trên của nó; không có thì đứng ở đáy màn hình. Vị trí lưu dạng "phần tử nào + đi được bao xa" nên cuộn/xoay màn hình vẫn đúng. Đổi trang mà mặt đất cũ biến mất thì nó rơi xuống chỗ bên dưới. Mặt đất cuộn khỏi màn hình thì nó nhảy xuống đáy màn hình để đi theo người dùng.
+- **Ẩn:** nút "Hide Aura-kun" ở footer (nhớ lựa chọn trong localStorage). Z-index: 35 khi đứng, 45 khi đang kéo (trên header 40, dưới dialog 50).
+- **Mobile:** vùng chạm Aura-kun `touch-action: none`; phần còn lại của trang cuộn bình thường. Reduced motion: thả xuống thì dịch chuyển tức thì, không animation rơi.
 - **Thoại:** bong bóng chamfer, mono 12px, tối đa ~24 ký tự, giãn cách ≥ 2.5s, **chỉ tiếng Anh**, giọng khô và ngắn (`nice try.`, `skill issue.`). Có `role="status"` ẩn cho trình đọc màn hình; mascot là `<button>` có `aria-label`.
 - **Motion:** ≤ 200ms hoặc chạy một lần; `prefers-reduced-motion` tắt bob/zzz/hop và tắt theo dõi con trỏ.
 

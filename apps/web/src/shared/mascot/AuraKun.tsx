@@ -7,7 +7,7 @@ interface AuraKunProps {
   className?: string;
 }
 
-const ARMS_UP: Mood[] = ["happy", "hop", "guard", "hug"];
+const ARMS_UP: Mood[] = ["happy", "hop", "guard", "hug", "whoa"];
 const CLOSED_EYES: Mood[] = ["happy", "hug"];
 const WIDE_EYES: Mood[] = ["alarm", "whoa"];
 
@@ -21,6 +21,7 @@ export function AuraKun({ mood, shades = false, blinking = false, className }: A
   const closed = CLOSED_EYES.includes(mood);
   const wide = WIDE_EYES.includes(mood);
   const annoyed = mood === "annoyed";
+  const stunned = mood === "stunned";
   const armsUp = ARMS_UP.includes(mood);
   const blink = blinking ? "mk-blink" : "";
 
@@ -74,7 +75,14 @@ export function AuraKun({ mood, shades = false, blinking = false, className }: A
 
         {/* eyes (tracked) */}
         <g className="mk-look">
-          {closed ? (
+          {stunned ? (
+            <>
+              <polyline className="mk-line" points="34,42 50,58" />
+              <polyline className="mk-line" points="50,42 34,58" />
+              <polyline className="mk-line" points="74,42 90,58" />
+              <polyline className="mk-line" points="90,42 74,58" />
+            </>
+          ) : closed ? (
             <>
               <polyline className="mk-line" points="34,56 42,44 50,56" />
               <polyline className="mk-line" points="74,56 82,44 90,56" />
@@ -132,7 +140,7 @@ export function AuraKun({ mood, shades = false, blinking = false, className }: A
           <rect className="mk-eye" x="58" y="63" width="8" height="10" />
         ) : asleep ? (
           <rect className="mk-eye" x="59" y="65" width="6" height="5" />
-        ) : annoyed || mood === "kill" ? (
+        ) : annoyed || stunned || mood === "kill" ? (
           <polyline className="mk-line" points="52,69 57,65 62,69 67,65 72,69" style={{ strokeWidth: 3 }} />
         ) : mood === "guard" ? (
           <polyline className="mk-line" points="54,68 62,68 70,63" style={{ strokeWidth: 3 }} />
@@ -157,6 +165,12 @@ export function AuraKun({ mood, shades = false, blinking = false, className }: A
         {/* extras */}
         {(mood === "alarm" || mood === "kill") && (
           <polygon className="mk-sweat" points="104,30 99,38 104,45 109,38" />
+        )}
+        {stunned && (
+          <>
+            <rect className="mk-aura" x="56" y="-8" width="7" height="7" />
+            <rect className="mk-aura" x="80" y="-4" width="6" height="6" />
+          </>
         )}
         {asleep && (
           <>

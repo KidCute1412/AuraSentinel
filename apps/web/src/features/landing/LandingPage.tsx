@@ -1,5 +1,3 @@
-import { MascotController } from "@/shared/mascot/MascotController";
-import { MascotDock } from "@/shared/mascot/Mascot";
 import { AttackCards } from "./AttackCards";
 import { Footer } from "./Footer";
 import { Header } from "./Header";
@@ -20,8 +18,6 @@ export function LandingPage() {
       <KillSwitch />
       <Stats />
       <Footer />
-      <MascotController />
-      <MascotDock />
     </div>
   );
 }
