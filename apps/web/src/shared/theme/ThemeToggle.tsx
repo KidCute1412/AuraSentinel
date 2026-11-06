@@ -2,7 +2,9 @@ import { Monitor, Moon, Sun } from "lucide-react";
 import { useEffect, useState } from "react";
 import { LINES } from "@/shared/mascot/lines";
 import { react } from "@/shared/mascot/mascotStore";
-import { applyMode, readMode, type ThemeMode } from "./theme";
+import { maybeDarkIntro } from "@/shared/mascot/darkIntro";
+import { applyMode, readMode, resolveTheme, type ThemeMode } from "./theme";
+import { revealFrom } from "./reveal";
 
 const NEXT: Record<ThemeMode, ThemeMode> = { auto: "light", light: "dark", dark: "auto" };
 const ICON = { auto: Monitor, light: Sun, dark: Moon } as const;
@@ -23,11 +25,14 @@ export function ThemeToggle() {
   return (
     <button
       type="button"
-      onClick={() => {
+      onClick={(e) => {
         const next = NEXT[mode];
-        applyMode(next);
-        setMode(next);
+        revealFrom(e.currentTarget, () => {
+          applyMode(next);
+          setMode(next);
+        });
         react("whoa", { text: LINES.theme, hold: 900 });
+        maybeDarkIntro(resolveTheme(next));
       }}
       aria-label={`Theme: ${mode}. Click to change.`}
       className="inline-flex h-10 items-center gap-2 border border-line-strong px-3 font-mono text-[11px] font-bold uppercase tracking-widest text-fg transition-colors duration-150 hover:bg-hover"

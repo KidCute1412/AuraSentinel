@@ -1,7 +1,9 @@
 import { useEffect, useReducer } from "react";
 import { Link } from "react-router-dom";
-import { ArrowRight } from "lucide-react";
+import { ArrowRight, Globe, KeyRound, ShieldCheck } from "lucide-react";
 import { Header } from "@/features/landing/Header";
+import { Footer } from "@/features/landing/Footer";
+import { cn } from "@/shared/lib/cn";
 import { Chamfer } from "@/shared/ui/Chamfer";
 import { react } from "@/shared/mascot/mascotStore";
 import { LINES } from "@/shared/mascot/lines";
@@ -17,6 +19,21 @@ const LEAD: Record<Phase["kind"], string> = {
   done: "You're in.",
   denied: "No problem. Try again whenever.",
 };
+
+const STATUS: Record<Phase["kind"], string> = {
+  idle: "AWAITING BADGE",
+  connecting: "CONNECTING WALLET",
+  connected: "AWAITING SIGNATURE",
+  verifying: "VERIFYING OWNER",
+  done: "ACCESS GRANTED",
+  denied: "ACCESS REFUSED",
+};
+
+const TRUST = [
+  { icon: ShieldCheck, text: "Signing moves no funds" },
+  { icon: KeyRound, text: "Your key never leaves your wallet" },
+  { icon: Globe, text: "Avalanche Fuji testnet" },
+];
 
 /** One screen for sign in and sign up: the wallet decides which one it is. */
 export function AccessGate() {
@@ -45,11 +62,21 @@ export function AccessGate() {
       <main className="blueprint relative overflow-hidden border-b border-line">
         <div className="mx-auto grid max-w-6xl items-center gap-10 px-4 pb-24 pt-28 sm:px-6 lg:grid-cols-[1fr_0.85fr] lg:pt-32">
           <div className="order-2 min-w-0 lg:order-1">
-            <Chamfer code="ACCESS-01" ground="gate-card" innerClassName="p-5 pb-9 sm:p-8 sm:pb-10">
-              <h1 className="text-4xl font-black italic uppercase leading-[0.95] tracking-[-0.04em] sm:text-5xl">
-                <span className="outline-text">Show your badge.</span>
+            <Chamfer
+              code="ACCESS-01"
+              ground="gate-card"
+              edge={phase.kind === "denied" ? "bg-danger" : phase.kind === "done" ? "bg-accent" : "bg-line-strong"}
+              innerClassName="p-5 pb-9 sm:p-8 sm:pb-10"
+            >
+              <span className="mono-label flex items-center gap-2">
+                <span aria-hidden className={cn("size-2", phase.kind === "denied" ? "bg-danger" : phase.kind === "idle" ? "bg-muted" : "bg-accent", phase.kind !== "idle" && phase.kind !== "denied" && phase.kind !== "done" && "animate-pulse")} />
+                STATUS: {STATUS[phase.kind]}
+              </span>
+              <h1 className="mt-3 text-5xl font-black italic uppercase leading-[0.92] tracking-[-0.04em] sm:text-6xl">
+                <span className="outline-text">Show your</span>
+                <span className="block">badge.</span>
               </h1>
-              <p className="mt-3 text-soft">{LEAD[phase.kind]}</p>
+              <p className="mt-4 text-lg text-soft">{LEAD[phase.kind]}</p>
               <div className="mt-6">
                 <WalletPanel phase={phase} dispatch={dispatch} />
               </div>
@@ -60,6 +87,14 @@ export function AccessGate() {
                 </Link>
               </div>
             </Chamfer>
+            <ul className="mt-8 grid gap-3 sm:grid-cols-3">
+              {TRUST.map(({ icon: Icon, text }) => (
+                <li key={text} className="flex items-start gap-2 border-l-2 border-accent pl-3 font-mono text-xs uppercase leading-snug tracking-wider text-soft">
+                  <Icon aria-hidden className="mt-px size-4 shrink-0 text-accent-text" />
+                  {text}
+                </li>
+              ))}
+            </ul>
           </div>
 
           <div className="order-1 mx-auto w-full max-w-[16rem] lg:order-2 lg:max-w-md" data-ground="gate-door">
@@ -72,6 +107,7 @@ export function AccessGate() {
           </div>
         </div>
       </main>
+      <Footer />
     </div>
   );
 }

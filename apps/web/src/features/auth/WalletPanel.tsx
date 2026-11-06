@@ -1,16 +1,17 @@
 import { Link } from "react-router-dom";
+import { Plug, Wallet, type LucideIcon } from "lucide-react";
 import { Stamp } from "@/shared/ui/Stamp";
 import { cn } from "@/shared/lib/cn";
-import { primaryCta, secondaryCta } from "@/features/landing/cta";
+import { primaryCta } from "@/features/landing/cta";
 import { react } from "@/shared/mascot/mascotStore";
 import { LINES } from "@/shared/mascot/lines";
 import { HoldButton } from "./HoldButton";
 import { Identicon } from "./identity";
 import { activeStep, MOCK_ADDRESS, shortAddress, type Action, type Phase, type Step, type WalletId } from "./gateFlow";
 
-const WALLETS: { id: WalletId; label: string }[] = [
-  { id: "core", label: "Core" },
-  { id: "metamask", label: "MetaMask" },
+const WALLETS: { id: WalletId; label: string; hint: string; icon: LucideIcon }[] = [
+  { id: "core", label: "Core", hint: "Built for Avalanche", icon: Wallet },
+  { id: "metamask", label: "MetaMask", hint: "Browser extension", icon: Plug },
 ];
 
 const STEPS: { id: Step; label: string }[] = [
@@ -57,11 +58,19 @@ export function WalletPanel({ phase, dispatch }: Props) {
                 <span className="text-sm text-soft">Nothing was signed. No funds moved.</span>
               </div>
             )}
-            <div className="grid gap-3 sm:grid-cols-2">
+            <div className="grid gap-4 sm:grid-cols-2">
               {WALLETS.map((w) => (
                 <span key={w.id} className="drop-hard block">
-                  <button type="button" onClick={() => dispatch({ type: "pick", wallet: w.id })} className={cn(secondaryCta, "w-full")}>
-                    {w.label}
+                  <button
+                    type="button"
+                    onClick={() => dispatch({ type: "pick", wallet: w.id })}
+                    className="chamfer flex w-full items-center gap-3 bg-hover p-4 text-left transition-transform duration-150 hover:-translate-x-px hover:-translate-y-px hover:bg-line active:translate-x-0 active:translate-y-0"
+                  >
+                    <w.icon aria-hidden className="size-6 shrink-0 text-accent-text" />
+                    <span className="min-w-0">
+                      <span className="block text-base font-bold">{w.label}</span>
+                      <span className="mono-label block normal-case tracking-normal">{w.hint}</span>
+                    </span>
                   </button>
                 </span>
               ))}
@@ -70,9 +79,19 @@ export function WalletPanel({ phase, dispatch }: Props) {
         )}
 
         {phase.kind === "connecting" && (
-          <p className="animate-feed-in font-mono text-sm text-soft">
-            Waiting for {phase.wallet === "core" ? "Core" : "MetaMask"}<span className="animate-pulse">…</span>
-          </p>
+          <div className="animate-feed-in">
+            <div className="flex items-center gap-4 border border-line-strong bg-bg p-4">
+              <Wallet aria-hidden className="size-6 shrink-0 text-accent-text" />
+              <div className="min-w-0">
+                <p className="font-mono text-sm font-bold">
+                  Waiting for {phase.wallet === "core" ? "Core" : "MetaMask"}
+                  <span aria-hidden className="animate-caret ml-1 inline-block h-4 w-2 translate-y-0.5 bg-accent" />
+                </p>
+                <p className="mono-label mt-1 normal-case tracking-normal">Approve the connection in the wallet popup.</p>
+              </div>
+            </div>
+            <div className="mt-4 h-2 border border-line-strong"><div className="hazard hazard-move h-full w-full" /></div>
+          </div>
         )}
 
         {phase.kind === "connected" && (

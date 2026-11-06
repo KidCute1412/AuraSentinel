@@ -3,6 +3,7 @@ import { LINES, pick } from "@/shared/mascot/lines";
 import { react } from "@/shared/mascot/mascotStore";
 import { Chamfer } from "@/shared/ui/Chamfer";
 import { Stamp } from "@/shared/ui/Stamp";
+import { fireAttack } from "./attackBus";
 
 type Verdict = "APPROVE" | "BLOCKED";
 interface Row { id: number; action: string; verdict: Verdict; note: string }
@@ -52,6 +53,7 @@ export function LiveFeed() {
     push({ action: "YOU → drain vault 10,000 USDC", verdict: "BLOCKED", note: "ExceedsPerTxCap" });
     setBlocked((b) => b + 1);
     setShake((s) => s + 1);
+    fireAttack();
     react("guard", { text: LINES.rob, hold: 1500 });
   };
 

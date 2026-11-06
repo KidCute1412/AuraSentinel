@@ -1,6 +1,7 @@
 import { Link } from "react-router-dom";
 import { primaryCta, secondaryCta } from "./cta";
 import { LiveFeed } from "./LiveFeed";
+import { AttackLane } from "./AttackLane";
 
 const COLS = ["A", "B", "C", "D", "E", "F"];
 
@@ -11,7 +12,7 @@ export function Hero() {
       <div aria-hidden className="pointer-events-none absolute inset-x-0 top-2 mx-auto hidden max-w-6xl justify-between px-6 font-mono text-[10px] uppercase tracking-widest text-muted lg:flex">
         {COLS.map((c) => <span key={c}>{c}</span>)}
       </div>
-      <div className="mx-auto grid max-w-6xl items-center gap-12 px-4 pb-20 pt-14 sm:px-6 lg:grid-cols-[1.15fr_1fr] lg:pt-20">
+      <div className="mx-auto grid max-w-6xl items-center gap-12 px-4 pb-12 pt-14 sm:px-6 lg:grid-cols-[1.15fr_1fr] lg:pt-20">
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-3">
             <span className="mono-label">Kill-switch armed · Avalanche Fuji</span>
@@ -34,6 +35,9 @@ export function Hero() {
         <div className="relative min-w-0 pt-24">
           <LiveFeed />
         </div>
+      </div>
+      <div className="mx-auto max-w-6xl px-4 pb-16 sm:px-6">
+        <AttackLane />
       </div>
     </header>
   );

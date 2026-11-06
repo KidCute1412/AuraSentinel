@@ -1,38 +1,41 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Link, Navigate, Route, Routes } from "react-router-dom";
+import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import { AuraLayer } from "@/shared/mascot/AuraLayer";
 import { MascotController } from "@/shared/mascot/MascotController";
+import { BootSequence } from "@/shared/fx/BootSequence";
+import { EmergencyDrill } from "@/shared/fx/EmergencyDrill";
+import { GridSpotlight } from "@/shared/fx/GridSpotlight";
+import { PageEnter, RouteTransition } from "@/shared/fx/RouteTransition";
 import { AccessGate } from "@/features/auth/AccessGate";
 import { LandingPage } from "@/features/landing/LandingPage";
+import { AboutPage } from "@/features/about/AboutPage";
+import { ProofPage } from "@/features/proof/ProofPage";
+import { NotFoundPage } from "@/features/not-found/NotFoundPage";
 
 const queryClient = new QueryClient({
   defaultOptions: { queries: { retry: false, refetchOnWindowFocus: false } },
 });
 
-function NotFound() {
-  return (
-    <main className="mx-auto max-w-3xl px-6 py-24">
-      <span className="mono-label">404</span>
-      <h1 className="mt-2 text-4xl">Page not found</h1>
-      <Link to="/" className="mt-6 inline-block text-accent-text underline">
-        Back to home
-      </Link>
-    </main>
-  );
-}
-
 export function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <BrowserRouter>
-        <Routes>
-          <Route path="/" element={<LandingPage />} />
-          <Route path="/signin" element={<AccessGate />} />
-          <Route path="/signup" element={<Navigate to="/signin" replace />} />
-          <Route path="*" element={<NotFound />} />
-        </Routes>
+        <PageEnter>
+          <Routes>
+            <Route path="/" element={<LandingPage />} />
+            <Route path="/signin" element={<AccessGate />} />
+            <Route path="/signup" element={<Navigate to="/signin" replace />} />
+            <Route path="/about" element={<AboutPage />} />
+            <Route path="/proof" element={<ProofPage />} />
+            <Route path="*" element={<NotFoundPage />} />
+          </Routes>
+        </PageEnter>
         <MascotController />
         <AuraLayer />
+        <RouteTransition />
+        <GridSpotlight />
+        <EmergencyDrill />
+        <BootSequence />
       </BrowserRouter>
     </QueryClientProvider>
   );

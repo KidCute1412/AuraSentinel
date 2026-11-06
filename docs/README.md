@@ -8,6 +8,7 @@ Docs viết bằng tiếng Việt; định danh kỹ thuật giữ tiếng Anh.
 
 | # | File | Nội dung | Khi nào đọc |
 |---|---|---|---|
+| 0 | [`onboarding/concepts.md`](./onboarding/concepts.md) | **Nhập môn cho người mới:** 10 cụm khái niệm nối tiếp (blockchain → Safe/Module → Shield 1/2 → AI → hạ tầng), ví dụ, liên tưởng, bảng tra A–Z | Ngày đầu tiên, trước mọi file khác |
 | 1 | [`product/pitch.md`](./product/pitch.md) | AgentShield là gì (ví dụ đời thường), tiêu chí chấm, 12 câu FAQ giám khảo | Mới vào dự án, chuẩn bị pitch |
 | 2 | [`architecture/system-design.md`](./architecture/system-design.md) | **Source of truth.** 5 nguyên tắc, kiến trúc, tradeoff công nghệ, pipeline Auditor, red-team, data model, API, threat checklist | Trước khi viết bất kỳ code nào |
 | 3 | [`architecture/codebase.md`](./architecture/codebase.md) | Folder, module NestJS, ranh giới, frontend, test, phân công | Khi tạo file/module mới |

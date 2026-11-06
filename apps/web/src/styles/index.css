@@ -154,7 +154,12 @@
   }
   /* Hard shadow that survives clip-path (put on the wrapper). */
   .drop-hard {
-    filter: drop-shadow(5px 5px 0 var(--shadow-color));
+    filter: drop-shadow(var(--sx, 5px) var(--sy, 5px) 0 var(--shadow-color));
+  }
+  /* Opt-in hover tilt (Chamfer tilt prop): lean toward the cursor while the hard shadow slides away. */
+  .tilt {
+    transform: perspective(900px) rotateX(var(--tilt-x, 0deg)) rotateY(var(--tilt-y, 0deg));
+    transition: transform 140ms ease-out, filter 140ms ease-out;
   }
   /* Blueprint field: square grid. Light = blue pencil on paper, dark = cream chalk on charcoal. */
   .blueprint {
@@ -166,6 +171,34 @@
       linear-gradient(90deg, var(--grid) 1px, transparent 1px);
     background-size: 32px 32px, 32px 32px;
   }
+  /* Cursor spotlight (see shared/fx/GridSpotlight): grid lines glow under the pointer, plus the hovered cell. */
+  .blueprint::after,
+  .blueprint::before {
+    content: "";
+    position: absolute;
+    pointer-events: none;
+    z-index: -1;
+    opacity: 0;
+    transition: opacity 150ms ease-out;
+  }
+  .blueprint::after {
+    inset: 0;
+    background-image:
+      linear-gradient(var(--accent) 1px, transparent 1px),
+      linear-gradient(90deg, var(--accent) 1px, transparent 1px);
+    background-size: 32px 32px, 32px 32px;
+    -webkit-mask-image: radial-gradient(180px circle at var(--mx, 50%) var(--my, 50%), black, transparent);
+    mask-image: radial-gradient(180px circle at var(--mx, 50%) var(--my, 50%), black, transparent);
+  }
+  .blueprint::before {
+    left: var(--cx, 0);
+    top: var(--cy, 0);
+    width: 32px;
+    height: 32px;
+    background: color-mix(in srgb, var(--accent) 14%, transparent);
+  }
+  .blueprint[data-spot]::after { opacity: 0.55; }
+  .blueprint[data-spot]::before { opacity: 1; }
   /* Hazard stripes: Kill-Switch zone only. */
   .hazard {
     background-image: repeating-linear-gradient(-45deg, var(--danger) 0 12px, var(--bg) 12px 24px);
@@ -222,10 +255,6 @@
   86% { left: 56%; opacity: 1; transform: scale(1.8); }
   100% { left: 56%; opacity: 0; transform: scale(0.2); }
 }
-@keyframes marquee {
-  from { transform: translateX(0); }
-  to { transform: translateX(-50%); }
-}
 @keyframes shake {
   0%, 100% { transform: translateX(0); }
   25% { transform: translateX(-4px); }
@@ -233,11 +262,81 @@
 }
 
 @layer utilities {
-  .animate-marquee { animation: marquee 28s linear infinite; }
   .animate-stamp { animation: stamp-in 200ms ease-out both; }
   .animate-packet-ok { animation: packet-ok 6s linear infinite; }
   .animate-packet-bad { animation: packet-bad 6s linear infinite; }
   .animate-shake { animation: shake 200ms ease-out; }
+}
+
+/* Page-level motion: scroll reveal, 404 glitch burst, finality bars, caret. */
+@keyframes glitch {
+  0%, 84%, 100% { transform: translate(0); clip-path: none; }
+  86% { transform: translate(-5px, 1px); clip-path: inset(0 0 55% 0); }
+  88% { transform: translate(6px, -1px); clip-path: inset(45% 0 0 0); }
+  90% { transform: translate(-3px, 0); clip-path: inset(20% 0 30% 0); }
+  92% { transform: translate(0); clip-path: none; }
+}
+@keyframes bar-grow {
+  from { transform: scaleY(0); }
+  to { transform: scaleY(1); }
+}
+@keyframes caret {
+  0%, 49% { opacity: 1; }
+  50%, 100% { opacity: 0; }
+}
+
+/* Soft route change: a thin line draws across the top, then the page eases in. */
+@keyframes route-line {
+  0% { transform: translateX(-100%); opacity: 1; }
+  70% { transform: translateX(0); opacity: 1; }
+  100% { transform: translateX(0); opacity: 0; }
+}
+@keyframes page-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: none; }
+}
+
+/* Hero attack lane: left offsets are relative to the 4rem node column at each end. */
+@keyframes lane-bad {
+  0% { left: 4rem; opacity: 0; }
+  12% { opacity: 1; }
+  100% { left: calc(56% - 2.5rem); opacity: 1; }
+}
+@keyframes lane-good {
+  0% { left: 4rem; opacity: 0; }
+  8% { opacity: 1; }
+  92% { opacity: 1; }
+  100% { left: calc(100% - 5rem); opacity: 0; }
+}
+
+@layer utilities {
+  .lane-bad { animation: lane-bad 900ms linear both; }
+  .lane-good { animation: lane-good 1600ms linear both; }
+}
+
+/* Kill-Switch drill vignette: two red beats, then fade. */
+@keyframes drill-pulse {
+  0% { opacity: 0; }
+  15%, 55% { opacity: 1; }
+  35% { opacity: 0.35; }
+  75% { opacity: 1; }
+  100% { opacity: 0; }
+}
+
+@layer utilities {
+  .animate-drill {
+    box-shadow: inset 0 0 0 6px var(--danger), inset 0 0 140px color-mix(in srgb, var(--danger) 55%, transparent);
+    animation: drill-pulse 1.9s ease-out both;
+  }
+  .animate-route-line { animation: route-line 420ms ease-out both; }
+  /* `backwards`, not `both`: no lingering transform, so fixed/sticky children keep working. */
+  .animate-page-in { animation: page-in 240ms ease-out backwards; }
+  .reveal { opacity: 0; transform: translateY(12px); transition: opacity 200ms ease-out, transform 200ms ease-out; }
+  .reveal[data-in="true"] { opacity: 1; transform: none; }
+  .animate-glitch { animation: glitch 5s steps(1) infinite; }
+  .animate-glitch-alt { animation: glitch 5s steps(1) infinite 120ms; }
+  .bar-grow { transform-origin: bottom; animation: bar-grow 200ms ease-out both; }
+  .animate-caret { animation: caret 1s steps(1) infinite; }
 }
 
 @keyframes gate-spark {
@@ -262,9 +361,15 @@
   .gate-move { transition: none !important; }
   .gate-spark { display: none; }
   .gate-jiggle { animation: none; }
-  .animate-marquee, .hazard-move, .animate-packet-ok, .animate-packet-bad { animation: none !important; }
+  .hazard-move, .animate-packet-ok, .animate-packet-bad { animation: none !important; }
   .animate-packet-ok { left: 40%; opacity: 1; }
   .animate-packet-bad { left: 56%; opacity: 1; }
+  .animate-glitch, .animate-glitch-alt, .bar-grow, .animate-caret, .animate-route-line, .animate-page-in { animation: none !important; }
+  .animate-drill { animation: none !important; opacity: 0.8; }
+  .lane-bad, .lane-good { animation: none !important; }
+  .tilt { transform: none; }
+  .blueprint::after, .blueprint::before { display: none; }
+  .reveal { opacity: 1; transform: none; transition: none; }
 }
 
 
@@ -285,6 +390,9 @@
   .mk-sweat { fill: var(--shine); stroke: var(--shadow-color); stroke-width: 2; }
   .mk-sparkle { stroke: var(--blush); stroke-width: 3; fill: none; }
   .mk-text { font-family: var(--font-mono); font-weight: 700; fill: var(--fg); }
+  .mk-lens { fill: var(--shine); fill-opacity: 0.3; stroke: var(--shadow-color); stroke-width: 4; stroke-linejoin: miter; }
+  .mk-lens-glint { stroke: var(--shine); stroke-width: 3; fill: none; }
+  .mk-handle { stroke: var(--shadow-color); stroke-width: 5; fill: none; }
   .mk-look { transform: translate(var(--lx), var(--ly)); transition: transform 90ms ease-out; }
   .mk-arm { transition: transform 120ms ease-out; }
   .mk-cheek { opacity: 0.9; }
@@ -310,4 +418,25 @@
     animation-duration: 0.01ms !important;
     transition-duration: 0.01ms !important;
   }
+}
+
+/* Theme switch: new theme grows from the toggle (View Transitions API, see shared/theme/reveal). */
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation: none;
+  mix-blend-mode: normal;
+}
+::view-transition-new(root) {
+  animation: theme-reveal 520ms cubic-bezier(0.4, 0, 0.2, 1) both;
+}
+@keyframes theme-reveal {
+  from { clip-path: circle(0 at var(--vt-x, 50%) var(--vt-y, 0)); }
+  to { clip-path: circle(var(--vt-r, 150vmax) at var(--vt-x, 50%) var(--vt-y, 0)); }
+}
+@keyframes boot-line { from { opacity: 0; transform: translateX(-6px); } to { opacity: 1; transform: none; } }
+@layer utilities {
+  .animate-boot-line { animation: boot-line 160ms ease-out both; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .animate-boot-line { animation: none !important; }
 }
