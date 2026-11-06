@@ -1,13 +1,19 @@
 name: ci
 on:
+  # Every branch push runs CI. A PR merge lands as a push to main, so it runs again there.
   push:
-    branches: [main]
+    branches: ["**"]
+  # Also test the PR merge result against its base (this is the run that gates merging).
   pull_request:
   workflow_dispatch:
+  # Lets a future cd.yml reuse this exact pipeline: `uses: ./.github/workflows/ci.yml`.
+  workflow_call:
 
+# A newer push to the same branch/PR cancels the older run. Runs on main are never cancelled,
+# so every merge gets a full result (and a future CD can rely on it).
 concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
 permissions:
   contents: read
