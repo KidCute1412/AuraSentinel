@@ -78,12 +78,28 @@ export function AuraLayer() {
   const pokes = useRef<number[]>([]);
   const fallFromY = useRef(0);
 
-  const place = (x: number, y: number) => {
+  /**
+   * (x, y) is the feet point in viewport pixels. "doc" pins Aura-kun to the page (position: absolute),
+   * so the browser scrolls it with the content and there is no JS lag, hence no jitter. "viewport"
+   * (position: fixed) is used while dragging/falling and when standing on the screen floor.
+   */
+  const place = (x: number, y: number, space: "viewport" | "doc" = "viewport") => {
     pos.current = { x, y };
     const el = boxRef.current;
-    if (el) el.style.transform = `translate3d(${Math.round(x - SIZE / 2)}px, ${Math.round(y - FEET)}px, 0)`;
+    if (el) {
+      const ox = space === "doc" ? window.scrollX : 0;
+      const oy = space === "doc" ? window.scrollY : 0;
+      el.style.position = space === "doc" ? "absolute" : "fixed";
+      el.style.transform = `translate3d(${Math.round(x - SIZE / 2 + ox)}px, ${Math.round(y - FEET + oy)}px, 0)`;
+    }
     const s = x < 230 ? "right" : "left";
     setSide((p) => (p === s ? p : s));
+  };
+
+  /** Current feet point, read from the DOM (the page may have scrolled since the last place()). */
+  const feet = () => {
+    const r = boxRef.current?.getBoundingClientRect();
+    return r ? { x: r.left + SIZE / 2, y: r.top + FEET } : pos.current;
   };
 
   const settle = (x: number, y: number, id: string | null) => {
@@ -95,7 +111,7 @@ export function AuraLayer() {
     } else {
       anchor.current = { kind: "viewport", xf: clamp(x / window.innerWidth, 0.06, 0.94) };
     }
-    place(x, y);
+    place(x, y, anchor.current.kind === "ground" ? "doc" : "viewport");
     setSquash((n) => n + 1);
     const fell = y - fallFromY.current;
     if (fell > HARD_FALL_PX && !reduced()) react("stunned", { text: LINES.hard, hold: 1400 });
@@ -103,14 +119,16 @@ export function AuraLayer() {
   };
 
   const startFall = (vx: number, vy: number) => {
+    const f = feet();
+    place(f.x, f.y);
     if (reduced()) {
-      const l = findGroundBelow(pos.current.x, pos.current.y, collectGrounds(), floorY());
-      settle(pos.current.x, l.y, l.id);
+      const l = findGroundBelow(f.x, f.y, collectGrounds(), floorY());
+      settle(f.x, l.y, l.id);
       return;
     }
     mode.current = "fall";
-    fallFromY.current = pos.current.y;
-    let body: Body = { x: pos.current.x, y: pos.current.y, vx, vy, bounces: 0 };
+    fallFromY.current = f.y;
+    let body: Body = { x: f.x, y: f.y, vx, vy, bounces: 0 };
     let last = performance.now();
     const step = (now: number) => {
       const dt = Math.min(0.032, (now - last) / 1000);
@@ -138,39 +156,56 @@ export function AuraLayer() {
         ? { kind: "ground", id: "hero-feed", fx: 0.78 }
         : { kind: "viewport", xf: 0.92 };
     }
-    let ticking = false;
-    const sync = () => {
-      ticking = false;
+    let layoutTick = false;
+    let scrollTick = false;
+    /** Ground scrolled out of view: follow the person down to the bottom of the screen. */
+    const follow = (r: { x: number; y: number }) => {
+      if (anchor.current?.kind !== "ground" || (r.y >= 64 && r.y <= window.innerHeight)) return false;
+      anchor.current = { kind: "viewport", xf: clamp(r.x / window.innerWidth, 0.08, 0.92) };
+      const v = resolve(anchor.current);
+      if (v) place(v.x, v.y);
+      react("hop", { hold: 350 });
+      return true;
+    };
+    // Layout changes (resize, content shifts): recompute where the anchor is.
+    const syncLayout = () => {
+      layoutTick = false;
       if (mode.current !== "rest" || !anchor.current) return;
       const r = resolve(anchor.current);
       if (!r) {
         startFall(0, 0);
         return;
       }
-      // Ground scrolled out of view: follow the person down to the bottom of the screen.
-      if (anchor.current.kind === "ground" && (r.y < 64 || r.y > window.innerHeight)) {
-        anchor.current = { kind: "viewport", xf: clamp(r.x / window.innerWidth, 0.08, 0.92) };
-        const v = resolve(anchor.current);
-        if (v) place(v.x, v.y);
-        react("hop", { hold: 350 });
-        return;
-      }
-      place(r.x, r.y);
+      if (follow(r)) return;
+      place(r.x, r.y, anchor.current.kind === "ground" ? "doc" : "viewport");
     };
-    const req = () => {
-      if (!ticking) {
-        ticking = true;
-        requestAnimationFrame(sync);
+    // Scrolling: the browser moves a page-pinned Aura-kun itself. We only check whether to hand over.
+    const syncScroll = () => {
+      scrollTick = false;
+      if (mode.current !== "rest" || anchor.current?.kind !== "ground") return;
+      const r = resolve(anchor.current);
+      if (r) follow(r);
+    };
+    const reqLayout = () => {
+      if (!layoutTick) {
+        layoutTick = true;
+        requestAnimationFrame(syncLayout);
       }
     };
-    window.addEventListener("scroll", req, { passive: true });
-    window.addEventListener("resize", req);
-    const ro = new ResizeObserver(req);
+    const reqScroll = () => {
+      if (!scrollTick) {
+        scrollTick = true;
+        requestAnimationFrame(syncScroll);
+      }
+    };
+    window.addEventListener("scroll", reqScroll, { passive: true });
+    window.addEventListener("resize", reqLayout);
+    const ro = new ResizeObserver(reqLayout);
     ro.observe(document.body);
-    req();
+    reqLayout();
     return () => {
-      window.removeEventListener("scroll", req);
-      window.removeEventListener("resize", req);
+      window.removeEventListener("scroll", reqScroll);
+      window.removeEventListener("resize", reqLayout);
       ro.disconnect();
       cancelAnimationFrame(raf.current);
     };
@@ -236,12 +271,13 @@ export function AuraLayer() {
   const onPointerDown = (e: React.PointerEvent<HTMLButtonElement>) => {
     touch();
     e.currentTarget.setPointerCapture(e.pointerId);
+    const f = feet();
     drag.current = {
       pointerId: e.pointerId,
       sx: e.clientX,
       sy: e.clientY,
-      ox: pos.current.x - e.clientX,
-      oy: pos.current.y - e.clientY,
+      ox: f.x - e.clientX,
+      oy: f.y - e.clientY,
       moved: false,
       samples: [],
     };
@@ -263,7 +299,9 @@ export function AuraLayer() {
       cancelHold();
       cancelAnimationFrame(raf.current);
       mode.current = "drag";
-      fallFromY.current = pos.current.y;
+      const f = feet();
+      place(f.x, f.y); // switch to fixed positioning for the drag
+      fallFromY.current = f.y;
       setDragging(true);
       react("whoa", { text: pick(LINES.pickup), hold: 0 });
     }
@@ -321,7 +359,7 @@ export function AuraLayer() {
     <div
       ref={boxRef}
       className={`pointer-events-none fixed left-0 top-0 ${dragging ? "z-[45]" : "z-[35]"}`}
-      style={{ width: SIZE, height: SIZE, transform: "translate3d(-999px,-999px,0)" }}
+      style={{ width: SIZE, height: SIZE, transform: "translate3d(-999px,-999px,0)", willChange: "transform" }}
     >
       <div key={squash} className={squash ? "mk-squash size-full" : "size-full"}>
         <button
