@@ -13,6 +13,7 @@
 | Route | Trang | Quyền | Owner task | API chính | Ví ký |
 |---|---|---|---|---|---|
 | `/` | Landing + How it works | public | Q11 | `GET /proof` (số liệu nhỏ, tuỳ chọn) | không |
+| `/signin` (`/signup` chuyển về đây) | Cổng truy cập: đăng nhập/đăng ký bằng ví (SIWE), không có email/mật khẩu | public | A9 (nối thật) | `/auth/*` (chưa nối, đang giả lập) | ký thông điệp SIWE (không gas) |
 | `/demo` | Demo vault (sandbox) | public, **không cần đăng nhập** (throttle IP, D12) | Q9, Q10, Q11 | state, jobs, rebalance, attacks, SSE | owner demo: setPolicy/Kill |
 | `/vaults/new` | Wizard tạo vault | ví kết nối | L9 | `GET /vaults/{safe}` (poll đến khi indexer thấy) | create Safe, enableModule, setPolicy, faucet, deposit |
 | `/vaults/:safe` | Dashboard vault | public đọc; owner thao tác | L7, L8, Q9 | như `/demo` + auth | setPolicy, revoke, deposit, withdraw |

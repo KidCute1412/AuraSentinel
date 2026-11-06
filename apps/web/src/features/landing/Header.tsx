@@ -25,6 +25,7 @@ export function Header() {
           <Link to="/demo" className="text-soft hover:text-fg">Demo</Link>
           <Link to="/vaults/new" className="hidden text-soft hover:text-fg md:inline">Create vault</Link>
           <Link to="/proof" className="hidden text-soft hover:text-fg md:inline">Proof</Link>
+          <Link to="/signin" className="font-bold text-fg hover:text-accent-text">Sign in</Link>
           <ThemeToggle />
         </div>
       </nav>

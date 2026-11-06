@@ -240,7 +240,28 @@
   .animate-shake { animation: shake 200ms ease-out; }
 }
 
+@keyframes gate-spark {
+  from { transform: translate(0, 0) scale(1); opacity: 1; }
+  to { transform: translate(var(--dx), var(--dy)) scale(0.2); opacity: 0; }
+}
+
+@keyframes gate-jiggle {
+  0%, 88%, 100% { transform: rotate(0); }
+  91% { transform: rotate(-5deg); }
+  94% { transform: rotate(4deg); }
+  97% { transform: rotate(-2deg); }
+}
+
+@layer utilities {
+  .gate-jiggle { animation: gate-jiggle 7s ease-in-out infinite; transform-box: fill-box; transform-origin: 50% 100%; }
+  .gate-spark { animation: gate-spark 750ms ease-out forwards; transform-box: fill-box; transform-origin: center; }
+  .gate-move { transition: transform 600ms cubic-bezier(0.3, 0.8, 0.3, 1), fill 300ms ease-out; }
+}
+
 @media (prefers-reduced-motion: reduce) {
+  .gate-move { transition: none !important; }
+  .gate-spark { display: none; }
+  .gate-jiggle { animation: none; }
   .animate-marquee, .hazard-move, .animate-packet-ok, .animate-packet-bad { animation: none !important; }
   .animate-packet-ok { left: 40%; opacity: 1; }
   .animate-packet-bad { left: 56%; opacity: 1; }
