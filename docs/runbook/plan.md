@@ -75,7 +75,7 @@ Cột **Kết luận** điền trong buổi họp. Không chốt được trong 
 | D11 | API multi-vault `/api/v1/vaults/{safe}/{state,jobs,attacks,events}` (chi tiết: `architecture/api.md`); mọi ServerEvent có `vault`; bảng `vaults` chỉ là registry (P1) | **Chốt:** giữ thứ tự cắt phạm vi (wizard rút gọn) nếu trễ |
 | D12 | Auth SIWE + cookie JWT httpOnly: visitor (chỉ vault demo, rate limit), owner (kiểm `Safe.getOwners` on-chain), admin (allowlist env). setPolicy/Kill vẫn ký trên browser | **Chốt (đổi):** vault demo KHÔNG cần đăng nhập, throttle theo IP + cooldown toàn cục (giám khảo không cần ví). SIWE chỉ cho owner và admin |
 | D13 | 1 agent EOA dùng chung mọi vault, 1 queue swap concurrency 1 (P4); session key riêng từng vault để roadmap | **Chốt:** nói rõ trong pitch: key lộ bị chặn bởi cap và Kill của từng vault |
-| D14 | 1 VPS (≥ 2 vCPU, 4 GB) chạy `docker-compose.prod.yml` (caddy, web, api, worker, pg, redis, anvil); owner key không lên server | **Chốt:** snapshot VPS + compose chạy lại được trên máy khác làm dự phòng |
+| D14 | Chạy `docker-compose.prod.yml` (web, api, worker, pg, redis, anvil) local trên laptop, không VPS/domain; owner key không lên server | **Chốt:** compose chạy lại được trên máy khác + video demo làm dự phòng |
 | D15 | Vault demo: maxPerTx 500, dailyCap 1.500 USDC; hết budget → UI giải thích "Shield 2 đang chặn"; Lộc reset bằng setPolicy ký trên browser; rebalancer tắt cho vault demo | **Chốt (sửa):** vault demo công khai giữ 500/1.500 + cooldown; thêm **vault sân khấu** riêng cho demo trực tiếp, reset ngay trước giờ diễn |
 | D16 | Routes web: `/` landing · `/demo` · `/vaults/new` · `/vaults/:safe` · `/proof` | **Chốt (sửa):** admin là drawer trong dashboard (chỉ role admin), không có route `/admin` |
 
@@ -89,7 +89,7 @@ Mỗi người là **owner** của một mảng từ đầu đến cuối (code,
 |---|---|---|---|
 | Sứ mệnh | Luật on-chain không thể vượt qua; owner tự tay kiểm soát tiền | Hệ thống chạy thật, an toàn, 24/7 trên URL public | Agent thông minh nhưng không có quyền; trải nghiệm khiến giám khảo hiểu ngay |
 | Sở hữu | `packages/contracts`, `shared/abis`, `execution/revert-decoder`, `scripts/seed.ts`, web `shared/web3` + `features/{policy,kill-switch,vault,onboarding,proof}` | `shared/{schemas,events,money,chain}`, `core/*`, modules policy/vault/simulation/execution/auditor service/jobs/realtime/indexer/auth, `infra/`, deploy workflow | `shared/errors.ts`, `auditor/domain`, `explainer`, `rebalancer`, `redteam`, web `app/` + `shared/{ui,api,store}` + `features/{activity,red-team,landing}`, pitch |
-| Tự quyết | Thiết kế trong contract, gas, UX ký ví | Thư viện, hạ tầng, rate limit, nhà cung cấp VPS | Prompt, copy tiếng Việt, ngôn ngữ thiết kế, câu chuyện pitch, chiến lược rebalance |
+| Tự quyết | Thiết kế trong contract, gas, UX ký ví | Thư viện, hạ tầng, rate limit | Prompt, copy tiếng Việt, ngôn ngữ thiết kế, câu chuyện pitch, chiến lược rebalance |
 | Báo nhóm trước khi đổi | ABI, event, error | DTO, ServerEvent, route API | Reason code, component dùng chung |
 | Review chéo | PR của Đan Anh ở execution/indexer | PR của Lộc ở web3/wizard | PR của Lộc và Đan Anh ở `apps/web` |
 | Stretch (sau M4) | Chainlink, owner multisig | Session key từng vault | Telegram báo owner, giao diện EN, báo cáo rủi ro |
@@ -105,10 +105,10 @@ Mỗi người là **owner** của một mảng từ đầu đến cuối (code,
 
 | Mốc | Ngày | Đạt khi |
 |---|---|---|
-| **M0** Nền móng | T7 07/11 | D1–D16 có kết luận; tag `interfaces-v1`; ABI draft + `shared` build; local chạy trên 3 máy; có VPS + DNS |
+| **M0** Nền móng | T7 07/11 | D1–D16 có kết luận; tag `interfaces-v1`; ABI draft + `shared` build; local chạy trên 3 máy (VPS + DNS: bỏ, demo chạy local) |
 | **M1** Fake end-to-end | T3 10/11 | `POST /vaults/{safe}/jobs` đi hết state machine bằng Fake, SSE phát event; contract có test từng gate |
 | **M2 = Milestone A** | T5 12/11 | 1 swap thật trên Fuji: job `confirmed`, có link Snowtrace, `allowance = 0`, 3 lần liên tiếp |
-| **M3** Prod skeleton | T7 14/11 | `https://<domain>` chạy landing + `/demo` đọc state thật + SSE |
+| **M3** Prod skeleton | T7 14/11 | landing + `/demo` đọc state thật + SSE chạy ở localhost (compose.prod) |
 | **M4 = Milestone B** | T3 17/11 | Trên production: kịch bản 3 phút trọn vẹn, 4 đòn + injection, wizard, auth + rate limit, fuzz 10k xanh |
 | **Freeze** | T4 18/11 | Tag `v1.0-rc`, bug bash chéo, `seed --verify` trên prod PASS |
 | **Nộp bài** | 19–20/11 | Video, slide, README, repo public; form trước 22:00 20/11; tag `v1.0` |
@@ -120,7 +120,7 @@ Mỗi người là **owner** của một mảng từ đầu đến cuối (code,
 **Rủi ro:**
 - *Contract trễ:* hết 10/11 chưa có test gate xanh → Đan Anh và Duy Quốc viết test Foundry đơn giản, Lộc tập trung logic. L4 có thể chạy trên Anvil fork trước.
 - *Thanh khoản/địa chỉ router Fuji (rủi ro #1):* kiểm chứng sớm trong L4, đừng tin trí nhớ.
-- *Production trễ:* A7 bắt đầu ngay khi A6 chạy bằng Fake. Đến 14/11 chưa có URL thì dừng A8 để làm A7.
+- *Production trễ:* A7 bắt đầu ngay khi A6 chạy bằng Fake. Đến 14/11 compose.prod chưa chạy thì dừng A8 để làm A7.
 - *Gas agent / quota Gemini / giám khảo dùng hết budget sandbox:* A9 chặn khi gas thấp, Q6 limiter + template, D10+D15 reset; nạp sẵn ≥ 5 AVAX test cho agent; kiểm sandbox mỗi sáng từ 18/11.
 
 ## 6. Task theo người
@@ -146,16 +146,16 @@ Mỗi người là **owner** của một mảng từ đầu đến cuối (code,
 
 | ID | Hạn | Làm gì | Xong khi |
 |---|---|---|---|
-| A1 | 06/11 | Làm local chạy thật (start.bat → docker → migrate → dev); thuê VPS + domain | 3 máy chạy được; `curl localhost:4000/state` ra JSON; có IP VPS |
+| A1 | 06/11 | Làm local chạy thật (start.bat → docker → migrate → dev). ~~Thuê VPS + domain~~ (bỏ: demo chạy local) | 3 máy chạy được; `curl localhost:4000/state` ra JSON |
 | A2 | 07/11 | Zod schema dùng chung: intent, sim, job, state, vault, auth, ServerEvent (có `vault`, thêm `vault.registered`), lỗi problem+json (RFC 9457), money, chain; thay placeholder | Server compile; round-trip bigint; event sai schema bị từ chối |
 | A3 | 09/11 | (1) Migration DB theo D1/D11; (2) `PolicyService` đọc policy + số đã chi từ contract; (3) `setGlobalPrefix('api/v1')` và chuyển controller hiện có sang route trong `api.md` §2; `GET /vaults`, `GET /vaults/{safe}`, `GET /vaults/{safe}/state`; lỗi trả problem+json | State luôn từ chain (P1); RPC lỗi → trả bản lưu cũ kèm cờ `stale` (dữ liệu có thể đã cũ) |
 | A4 | 09/11 | ViemTxSender thật: mutex dùng chung, nonce, gas thủ công, receipt, `sendRaw` | 2 lời gọi song song chạy tuần tự; tx revert vẫn có hash |
 | A5 | 11/11 | AnvilSimulator thật (reset, impersonate agent, đọc state trước/sau) | Hợp lệ → ok; vượt cap → ExceedsPerTxCap; sim < 1s |
 | A6 | 12/11 | AuditorService đủ pipeline theo vault (precheck → sim → invariants → verdict → broadcast ‖ explain) + `POST /vaults/{safe}/jobs` (202 + `Location`), `GET /vaults/{safe}/jobs`, `GET /jobs/{id}` kèm audit; calldata builder bỏ `recipient` (có test, D2) | 5 đường (approved, 3 loại reject, tx-revert) test xanh; explainer chậm không trễ broadcast |
-| A7 | 14/11 | Dockerfile, compose.prod, Caddy; dựng VPS (TLS, firewall, `.env.prod`, fund agent) | `https://<domain>` chạy landing + `/demo` + SSE; owner key không lên server |
+| A7 | 14/11 | Dockerfile, compose.prod chạy local (bỏ VPS/TLS/Caddy), `.env.prod`, fund agent | compose.prod lên 1 lệnh; landing + `/demo` + SSE chạy; owner key không lên server |
 | A8 | 15/11 | Indexer: ModuleDeployed → registry; event module → `chain.*`; cursor idempotent; phát `vault.registered`; `GET /proof` (địa chỉ, finality từ `chain.revoked.latencyMs`, test summary từ file CI của L5) | Vault từ wizard xuất hiện ≤ 5s; chạy lại cùng đoạn block không trùng |
 | A9 | 16/11 | SIWE (chỉ cho owner/admin, D12) + OwnerGuard on-chain + AdminGuard; vault demo công khai không cần đăng nhập nhưng throttle theo IP + cooldown toàn cục; CORS, helmet, chặn khi agent sắp hết gas; `PUT /vaults/{safe}` (P1, bỏ nếu indexer ≤ 5s ổn định) | Không phải owner → 403; Bull Board cần admin; khách bấm liên tiếp ở vault demo → 429 |
-| A10 | 18/11 | GitHub Actions deploy; `/api/health` + uptime + cảnh báo Telegram (P1); integration test với Anvil thật (P1) | Push main → tự deploy + smoke xanh |
+| A10 | 18/11 | GitHub Actions CI (test + smoke, bỏ auto-deploy); `/api/health` + uptime + cảnh báo Telegram (P1); integration test với Anvil thật (P1) | Push main → CI + smoke xanh |
 
 ### Duy Quốc: Agent Intelligence & Experience (88h)
 
