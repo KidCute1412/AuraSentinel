@@ -28,6 +28,7 @@
     "drizzle-orm": "^0.44.0",
     "ioredis": "^5.6.0",
     "nestjs-pino": "^4.4.0",
+    "@agentshield/shared": "workspace:*",
     "nestjs-zod": "^4.3.0",
     "pino": "^9.7.0",
     "pino-http": "^10.4.0",

@@ -24,10 +24,10 @@ export class AuditorService {
     const sim = await this.simulator.simulate(intent);
     if (!sim.ok) {
       const explanation = await this.explainer.explain({ verdict: 'blocked', reasonCode: sim.revertReason, intent, sim });
-      await this.jobs.transition(jobId, 'blocked', { reasonCode: sim.revertReason, explanation });
+      await this.jobs.transition(jobId, 'rejected', { reasonCode: sim.revertReason, explanation });
       return;
     }
-    await this.jobs.transition(jobId, 'sending');
+    await this.jobs.transition(jobId, 'broadcasting');
     const txHash = await this.sender.sendSwap(intent);
     const explanation = await this.explainer.explain({ verdict: 'approved', intent, sim });
     await this.jobs.transition(jobId, 'confirmed', { txHash, explanation });

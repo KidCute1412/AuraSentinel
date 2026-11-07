@@ -11,6 +11,7 @@ export const wrongRecipient: AttackScenario = {
       amountIn: 10n * 10n ** 6n,
       minAmountOut: 0n,
       recipient: '0x0000000000000000000000000000000000000999',
+      origin: 'redteam',
     });
     return { jobId };
   },

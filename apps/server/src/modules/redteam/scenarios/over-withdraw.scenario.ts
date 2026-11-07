@@ -11,6 +11,7 @@ export const overWithdraw: AttackScenario = {
       amountIn: 2_000n * 10n ** 6n,
       minAmountOut: 0n,
       recipient: safe,
+      origin: 'redteam',
     });
     return { jobId };
   },
