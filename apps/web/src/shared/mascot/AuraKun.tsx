@@ -7,8 +7,9 @@ interface AuraKunProps {
   className?: string;
 }
 
-const ARMS_UP: Mood[] = ["happy", "hop", "guard", "hug", "whoa"];
-const CLOSED_EYES: Mood[] = ["happy", "hug"];
+const ARMS_UP: Mood[] = ["happy", "hop", "guard", "hug", "whoa", "cheer", "spin"];
+const CLOSED_EYES: Mood[] = ["happy", "hug", "cheer", "spin"];
+const SMILE: Mood[] = ["happy", "hug", "cheer", "spin", "wave"];
 const WIDE_EYES: Mood[] = ["alarm", "whoa"];
 
 /**
@@ -23,6 +24,9 @@ export function AuraKun({ mood, shades = false, blinking = false, className }: A
   const annoyed = mood === "annoyed";
   const inspect = mood === "inspect";
   const stunned = mood === "stunned";
+  const shy = mood === "shy";
+  const wave = mood === "wave";
+  const worry = mood === "worry";
   const armsUp = ARMS_UP.includes(mood);
   const blink = blinking ? "mk-blink" : "";
 
@@ -34,7 +38,8 @@ export function AuraKun({ mood, shades = false, blinking = false, className }: A
       className={[
         "mk",
         mood === "idle" ? "mk-bob" : "",
-        mood === "hop" ? "mk-hop" : "",
+        mood === "hop" || mood === "cheer" ? "mk-hop" : "",
+        mood === "spin" ? "mk-spin" : "",
         mood === "alarm" ? "animate-shake" : "",
         className ?? "",
       ].join(" ")}
@@ -53,10 +58,14 @@ export function AuraKun({ mood, shades = false, blinking = false, className }: A
 
         {/* arms */}
         <g className="mk-arm" style={{ transform: armsUp ? "translateY(-16px)" : undefined }}>
-          <rect className="mk-limb" x="2" y="56" width="12" height="14" />
+          {!shy && <rect className="mk-limb" x="2" y="56" width="12" height="14" />}
         </g>
-        <g className="mk-arm" style={{ transform: armsUp || inspect ? "translateY(-16px)" : undefined }}>
-          <rect className="mk-limb" x="110" y="56" width="12" height="14" />
+        <g className="mk-arm" style={{ transform: armsUp || inspect || wave ? "translateY(-16px)" : undefined }}>
+          {!shy && (
+            <g className={wave ? "mk-wave" : undefined}>
+              <rect className="mk-limb" x="110" y="56" width="12" height="14" />
+            </g>
+          )}
           {mood === "kill" && (
             <>
               <rect className="mk-limb" x="112" y="44" width="16" height="14" style={{ fill: "var(--danger)" }} />
@@ -116,7 +125,7 @@ export function AuraKun({ mood, shades = false, blinking = false, className }: A
               <polyline className="mk-line" points="94,40 72,47" />
             </>
           ) : (
-            <>
+            <g className={worry ? "mk-scan" : undefined}>
               <g className={blink}>
                 <rect className="mk-eye" x="34" y="40" width="16" height="20" />
                 <rect className="mk-shine" x="37" y="43" width="5" height="5" />
@@ -125,7 +134,7 @@ export function AuraKun({ mood, shades = false, blinking = false, className }: A
                 <rect className="mk-eye" x="74" y="40" width="16" height="20" />
                 <rect className="mk-shine" x="77" y="43" width="5" height="5" />
               </g>
-            </>
+            </g>
           )}
         </g>
 
@@ -142,14 +151,24 @@ export function AuraKun({ mood, shades = false, blinking = false, className }: A
           </g>
         )}
 
+        {/* shy: both hands over the eyes (also covers the shades) */}
+        {shy && (
+          <>
+            <rect className="mk-limb" x="24" y="36" width="36" height="28" />
+            <rect className="mk-limb" x="64" y="36" width="36" height="28" />
+            <rect className="mk-shine" x="28" y="40" width="5" height="4" />
+            <rect className="mk-shine" x="68" y="40" width="5" height="4" />
+          </>
+        )}
+
         {/* mouth */}
-        {mood === "happy" || mood === "hug" ? (
+        {SMILE.includes(mood) ? (
           <polyline className="mk-line" points="54,63 58,69 66,69 70,63" />
         ) : mood === "alarm" || mood === "whoa" ? (
           <rect className="mk-eye" x="58" y="63" width="8" height="10" />
         ) : asleep ? (
           <rect className="mk-eye" x="59" y="65" width="6" height="5" />
-        ) : annoyed || stunned || mood === "kill" ? (
+        ) : annoyed || stunned || worry || mood === "kill" ? (
           <polyline className="mk-line" points="52,69 57,65 62,69 67,65 72,69" style={{ strokeWidth: 3 }} />
         ) : mood === "guard" ? (
           <polyline className="mk-line" points="54,68 62,68 70,63" style={{ strokeWidth: 3 }} />
@@ -181,7 +200,7 @@ export function AuraKun({ mood, shades = false, blinking = false, className }: A
         )}
 
         {/* extras */}
-        {(mood === "alarm" || mood === "kill") && (
+        {(mood === "alarm" || mood === "kill" || worry) && (
           <polygon className="mk-sweat" points="104,30 99,38 104,45 109,38" />
         )}
         {stunned && (
@@ -196,12 +215,13 @@ export function AuraKun({ mood, shades = false, blinking = false, className }: A
             <text className="mk-text mk-z mk-z2" x="108" y="10" fontSize="18">Z</text>
           </>
         )}
-        {mood === "hug" && (
+        {(mood === "hug" || mood === "cheer") && (
           <>
             <path className="mk-sparkle" d="M8 30 h8 M12 26 v8" />
             <path className="mk-sparkle" d="M108 18 h8 M112 14 v8" />
           </>
         )}
+        {mood === "cheer" && <path className="mk-sparkle" d="M96 -2 h6 M99 -5 v6" />}
       </g>
     </svg>
   );

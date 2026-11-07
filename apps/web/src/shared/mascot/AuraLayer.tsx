@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type CSSProperties } from "react";
 import { useLocation } from "react-router-dom";
 import { Chamfer } from "@/shared/ui/Chamfer";
 import { AuraKun } from "./AuraKun";
+import { eyesLocked, lookAt } from "./eyes";
 import { LINES, pick } from "./lines";
 import { findGroundBelow, stepFall, type Body, type Ground } from "./physics";
 import { react, touch, useMascot } from "./mascotStore";
@@ -75,6 +76,7 @@ export function AuraLayer() {
   const drag = useRef<DragState | null>(null);
   const swallowClick = useRef(false);
   const holdTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const helloTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const pokes = useRef<number[]>([]);
   const fallFromY = useRef(0);
 
@@ -229,6 +231,8 @@ export function AuraLayer() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pathname, hidden]);
 
+  useEffect(() => () => clearTimeout(helloTimer.current), []);
+
   // Random blink every 3-6s.
   useEffect(() => {
     if (hidden) return;
@@ -252,15 +256,7 @@ export function AuraLayer() {
   useEffect(() => {
     if (hidden || reduced()) return;
     const onMove = (e: PointerEvent) => {
-      const svg = boxRef.current?.querySelector("svg");
-      if (!svg) return;
-      const r = svg.getBoundingClientRect();
-      const dx = e.clientX - (r.left + r.width / 2);
-      const dy = e.clientY - (r.top + r.height / 2);
-      const d = Math.hypot(dx, dy) || 1;
-      const k = Math.min(1, d / 220);
-      svg.style.setProperty("--lx", `${((dx / d) * k * 4).toFixed(1)}px`);
-      svg.style.setProperty("--ly", `${((dy / d) * k * 3).toFixed(1)}px`);
+      if (!eyesLocked()) lookAt(e.clientX, e.clientY);
     };
     window.addEventListener("pointermove", onMove, { passive: true });
     return () => window.removeEventListener("pointermove", onMove);
@@ -268,8 +264,25 @@ export function AuraLayer() {
 
   const cancelHold = () => clearTimeout(holdTimer.current);
 
+  // Rest the pointer on Aura-kun for a moment and it waves back.
+  const onPointerEnter = (e: React.PointerEvent<HTMLButtonElement>) => {
+    if (e.pointerType !== "mouse") return;
+    clearTimeout(helloTimer.current);
+    helloTimer.current = setTimeout(() => {
+      if (mode.current === "rest" && useMascot.getState().mood === "idle") {
+        react("wave", { text: LINES.hello, hold: 1400, passive: true });
+      }
+    }, 1500);
+  };
+  const onPointerLeave = () => {
+    clearTimeout(helloTimer.current);
+    if (useMascot.getState().mood === "wave") react("idle", { hold: 0 });
+  };
+  const onDoubleClick = () => react("spin", { text: LINES.spin, hold: 700 });
+
   const onPointerDown = (e: React.PointerEvent<HTMLButtonElement>) => {
     touch();
+    clearTimeout(helloTimer.current);
     e.currentTarget.setPointerCapture(e.pointerId);
     const f = feet();
     drag.current = {
@@ -358,6 +371,7 @@ export function AuraLayer() {
   return (
     <div
       ref={boxRef}
+      data-aura-self
       className={`pointer-events-none fixed left-0 top-0 ${dragging ? "z-[45]" : "z-[35]"}`}
       style={{ width: SIZE, height: SIZE, transform: "translate3d(-999px,-999px,0)", willChange: "transform" }}
     >
@@ -372,6 +386,9 @@ export function AuraLayer() {
           onPointerUp={endPointer}
           onPointerCancel={endPointer}
           onClick={onClick}
+          onDoubleClick={onDoubleClick}
+          onPointerEnter={onPointerEnter}
+          onPointerLeave={onPointerLeave}
           onContextMenu={(e) => e.preventDefault()}
         >
           <AuraKun mood={mood} shades={shades} blinking={blinking} className="size-full" />

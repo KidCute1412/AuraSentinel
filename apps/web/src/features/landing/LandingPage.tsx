@@ -1,3 +1,4 @@
+import { Reveal } from "@/shared/ui/Reveal";
 import { AttackCards } from "./AttackCards";
 import { Footer } from "./Footer";
 import { Header } from "./Header";
@@ -13,10 +14,18 @@ export function LandingPage() {
       <Header />
       <Hero />
       <StatusStrip />
-      <TwoShields />
-      <AttackCards />
-      <KillSwitch />
-      <Stats />
+      <Reveal>
+        <TwoShields />
+      </Reveal>
+      <Reveal>
+        <AttackCards />
+      </Reveal>
+      <Reveal>
+        <KillSwitch />
+      </Reveal>
+      <Reveal>
+        <Stats />
+      </Reveal>
       <Footer />
     </div>
   );

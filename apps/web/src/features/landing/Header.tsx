@@ -16,7 +16,7 @@ export function Header() {
     }
   };
   return (
-    <div className="sticky top-0 z-40 border-b border-line bg-bg">
+    <div className="sticky top-0 z-40 border-b border-line bg-bg animate-hero-drop">
       <nav className="mx-auto flex h-14 max-w-6xl items-center justify-between px-4 sm:px-6">
         <Link to="/" onClick={onLogo} aria-label="AgentShield home" className="font-mono text-sm font-bold uppercase tracking-widest">
           <span className="text-accent-text">[</span> AgentShield <span className="text-accent-text">]</span>

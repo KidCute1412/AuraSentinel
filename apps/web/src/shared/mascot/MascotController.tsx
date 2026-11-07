@@ -2,6 +2,7 @@ import { useEffect, useRef } from "react";
 import { useLocation } from "react-router-dom";
 import { resolveTheme, readMode } from "@/shared/theme/theme";
 import { maybeDarkIntro } from "./darkIntro";
+import { installGlobalReactions } from "./globalReactions";
 import { LINES } from "./lines";
 import { idleForMs, react, touch, useMascot } from "./mascotStore";
 
@@ -28,25 +29,40 @@ export function MascotController() {
       }
     }, 1000);
 
-    const kill = document.getElementById("kill-switch");
-    let io: IntersectionObserver | undefined;
-    if (kill) {
-      io = new IntersectionObserver(
-        ([e]) => {
-          const mood = useMascot.getState().mood;
-          if (e.isIntersecting) react("kill", { text: LINES.kill, hold: 0 });
-          else if (mood === "kill") react("idle", { hold: 0 });
-        },
-        { threshold: 0.5 },
-      );
-      io.observe(kill);
-    }
+    const stopGlobal = installGlobalReactions();
 
     return () => {
       events.forEach((e) => window.removeEventListener(e, onInput));
       clearInterval(sleepCheck);
-      io?.disconnect();
+      stopGlobal();
     };
   }, []);
+
+  // The Kill-Switch section only exists on some pages, so look for it again after every route change.
+  useEffect(() => {
+    let io: IntersectionObserver | undefined;
+    let b = 0;
+    const a = requestAnimationFrame(() => {
+      b = requestAnimationFrame(() => {
+        const kill = document.getElementById("kill-switch");
+        if (!kill) return;
+        io = new IntersectionObserver(
+          ([e]) => {
+            const mood = useMascot.getState().mood;
+            if (e.isIntersecting) react("kill", { text: LINES.kill, hold: 0 });
+            else if (mood === "kill") react("idle", { hold: 0 });
+          },
+          { threshold: 0.5 },
+        );
+        io.observe(kill);
+      });
+    });
+    return () => {
+      cancelAnimationFrame(a);
+      cancelAnimationFrame(b);
+      io?.disconnect();
+      if (useMascot.getState().mood === "kill") react("idle", { hold: 0 });
+    };
+  }, [pathname]);
   return null;
 }

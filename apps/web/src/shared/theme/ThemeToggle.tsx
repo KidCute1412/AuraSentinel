@@ -1,6 +1,6 @@
 import { Monitor, Moon, Sun } from "lucide-react";
-import { useEffect, useState } from "react";
-import { LINES } from "@/shared/mascot/lines";
+import { useEffect, useRef, useState } from "react";
+import { LINES, isNightHour } from "@/shared/mascot/lines";
 import { react } from "@/shared/mascot/mascotStore";
 import { maybeDarkIntro } from "@/shared/mascot/darkIntro";
 import { applyMode, readMode, resolveTheme, type ThemeMode } from "./theme";
@@ -12,6 +12,9 @@ const ICON = { auto: Monitor, light: Sun, dark: Moon } as const;
 /** Cycles AUTO → LIGHT → DARK. AUTO follows the OS and reacts to OS changes live. */
 export function ThemeToggle() {
   const [mode, setMode] = useState<ThemeMode>(readMode);
+  // The View Transition callback that commits `mode` runs a frame later, so a fast second
+  // click would read the stale `mode` and repeat the same step. Track the target here instead.
+  const target = useRef<ThemeMode>(mode);
 
   useEffect(() => {
     if (mode !== "auto") return;
@@ -26,12 +29,14 @@ export function ThemeToggle() {
     <button
       type="button"
       onClick={(e) => {
-        const next = NEXT[mode];
+        const next = NEXT[target.current];
+        target.current = next;
         revealFrom(e.currentTarget, () => {
           applyMode(next);
           setMode(next);
         });
-        react("whoa", { text: LINES.theme, hold: 900 });
+        const night = resolveTheme(next) === "dark" && isNightHour(new Date().getHours());
+        react("whoa", { text: night ? LINES.night : LINES.theme, hold: 900 });
         maybeDarkIntro(resolveTheme(next));
       }}
       aria-label={`Theme: ${mode}. Click to change.`}
