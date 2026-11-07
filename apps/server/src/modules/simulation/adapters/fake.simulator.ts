@@ -8,9 +8,10 @@ export class FakeSimulator implements SimulatorPort {
   async simulate(intent: SwapIntent): Promise<SimResult> {
     return {
       ok: true,
-      amountOut: intent.minAmountOut,
-      balancesBefore: {},
-      balancesAfter: {},
+      deltaSafeTokenOut: intent.minAmountOut.toString(),
+      deltaSafeTokenIn: (-intent.amountIn).toString(),
+      attackerBalance: '0',
+      allowanceAfter: '0',
     };
   }
 }

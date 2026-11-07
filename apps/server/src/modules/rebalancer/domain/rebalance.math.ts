@@ -41,5 +41,6 @@ export function computeRebalance(i: RebalanceInput): SwapIntent | null {
     amountIn,
     minAmountOut: (expectedOut * (BPS - i.slippageBps)) / BPS,
     recipient: i.recipient,
+    origin: 'rebalancer',
   };
 }

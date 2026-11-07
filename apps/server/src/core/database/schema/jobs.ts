@@ -4,9 +4,10 @@ export const jobStatus = pgEnum('job_status', [
   'queued',
   'prechecking',
   'simulating',
-  'sending',
+  'broadcasting',
   'confirmed',
-  'blocked',
+  'rejected',
+  'reverted',
   'failed',
 ]);
 

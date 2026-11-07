@@ -10,6 +10,11 @@ export class TemplateExplainer implements ExplainerPort {
       input.verdict === 'approved'
         ? 'Giao dịch hợp lệ và đã được thực hiện theo chính sách.'
         : `Giao dịch bị chặn${input.reasonCode ? ` (${input.reasonCode})` : ''} vì vi phạm chính sách.`;
-    return { messageVi, source: 'template' };
+    return {
+      verdict: input.verdict === 'approved' ? 'safe' : 'blocked',
+      budgetUsedPct: input.budgetUsedPct ?? 0,
+      messageVi,
+      source: 'template',
+    };
   }
 }

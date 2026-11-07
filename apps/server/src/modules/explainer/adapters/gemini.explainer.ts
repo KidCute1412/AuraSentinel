@@ -6,7 +6,7 @@ import type { Env } from '../../../core/config/env.schema';
 import type { Explanation } from '../../../core/types';
 import type { ExplainerPort, ExplainInput } from '../explainer.port';
 
-const outputSchema = z.object({ messageVi: z.string().min(1).max(500) });
+const outputSchema = z.object({ messageVi: z.string().min(1).max(280) });
 
 /** TODO(AIE): numeric-consistency guard + <untrusted_input> prompt (skill llm-explainer-guard). */
 @Injectable()
@@ -29,6 +29,11 @@ export class GeminiExplainer implements ExplainerPort {
       },
     });
     const parsed = outputSchema.parse(JSON.parse(res.text ?? '{}'));
-    return { messageVi: parsed.messageVi, source: 'llm' };
+    return {
+      verdict: input.verdict === 'approved' ? 'safe' : 'blocked', // deterministic, never from the LLM
+      budgetUsedPct: input.budgetUsedPct ?? 0,
+      messageVi: parsed.messageVi,
+      source: 'llm',
+    };
   }
 }
