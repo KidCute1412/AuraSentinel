@@ -1,10 +1,11 @@
-import { useEffect, useReducer } from "react";
+import { useEffect, useReducer, useRef } from "react";
 import { Link } from "react-router-dom";
 import { ArrowRight, Globe, KeyRound, ShieldCheck } from "lucide-react";
 import { Header } from "@/features/landing/Header";
 import { Footer } from "@/features/landing/Footer";
 import { cn } from "@/shared/lib/cn";
 import { Chamfer } from "@/shared/ui/Chamfer";
+import { announce, watchPending } from "@/shared/mascot/auraEvents";
 import { react } from "@/shared/mascot/mascotStore";
 import { LINES } from "@/shared/mascot/lines";
 import { GateDoor } from "./GateDoor";
@@ -44,16 +45,38 @@ export function AccessGate() {
     if (phase.kind === "connecting") {
       react("guard", { text: LINES.gate.connect, hold: 1800, passive: true });
       const t = setTimeout(() => dispatch({ type: "connected" }), 900);
+      const stop = watchPending();
+      return () => {
+        clearTimeout(t);
+        stop();
+      };
+    }
+    if (phase.kind === "connected") {
+      announce("wallet:linked");
+      const t = setTimeout(() => react("guard", { text: LINES.gate.sign, hold: 2000, passive: true }), 1400);
       return () => clearTimeout(t);
     }
-    if (phase.kind === "connected") react("guard", { text: LINES.gate.sign, hold: 2000, passive: true });
     if (phase.kind === "verifying") {
-      react("guard", { text: LINES.gate.verify, hold: 1400, passive: true });
+      announce("wallet:signed");
+      const hint = setTimeout(() => react("guard", { text: LINES.gate.verify, hold: 1400, passive: true }), 1050);
       const t = setTimeout(() => dispatch({ type: "verified" }), 1500);
-      return () => clearTimeout(t);
+      const stop = watchPending();
+      return () => {
+        clearTimeout(hint);
+        clearTimeout(t);
+        stop();
+      };
     }
     if (phase.kind === "done") react("happy", { text: LINES.gate.ok, hold: 2500, passive: true });
     if (phase.kind === "denied") react("annoyed", { text: LINES.gate.refused, hold: 2500 });
+  }, [phase.kind]);
+
+  // Going back to idle from a linked wallet means it was disconnected.
+  const prevKind = useRef(phase.kind);
+  useEffect(() => {
+    const was = prevKind.current;
+    prevKind.current = phase.kind;
+    if (phase.kind === "idle" && (was === "connected" || was === "done")) announce("wallet:disconnected");
   }, [phase.kind]);
 
   return (

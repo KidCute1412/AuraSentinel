@@ -16,6 +16,9 @@ const IDLE_SPEED = 14; // deg/s, the wheel never fully stops
 const MAX_SPEED = 1400;
 const CX = 160;
 const CY = 162;
+/** viewBox starts at the frame's top edge so the svg box (the mascot's landing ground) has no empty headroom. */
+const VIEW_TOP = 30;
+const VIEW_H = 296;
 const BOLTS = [78, 154, 230];
 const SPARKS = Array.from({ length: 12 }, (_, i) => {
   const a = (i / 12) * Math.PI * 2;
@@ -92,7 +95,7 @@ export function GateDoor({ stage, denied, busy, onOverspin, className }: GateDoo
     const r = svg.current?.getBoundingClientRect();
     if (!r) return 0;
     const cx = r.left + (CX / 320) * r.width;
-    const cy = r.top + (CY / 326) * r.height;
+    const cy = r.top + ((CY - VIEW_TOP) / VIEW_H) * r.height;
     return (Math.atan2(e.clientY - cy, e.clientX - cx) * 180) / Math.PI;
   };
   const onDown = (e: PointerEvent<SVGGElement>) => {
@@ -133,7 +136,7 @@ export function GateDoor({ stage, denied, busy, onOverspin, className }: GateDoo
   return (
     <svg
       ref={svg}
-      viewBox="0 0 320 326"
+      viewBox={`0 ${VIEW_TOP} 320 ${VIEW_H}`}
       role="img"
       aria-label={open ? "Vault door open" : `Vault door, ${stage} of 3 steps done`}
       onAnimationEnd={() => setShaking(false)}

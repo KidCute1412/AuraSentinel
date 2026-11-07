@@ -3,7 +3,6 @@ import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import { AuraLayer } from "@/shared/mascot/AuraLayer";
 import { MascotController } from "@/shared/mascot/MascotController";
 import { ClickPulse } from "@/shared/fx/ClickPulse";
-import { BootSequence } from "@/shared/fx/BootSequence";
 import { EmergencyDrill } from "@/shared/fx/EmergencyDrill";
 import { GridSpotlight } from "@/shared/fx/GridSpotlight";
 import { PageEnter, RouteTransition } from "@/shared/fx/RouteTransition";
@@ -36,7 +35,6 @@ export function App() {
         <RouteTransition />
         <GridSpotlight />
         <EmergencyDrill />
-        <BootSequence />
         <ClickPulse />
       </BrowserRouter>
     </QueryClientProvider>

@@ -13,7 +13,12 @@ export type Mood =
   | "guard"
   | "kill"
   | "stunned"
-  | "inspect";
+  | "inspect"
+  | "shy"
+  | "wave"
+  | "spin"
+  | "cheer"
+  | "worry";
 
 interface Line {
   id: number;
@@ -47,8 +52,8 @@ export const useMascot = create<MascotState>(() => ({
 const set = useMascot.setState;
 const get = useMascot.getState;
 
-/** Moods the page feed must not interrupt (user is interacting, or the user is asleep/near Kill). */
-const STICKY: Mood[] = ["sleep", "hug", "annoyed", "guard", "kill", "whoa", "stunned"];
+/** Moods the page feed must not interrupt (user is interacting, asleep, near Kill, or typing a secret). */
+const STICKY: Mood[] = ["sleep", "hug", "annoyed", "guard", "kill", "whoa", "stunned", "shy"];
 const SAY_GAP_MS = 2500;
 const LINE_MS = 2800;
 

@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { LINES, pick } from "@/shared/mascot/lines";
+import { registerBlockedAttack } from "@/shared/mascot/auraEvents";
 import { react } from "@/shared/mascot/mascotStore";
 import { Chamfer } from "@/shared/ui/Chamfer";
 import { Stamp } from "@/shared/ui/Stamp";
@@ -55,6 +56,7 @@ export function LiveFeed() {
     setShake((s) => s + 1);
     fireAttack();
     react("guard", { text: LINES.rob, hold: 1500 });
+    registerBlockedAttack();
   };
 
   return (
@@ -69,6 +71,7 @@ export function LiveFeed() {
             {rows.map((r) => (
               <li
                 key={r.id}
+                data-aura={r.verdict === "BLOCKED" ? "blocked" : undefined}
                 className={`animate-feed-in flex items-center gap-3 px-3 py-3 sm:px-4 ${r.verdict === "BLOCKED" ? "bg-tint-pink" : ""}`}
               >
                 <span className="w-24 shrink-0">

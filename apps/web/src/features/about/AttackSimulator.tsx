@@ -5,6 +5,7 @@ import { Stamp } from "@/shared/ui/Stamp";
 import { cn } from "@/shared/lib/cn";
 import { useReducedMotion } from "@/shared/lib/useReducedMotion";
 import { LINES, pick } from "@/shared/mascot/lines";
+import { registerBlockedAttack } from "@/shared/mascot/auraEvents";
 import { react } from "@/shared/mascot/mascotStore";
 import { primaryCta } from "@/features/landing/cta";
 import { NODES, route, SCENARIOS, scenarioById, type NodeId, type ScenarioId } from "./attackScenarios";
@@ -42,7 +43,10 @@ export function AttackSimulator() {
 
   const finish = () => {
     setRun({ step: result.path.length - 1, done: true });
-    if (result.verdict === "blocked") react("alarm", { text: pick(LINES.blocked), hold: 1100 });
+    if (result.verdict === "blocked") {
+      react("alarm", { text: pick(LINES.blocked), hold: 1100 });
+      registerBlockedAttack();
+    }
     else react("happy", { text: pick(LINES.approve), hold: 1100 });
   };
 
