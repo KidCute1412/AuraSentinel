@@ -1,5 +1,7 @@
+import type { ReactNode } from "react";
 import { ArrowUpRight, Construction } from "lucide-react";
 import type { Address } from "viem";
+import { ActivityPanel } from "@/features/activity/ActivityPanel";
 import { Chamfer } from "@/shared/ui/Chamfer";
 import { Stamp } from "@/shared/ui/Stamp";
 import { FUJI } from "@/shared/web3/config";
@@ -14,6 +16,8 @@ interface Slot {
    * the real panel that replaces this slot, or the tour falls back to a centered card.
    */
   tour?: string;
+  /** Real panel that replaced this placeholder; rendered instead of the dashed slot. */
+  panel?: (props: { mode: "demo" | "owner"; safe: Address | null }) => ReactNode;
 }
 
 interface Column {
@@ -43,8 +47,13 @@ const COLUMNS: Column[] = [
     slots: [
       { name: "Số dư trước / sau", task: "L8", note: "Số dư Safe trước và sau giao dịch gần nhất.", tour: "balances" },
       { name: "Hạn mức ngày đã dùng", task: "L8", note: "Đã tiêu / hạn mức ngày, lấy từ chain.", tour: "balances" },
-      { name: "Dòng thời gian job", task: "Q9", note: "Shield 1 → Shield 2, thẻ giải thích, link Snowtrace.", tour: "activity" },
-      { name: "Lịch sử job", task: "Q9", note: "Danh sách lệnh đã duyệt và bị chặn.", tour: "activity" },
+      {
+        name: "Dòng thời gian job",
+        task: "Q9",
+        note: "Shield 1 → Shield 2, thẻ giải thích, link Snowtrace.",
+        tour: "activity",
+        panel: ({ safe }) => <ActivityPanel safe={safe} />,
+      },
     ],
   },
   {
@@ -118,15 +127,21 @@ export function VaultDashboardPlaceholder({ mode, safe }: VaultDashboardPlacehol
               {col.index} · {col.title}
             </span>
             <ul className="mt-4 space-y-3">
-              {col.slots.map((slot) => (
-                <li key={slot.name} data-tour={slot.tour} className="border border-dashed border-line-strong p-3">
-                  <div className="flex flex-wrap items-baseline justify-between gap-2">
-                    <span className="font-bold">{slot.name}</span>
-                    <span className="font-mono text-[11px] uppercase tracking-widest text-muted">Chưa nối · {slot.task}</span>
-                  </div>
-                  <p className="mt-1 text-sm text-soft">{slot.note}</p>
-                </li>
-              ))}
+              {col.slots.map((slot) =>
+                slot.panel ? (
+                  <li key={slot.name} data-tour={slot.tour}>
+                    {slot.panel({ mode, safe })}
+                  </li>
+                ) : (
+                  <li key={slot.name} data-tour={slot.tour} className="border border-dashed border-line-strong p-3">
+                    <div className="flex flex-wrap items-baseline justify-between gap-2">
+                      <span className="font-bold">{slot.name}</span>
+                      <span className="font-mono text-[11px] uppercase tracking-widest text-muted">Chưa nối · {slot.task}</span>
+                    </div>
+                    <p className="mt-1 text-sm text-soft">{slot.note}</p>
+                  </li>
+                ),
+              )}
             </ul>
           </div>
         ))}
