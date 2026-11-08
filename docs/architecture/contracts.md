@@ -98,6 +98,8 @@ Map đầy đủ nằm ở `packages/shared/src/errors.ts` (AIE sở hữu câu 
 
 Revert ngoài module (không phải custom error của ta): Safe `GS104` = "caller không phải module đã enable" (attack #3).
 
+Quy ước tên reason code (`REASONS` trong `errors.ts`): **PascalCase** = custom error của module (precheck và sim mirror gate thì trả đúng tên này) · **`GS###`** = lỗi Safe · **SCREAMING_SNAKE** = chỉ có off-chain (`RECIPIENT_NOT_SAFE`, `INVARIANT_*`, `UNKNOWN_REVERT`). Câu tiếng Việt lấy qua `formatReasonVi(code, params)`; thiếu số thì tự dùng câu không số, mã lạ thì về `UNKNOWN_REVERT`. Khi `packages/contracts/abi/` có ABI, test `reasons.spec.ts` fail nếu một error trong ABI chưa có mục.
+
 ## 7. Test (Foundry)
 
 | Loại | Nội dung |
