@@ -11,6 +11,8 @@ import { LandingPage } from "@/features/landing/LandingPage";
 import { AboutPage } from "@/features/about/AboutPage";
 import { ProofPage } from "@/features/proof/ProofPage";
 import { NotFoundPage } from "@/features/not-found/NotFoundPage";
+import { VaultRoutes } from "@/features/vault/routes";
+import { DevSessionBar } from "@/shared/session/DevSessionBar";
 
 const queryClient = new QueryClient({
   defaultOptions: { queries: { retry: false, refetchOnWindowFocus: false } },
@@ -27,6 +29,8 @@ export function App() {
             <Route path="/signup" element={<Navigate to="/signin" replace />} />
             <Route path="/about" element={<AboutPage />} />
             <Route path="/proof" element={<ProofPage />} />
+            <Route path="/vaults/*" element={<VaultRoutes />} />
+            <Route path="/vault" element={<Navigate to="/vaults" replace />} />
             <Route path="*" element={<NotFoundPage />} />
           </Routes>
         </PageEnter>
@@ -36,6 +40,7 @@ export function App() {
         <GridSpotlight />
         <EmergencyDrill />
         <ClickPulse />
+        {import.meta.env.DEV && <DevSessionBar />}
       </BrowserRouter>
     </QueryClientProvider>
   );

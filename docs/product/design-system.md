@@ -68,7 +68,7 @@ Không dùng màu ngoài bảng này. Không gradient pastel; gradient duy nhấ
 | Badge (khối) | vuông đặc mono 11px uppercase: xanh (`LIVE`), đỏ (`BLOCKED`), vàng (`NEXT UP`), kem (số thứ tự `01`) |
 | Count pill | **ngoại lệ duy nhất được bo tròn**: nền `highlight`, chữ đen, mono nhỏ |
 | Tag / chip | pill viền 1px, mono 11px, nền trong suốt |
-| Input / Select | `surface`, viền `line-strong`, radius 0, focus: ring 2px `highlight`; lỗi: viền `danger` + text lỗi tiếng Việt |
+| Input / Select | `surface`, viền `line-strong`, radius 0, focus: ring 2px `highlight`; lỗi: viền `danger` + text lỗi tiếng Anh |
 | Table / list | hàng ngăn bằng đường kẻ `line`, cột nhãn mono muted bên trái; mục đã qua gạch ngang |
 | Notice | nền `highlight`, viền đen, chữ `#141414` |
 | Progress / BudgetBar | thanh 5–10 ô vuông hoặc thanh phẳng viền 1px; đầy = `ok` → `warn` ≥ 80% → `danger` ≥ 100%; nhãn `spent / cap` mono |
@@ -119,7 +119,7 @@ Một màn duy nhất cho đăng nhập và đăng ký (`/signup` chuyển về 
 ## 5. Trạng thái & a11y
 - Hover = dịch bóng/đổi nền, không đổi layout. Focus-visible: ring 2px `highlight` offset 2px, không bỏ outline. Disabled: opacity 0.4 + `cursor-not-allowed`. Loading: skeleton vuông, không spinner tròn.
 - Tương phản chữ ≥ 4.5:1 (đã đạt với token). Cỡ chữ demo ≥ 16px, nút ≥ 40px cao. Không dùng màu làm tín hiệu duy nhất (kèm nhãn mono hoặc icon).
-- Toàn bộ chuỗi hiển thị cho người dùng bằng tiếng Việt (xem `shared/lib/error-messages.ts`).
+- Toàn bộ chuỗi hiển thị cho người dùng trên web bằng **tiếng Anh** (kể cả aria, thông báo, lỗi); số định dạng en-US (`1,500.5`, `13.3%`). Docs vẫn viết tiếng Việt, các chuỗi tiếng Việt trong docs chỉ mô tả ý, chuỗi thật trong code là tiếng Anh.
 
 ## 6. Cấm
 - Bo góc > 0 (trừ count pill/tag). Không `rounded-md/lg/xl/full` ngoài pill.

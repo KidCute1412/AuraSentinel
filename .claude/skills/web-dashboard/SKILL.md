@@ -19,7 +19,7 @@ Read [agentshield-invariants](../agentshield-invariants/SKILL.md) rules 1, 2, 5.
 - **Features are isolated:** `features/{policy,kill-switch,vault,activity,red-team}` must not import each other; share via `shared/`. Components render; logic lives in hooks.
 - **Money:** use shared bigint helpers (`formatUnits`), never `Number()`/float. Daily bar = `spentToday / dailyCap` from chain-sourced `/state`.
 - **Forms:** react-hook-form + the policy Zod schema from shared.
-- **UI/UX (10% of score):** green card "An toàn, tiêu 13,3% hạn mức ngày" vs red card with reason; badge `llm|template` on explanations; Snowtrace link for reverted txs; Framer Motion flash (<= 200ms, per design-system motion rules) on block/success; Vietnamese error text from `shared/lib/error-messages.ts`. Layout must stay legible on a projector (large type, high contrast).
+- **UI/UX (10% of score):** green card "Safe: used 13.3% of the daily limit" vs red card with reason; badge `llm|template` on explanations; Snowtrace link for reverted txs; Framer Motion flash (<= 200ms, per design-system motion rules) on block/success; Vietnamese error text from `shared/lib/error-messages.ts`. Layout must stay legible on a projector (large type, high contrast).
 - **Chain config:** `avalancheFuji`, wagmi `fallback` transports, addresses/ABIs from `@agentshield/shared`. Wallets: Core + MetaMask (RainbowKit).
 - **No SSR assumptions:** pure client SPA; no `"use client"`, no Next.js APIs.
 

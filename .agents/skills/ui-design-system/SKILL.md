@@ -31,7 +31,7 @@ Full spec: `docs/product/design-system.md`. Tokens live in `apps/web/src/styles/
 - **Motion:** <= 200ms, flash/slide/shadow-shift only, honor `prefers-reduced-motion` (already global). No bounce, no spinners (use square skeletons).
 - **Focus:** keep `:focus-visible` yellow ring; never remove outlines.
 - **Projector legibility:** demo text >= 16px, buttons >= 40px tall, contrast >= 4.5:1, never color as the only signal.
-- **Copy:** user-facing strings in Vietnamese.
+- **Copy:** all user-facing strings are English, including aria labels, notices, errors and empty states (no mixed languages on one screen). Numbers use en-US formatting (`1,500.5`, `13.3%`, `<0.01`) via `shared/lib/format`. Voice: calm security-report style (`STATUS: PROTECTED`), short sentences, no emoji. Code comments and docs-in-code stay English too.
 - **Icons:** lucide only, no emoji. No Team1/Avalanche logos or images.
 
 ## Checklist before finishing a UI change

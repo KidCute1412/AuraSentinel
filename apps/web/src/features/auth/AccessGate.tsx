@@ -1,8 +1,8 @@
 import { useEffect, useReducer, useRef } from "react";
-import { Link } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import { ArrowRight, Globe, KeyRound, ShieldCheck } from "lucide-react";
-import { Header } from "@/features/landing/Header";
-import { Footer } from "@/features/landing/Footer";
+import { Header } from "@/shared/shell/Header";
+import { Footer } from "@/shared/shell/Footer";
 import { cn } from "@/shared/lib/cn";
 import { Chamfer } from "@/shared/ui/Chamfer";
 import { announce, watchPending } from "@/shared/mascot/auraEvents";
@@ -10,7 +10,8 @@ import { react } from "@/shared/mascot/mascotStore";
 import { LINES } from "@/shared/mascot/lines";
 import { GateDoor } from "./GateDoor";
 import { WalletPanel } from "./WalletPanel";
-import { initialPhase, reduce, stageOf, type Phase } from "./gateFlow";
+import { useSession } from "@/shared/session/sessionStore";
+import { initialPhase, mockAddressFor, reduce, safeReturnPath, stageOf, type Phase } from "./gateFlow";
 
 const LEAD: Record<Phase["kind"], string> = {
   idle: "Your wallet is your account. No password to lose.",
@@ -39,6 +40,9 @@ const TRUST = [
 /** One screen for sign in and sign up: the wallet decides which one it is. */
 export function AccessGate() {
   const [phase, dispatch] = useReducer(reduce, initialPhase);
+  const returnTo = safeReturnPath((useLocation().state as { from?: unknown } | null)?.from);
+  const connect = useSession((s) => s.connect);
+  const disconnect = useSession((s) => s.disconnect);
 
   // UI-only simulation of the wallet round-trips. Replace with wagmi + SIWE later.
   useEffect(() => {
@@ -67,7 +71,11 @@ export function AccessGate() {
         stop();
       };
     }
-    if (phase.kind === "done") react("happy", { text: LINES.gate.ok, hold: 2500, passive: true });
+    if (phase.kind === "done") {
+      // TODO(wagmi): the real wallet address replaces the mock; the rest of the app already reads it from the session.
+      connect(mockAddressFor(phase.wallet) as `0x${string}`);
+      react("happy", { text: LINES.gate.ok, hold: 2500, passive: true });
+    }
     if (phase.kind === "denied") react("annoyed", { text: LINES.gate.refused, hold: 2500 });
   }, [phase.kind]);
 
@@ -76,7 +84,10 @@ export function AccessGate() {
   useEffect(() => {
     const was = prevKind.current;
     prevKind.current = phase.kind;
-    if (phase.kind === "idle" && (was === "connected" || was === "done")) announce("wallet:disconnected");
+    if (phase.kind === "idle" && (was === "connected" || was === "done")) {
+      disconnect();
+      announce("wallet:disconnected");
+    }
   }, [phase.kind]);
 
   return (
@@ -101,7 +112,7 @@ export function AccessGate() {
               </h1>
               <p className="mt-4 text-lg text-soft">{LEAD[phase.kind]}</p>
               <div className="mt-6">
-                <WalletPanel phase={phase} dispatch={dispatch} />
+                <WalletPanel phase={phase} dispatch={dispatch} returnTo={returnTo} />
               </div>
               <div className="mt-6 border-t border-line pt-4 text-sm text-soft">
                 <Link to="/demo" className="inline-flex items-center gap-2 font-bold hover:text-accent-text">

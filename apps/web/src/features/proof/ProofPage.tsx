@@ -1,8 +1,8 @@
 import { useEffect, type ReactNode } from "react";
 import { Link } from "react-router-dom";
 import { ArrowUpRight, FileCheck2, Gauge, ShieldAlert, TriangleAlert } from "lucide-react";
-import { Header } from "@/features/landing/Header";
-import { Footer } from "@/features/landing/Footer";
+import { Header } from "@/shared/shell/Header";
+import { Footer } from "@/shared/shell/Footer";
 import { primaryCta } from "@/features/landing/cta";
 import { Chamfer } from "@/shared/ui/Chamfer";
 import { Stamp } from "@/shared/ui/Stamp";

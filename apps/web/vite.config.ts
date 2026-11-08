@@ -7,7 +7,11 @@ import { defineConfig } from "vite";
 export default defineConfig({
   plugins: [react(), tailwindcss()],
   resolve: {
-    alias: { "@": fileURLToPath(new URL("./src", import.meta.url)) },
+    alias: {
+      "@": fileURLToPath(new URL("./src", import.meta.url)),
+      // Consume the shared package from source so the web app needs no prior `shared` build.
+      "@agentshield/shared": fileURLToPath(new URL("../../packages/shared/src/index.ts", import.meta.url)),
+    },
   },
   server: {
     port: 5173,

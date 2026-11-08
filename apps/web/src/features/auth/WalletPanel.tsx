@@ -7,7 +7,7 @@ import { react } from "@/shared/mascot/mascotStore";
 import { LINES } from "@/shared/mascot/lines";
 import { HoldButton } from "./HoldButton";
 import { Identicon } from "./identity";
-import { activeStep, MOCK_ADDRESS, shortAddress, type Action, type Phase, type Step, type WalletId } from "./gateFlow";
+import { activeStep, mockAddressFor, shortAddress, type Action, type Phase, type Step, type WalletId } from "./gateFlow";
 
 const WALLETS: { id: WalletId; label: string; hint: string; icon: LucideIcon }[] = [
   { id: "core", label: "Core", hint: "Built for Avalanche", icon: Wallet },
@@ -30,9 +30,11 @@ export const isNewWallet = (w: WalletId): boolean => w === "metamask";
 interface Props {
   phase: Phase;
   dispatch: (a: Action) => void;
+  /** Page the user was trying to reach before being sent to sign in. */
+  returnTo?: string | null;
 }
 
-export function WalletPanel({ phase, dispatch }: Props) {
+export function WalletPanel({ phase, dispatch, returnTo }: Props) {
   const current = ORDER.indexOf(activeStep(phase));
   return (
     <div>
@@ -97,16 +99,16 @@ export function WalletPanel({ phase, dispatch }: Props) {
         {phase.kind === "connected" && (
           <div className="animate-feed-in">
             <div className="flex items-center gap-4">
-              <Identicon address={MOCK_ADDRESS} />
+              <Identicon address={mockAddressFor(phase.wallet)} />
               <div className="min-w-0">
-                <div className="font-mono text-base font-bold">{shortAddress(MOCK_ADDRESS)}</div>
+                <div className="font-mono text-base font-bold">{shortAddress(mockAddressFor(phase.wallet))}</div>
                 <div className="mono-label">Avalanche Fuji · connected</div>
               </div>
             </div>
             <p className="mt-4 text-soft">One signature. Free, no gas, no transfer.</p>
             <details className="mt-2 text-sm">
               <summary className="cursor-pointer font-bold text-accent-text">What am I signing?</summary>
-              <pre className="mt-2 overflow-x-auto whitespace-pre-wrap break-words border border-line-strong bg-bg p-3 font-mono text-xs leading-relaxed text-soft">{SIWE(shortAddress(MOCK_ADDRESS))}</pre>
+              <pre className="mt-2 overflow-x-auto whitespace-pre-wrap break-words border border-line-strong bg-bg p-3 font-mono text-xs leading-relaxed text-soft">{SIWE(shortAddress(mockAddressFor(phase.wallet)))}</pre>
             </details>
             <div className="mt-5 flex flex-wrap items-center gap-4">
               <HoldButton onStart={() => react("guard", { text: LINES.gate.hold, hold: 900 })} onComplete={() => dispatch({ type: "sign" })}>Hold to sign</HoldButton>
@@ -125,9 +127,9 @@ export function WalletPanel({ phase, dispatch }: Props) {
         {phase.kind === "done" && (
           <div className="animate-feed-in">
             <div className="flex items-center gap-4">
-              <Identicon address={MOCK_ADDRESS} />
+              <Identicon address={mockAddressFor(phase.wallet)} />
               <div className="min-w-0">
-                <div className="font-mono text-base font-bold">{shortAddress(MOCK_ADDRESS)}</div>
+                <div className="font-mono text-base font-bold">{shortAddress(mockAddressFor(phase.wallet))}</div>
                 <div className="mt-1"><Stamp tone="ok" animate>{isNewWallet(phase.wallet) ? "New wallet" : "Owner verified"}</Stamp></div>
               </div>
             </div>
@@ -138,8 +140,8 @@ export function WalletPanel({ phase, dispatch }: Props) {
             {/* TODO(auth): branch on Safe.getOwners(address) instead of the mock rule. */}
             <div className="mt-5 flex flex-wrap items-center gap-3">
               <span className="drop-hard">
-                <Link to={isNewWallet(phase.wallet) ? "/vaults/new" : "/demo"} className={primaryCta}>
-                  {isNewWallet(phase.wallet) ? "Create your first vault" : "Open dashboard"}
+                <Link to={returnTo ?? (isNewWallet(phase.wallet) ? "/vaults/new" : "/vaults")} className={primaryCta}>
+                  {returnTo ? "Continue where you were" : isNewWallet(phase.wallet) ? "Create your first vault" : "Open dashboard"}
                 </Link>
               </span>
               <button type="button" onClick={() => dispatch({ type: "reset" })} className="h-12 px-2 font-mono text-xs uppercase tracking-widest text-muted hover:text-fg">

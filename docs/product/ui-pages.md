@@ -4,6 +4,8 @@
 >
 > **Giao diện (màu, chữ, bóng, component) bắt buộc theo [`design-system.md`](./design-system.md).** File này chỉ mô tả trang và hành vi.
 >
+> **Ngôn ngữ UI: 100% tiếng Anh.** Các chuỗi tiếng Việt được trích trong file này (ví dụ "Hoàn tất bước 1 trước", "Đang nối lại") chỉ mô tả ý; chuỗi hiển thị thật trong code là tiếng Anh (ví dụ `Finish the "Safe" step before "Module"`). Số định dạng en-US (`1,500.5`, `13.3%`).
+>
 > Bất biến: Kill-Switch và `setPolicy` ký bằng ví owner **ngay trong browser** (P2); tiền luôn là string base units, format chỉ ở UI (P5); LLM chỉ viết `messageVi` (P3).
 
 ---

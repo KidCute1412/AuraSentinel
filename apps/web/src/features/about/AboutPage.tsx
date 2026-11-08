@@ -1,8 +1,8 @@
 import { useEffect } from "react";
 import { Link } from "react-router-dom";
 import { Bot, Brain, Calculator, FileCheck2, KeyRound, Landmark, Link2, ShieldCheck, Skull, Users } from "lucide-react";
-import { Header } from "@/features/landing/Header";
-import { Footer } from "@/features/landing/Footer";
+import { Header } from "@/shared/shell/Header";
+import { Footer } from "@/shared/shell/Footer";
 import { primaryCta, secondaryCta } from "@/features/landing/cta";
 import { Chamfer } from "@/shared/ui/Chamfer";
 import { Stamp } from "@/shared/ui/Stamp";

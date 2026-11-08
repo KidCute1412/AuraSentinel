@@ -92,3 +92,19 @@ export const shortAddress = (a: string): string => `${a.slice(0, 6)}…${a.slice
 
 /** Placeholder wallet until wagmi is wired. */
 export const MOCK_ADDRESS = "0x7A3f5C9e21B84dD0a6F13c8E92b7064a1c91Cd02";
+
+/** A second placeholder wallet for the "new wallet" path, so it owns no fixture vaults. */
+export const MOCK_NEW_ADDRESS = "0x9B2c4E7a10D35f68AaB1c0E2d94F7b3856c0Fe21";
+
+export const mockAddressFor = (wallet: WalletId): string => (wallet === "metamask" ? MOCK_NEW_ADDRESS : MOCK_ADDRESS);
+
+/**
+ * Where to send the user after signing in. Only same-site absolute paths are accepted (no "//host", no
+ * schemes, no loops back into /signin), so a crafted `from` can never become an open redirect.
+ */
+export function safeReturnPath(from: unknown): string | null {
+  if (typeof from !== "string") return null;
+  if (!from.startsWith("/") || from.startsWith("//") || from.includes("\\")) return null;
+  if (/^\/(signin|signup)(\/|\?|#|$)/.test(from)) return null;
+  return from;
+}
