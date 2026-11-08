@@ -8,4 +8,5 @@ export const queryKeys = {
   job: (id: string) => ["job", id] as const,
   vaults: ["vaults"] as const,
   session: ["auth", "session"] as const,
+  adminRebalancer: ["admin", "rebalancer"] as const,
 };

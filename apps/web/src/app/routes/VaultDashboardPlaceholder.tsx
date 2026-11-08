@@ -1,8 +1,10 @@
+import type { ReactNode } from "react";
 import { ArrowUpRight, Construction } from "lucide-react";
 import type { Address } from "viem";
 import { Chamfer } from "@/shared/ui/Chamfer";
 import { Stamp } from "@/shared/ui/Stamp";
 import { FUJI } from "@/shared/web3/config";
+import { RedTeamPanel } from "@/features/red-team/RedTeamPanel";
 import { shortAddress } from "@/shared/web3/walletStatus";
 
 interface Slot {
@@ -14,6 +16,8 @@ interface Slot {
    * the real panel that replaces this slot, or the tour falls back to a centered card.
    */
   tour?: string;
+  /** Real panel that replaced this placeholder; rendered instead of the dashed slot. */
+  panel?: (props: { mode: "demo" | "owner"; safe: Address | null }) => ReactNode;
 }
 
 interface Column {
@@ -52,9 +56,13 @@ const COLUMNS: Column[] = [
     index: "03",
     title: "Red-team",
     slots: [
-      { name: "Chạy rebalance", task: "Q10", note: "Gửi một lệnh hợp lệ để xem cả hai lớp khiên cho qua.", tour: "redteam-rebalance" },
-      { name: "4 đòn tấn công", task: "Q8 · Q10", note: "Rút quá hạn mức, sai người nhận, approve vô hạn, bỏ qua website.", tour: "redteam-attacks" },
-      { name: "Ô prompt injection", task: "Q10", note: "Thử lừa AI giải thích; AI không có quyền đổi kết quả." },
+      {
+        // The panel carries the redteam-rebalance and redteam-attacks tour anchors itself.
+        name: "Red-team",
+        task: "Q10",
+        note: "Chạy rebalance, 4 đòn tấn công và ô prompt injection.",
+        panel: ({ safe }) => <RedTeamPanel safe={safe} />,
+      },
     ],
   },
 ];
@@ -118,15 +126,21 @@ export function VaultDashboardPlaceholder({ mode, safe }: VaultDashboardPlacehol
               {col.index} · {col.title}
             </span>
             <ul className="mt-4 space-y-3">
-              {col.slots.map((slot) => (
-                <li key={slot.name} data-tour={slot.tour} className="border border-dashed border-line-strong p-3">
-                  <div className="flex flex-wrap items-baseline justify-between gap-2">
-                    <span className="font-bold">{slot.name}</span>
-                    <span className="font-mono text-[11px] uppercase tracking-widest text-muted">Chưa nối · {slot.task}</span>
-                  </div>
-                  <p className="mt-1 text-sm text-soft">{slot.note}</p>
-                </li>
-              ))}
+              {col.slots.map((slot) =>
+                slot.panel ? (
+                  <li key={slot.name} data-tour={slot.tour}>
+                    {slot.panel({ mode, safe })}
+                  </li>
+                ) : (
+                  <li key={slot.name} data-tour={slot.tour} className="border border-dashed border-line-strong p-3">
+                    <div className="flex flex-wrap items-baseline justify-between gap-2">
+                      <span className="font-bold">{slot.name}</span>
+                      <span className="font-mono text-[11px] uppercase tracking-widest text-muted">Chưa nối · {slot.task}</span>
+                    </div>
+                    <p className="mt-1 text-sm text-soft">{slot.note}</p>
+                  </li>
+                ),
+              )}
             </ul>
           </div>
         ))}
