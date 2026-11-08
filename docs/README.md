@@ -4,6 +4,8 @@ Vault Safe + module policy on-chain cho phép AI agent giao dịch 24/7 mà khô
 
 Docs viết bằng tiếng Việt; định danh kỹ thuật giữ tiếng Anh.
 
+Ảnh tổng quan một lệnh đi qua hệ thống (Shield 1 → Shield 2, đánh số 1–7, giải thích ở [`README.md`](../README.md) gốc): [`assets/system-pipeline.svg`](./assets/system-pipeline.svg).
+
 ## Đọc theo thứ tự
 
 | # | File | Nội dung | Khi nào đọc |
