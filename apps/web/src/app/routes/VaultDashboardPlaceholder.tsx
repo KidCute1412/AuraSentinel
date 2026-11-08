@@ -9,6 +9,11 @@ interface Slot {
   name: string;
   task: string;
   note: string;
+  /**
+   * `data-tour` anchor for the /demo guided tour (app/tour/tourSteps.ts). Keep the same value on
+   * the real panel that replaces this slot, or the tour falls back to a centered card.
+   */
+  tour?: string;
 }
 
 interface Column {
@@ -25,9 +30,9 @@ const COLUMNS: Column[] = [
     index: "01",
     title: "Chủ vault",
     slots: [
-      { name: "Trạng thái policy", task: "L7", note: "Hạn mức mỗi lệnh, hạn mức ngày, hạn dùng: đọc thẳng từ contract." },
-      { name: "Sửa policy", task: "L7", note: "Owner ký setPolicy ngay trong ví, không đi qua backend." },
-      { name: "Kill-Switch", task: "L7", note: "Một giao dịch revoke ký trong ví, hiện thời gian khoá đo được." },
+      { name: "Trạng thái policy", task: "L7", note: "Hạn mức mỗi lệnh, hạn mức ngày, hạn dùng: đọc thẳng từ contract.", tour: "policy" },
+      { name: "Sửa policy", task: "L7", note: "Owner ký setPolicy ngay trong ví, không đi qua backend.", tour: "policy" },
+      { name: "Kill-Switch", task: "L7", note: "Một giao dịch revoke ký trong ví, hiện thời gian khoá đo được.", tour: "kill-switch" },
       { name: "Nạp / rút tiền", task: "L8", note: "Chuyển token vào Safe hoặc rút về ví owner." },
     ],
   },
@@ -36,10 +41,10 @@ const COLUMNS: Column[] = [
     index: "02",
     title: "Vault & hoạt động",
     slots: [
-      { name: "Số dư trước / sau", task: "L8", note: "Số dư Safe trước và sau giao dịch gần nhất." },
-      { name: "Hạn mức ngày đã dùng", task: "L8", note: "Đã tiêu / hạn mức ngày, lấy từ chain." },
-      { name: "Dòng thời gian job", task: "Q9", note: "Shield 1 → Shield 2, thẻ giải thích, link Snowtrace." },
-      { name: "Lịch sử job", task: "Q9", note: "Danh sách lệnh đã duyệt và bị chặn." },
+      { name: "Số dư trước / sau", task: "L8", note: "Số dư Safe trước và sau giao dịch gần nhất.", tour: "balances" },
+      { name: "Hạn mức ngày đã dùng", task: "L8", note: "Đã tiêu / hạn mức ngày, lấy từ chain.", tour: "balances" },
+      { name: "Dòng thời gian job", task: "Q9", note: "Shield 1 → Shield 2, thẻ giải thích, link Snowtrace.", tour: "activity" },
+      { name: "Lịch sử job", task: "Q9", note: "Danh sách lệnh đã duyệt và bị chặn.", tour: "activity" },
     ],
   },
   {
@@ -47,8 +52,8 @@ const COLUMNS: Column[] = [
     index: "03",
     title: "Red-team",
     slots: [
-      { name: "Chạy rebalance", task: "Q10", note: "Gửi một lệnh hợp lệ để xem cả hai lớp khiên cho qua." },
-      { name: "4 đòn tấn công", task: "Q8 · Q10", note: "Rút quá hạn mức, sai người nhận, approve vô hạn, bỏ qua website." },
+      { name: "Chạy rebalance", task: "Q10", note: "Gửi một lệnh hợp lệ để xem cả hai lớp khiên cho qua.", tour: "redteam-rebalance" },
+      { name: "4 đòn tấn công", task: "Q8 · Q10", note: "Rút quá hạn mức, sai người nhận, approve vô hạn, bỏ qua website.", tour: "redteam-attacks" },
       { name: "Ô prompt injection", task: "Q10", note: "Thử lừa AI giải thích; AI không có quyền đổi kết quả." },
     ],
   },
@@ -67,31 +72,33 @@ export function VaultDashboardPlaceholder({ mode, safe }: VaultDashboardPlacehol
     <>
       <section className="blueprint border-b border-line">
         <div className="mx-auto max-w-6xl px-4 pb-12 pt-12 sm:px-6 sm:pt-16">
-          <Chamfer code={mode === "demo" ? "VAULT / DEMO" : "VAULT / OWNER"} ground="vault-header" innerClassName="p-5 pb-9 sm:p-8 sm:pb-10">
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <span className="mono-label">{mode === "demo" ? "Vault demo công khai · không cần ví" : "Dashboard vault"}</span>
-              <Stamp tone="warn">Chưa nối dữ liệu</Stamp>
-            </div>
-            <h1 className="mt-4 text-4xl font-black leading-none sm:text-5xl">{mode === "demo" ? "Vault demo" : "Vault"}</h1>
-            {safe ? (
-              <p className="mt-4 flex flex-wrap items-center gap-x-3 gap-y-1">
-                <span className="font-mono text-sm" title={safe}>
-                  <span className="hidden sm:inline">{safe}</span>
-                  <span className="sm:hidden">{shortAddress(safe)}</span>
-                </span>
-                <a
-                  href={`${explorer}/address/${safe}`}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="inline-flex items-center gap-1 font-bold text-accent-text hover:underline"
-                >
-                  Snowtrace <ArrowUpRight aria-hidden className="size-4" />
-                </a>
-              </p>
-            ) : (
-              <p className="mt-4 text-soft">Địa chỉ vault demo sẽ có sau khi deploy lên Avalanche Fuji.</p>
-            )}
-          </Chamfer>
+          <div data-tour="vault-header">
+            <Chamfer code={mode === "demo" ? "VAULT / DEMO" : "VAULT / OWNER"} ground="vault-header" innerClassName="p-5 pb-9 sm:p-8 sm:pb-10">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <span className="mono-label">{mode === "demo" ? "Vault demo công khai · không cần ví" : "Dashboard vault"}</span>
+                <Stamp tone="warn">Chưa nối dữ liệu</Stamp>
+              </div>
+              <h1 className="mt-4 text-4xl font-black leading-none sm:text-5xl">{mode === "demo" ? "Vault demo" : "Vault"}</h1>
+              {safe ? (
+                <p className="mt-4 flex flex-wrap items-center gap-x-3 gap-y-1">
+                  <span className="font-mono text-sm" title={safe}>
+                    <span className="hidden sm:inline">{safe}</span>
+                    <span className="sm:hidden">{shortAddress(safe)}</span>
+                  </span>
+                  <a
+                    href={`${explorer}/address/${safe}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-flex items-center gap-1 font-bold text-accent-text hover:underline"
+                  >
+                    Snowtrace <ArrowUpRight aria-hidden className="size-4" />
+                  </a>
+                </p>
+              ) : (
+                <p className="mt-4 text-soft">Địa chỉ vault demo sẽ có sau khi deploy lên Avalanche Fuji.</p>
+              )}
+            </Chamfer>
+          </div>
 
           <div className="mt-8 flex items-start gap-3 border border-on-accent bg-highlight p-4 text-on-accent">
             <Construction aria-hidden className="mt-0.5 size-5 shrink-0" strokeWidth={2.5} />
@@ -112,7 +119,7 @@ export function VaultDashboardPlaceholder({ mode, safe }: VaultDashboardPlacehol
             </span>
             <ul className="mt-4 space-y-3">
               {col.slots.map((slot) => (
-                <li key={slot.name} className="border border-dashed border-line-strong p-3">
+                <li key={slot.name} data-tour={slot.tour} className="border border-dashed border-line-strong p-3">
                   <div className="flex flex-wrap items-baseline justify-between gap-2">
                     <span className="font-bold">{slot.name}</span>
                     <span className="font-mono text-[11px] uppercase tracking-widest text-muted">Chưa nối · {slot.task}</span>

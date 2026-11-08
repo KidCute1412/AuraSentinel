@@ -10,6 +10,8 @@ interface AppShellProps {
   label: string;
   /** Server session role (A9). Until SIWE exists every visitor is a guest, so the admin drawer stays hidden. */
   role?: SessionRole | null;
+  /** Extra page controls in the app bar, left of the wallet (e.g. the /demo tour replay button). */
+  actions?: ReactNode;
   children: ReactNode;
 }
 
@@ -17,7 +19,7 @@ interface AppShellProps {
  * Shell for the app routes (/demo, /vaults/*): the shared landing header, a sticky app bar
  * (sub-nav under the 56px header, z-30) with the wallet control, and the wrong-network banner.
  */
-export function AppShell({ label, role = null, children }: AppShellProps) {
+export function AppShell({ label, role = null, actions, children }: AppShellProps) {
   return (
     <div className="min-h-screen overflow-x-clip bg-bg text-fg">
       <Header />
@@ -25,6 +27,7 @@ export function AppShell({ label, role = null, children }: AppShellProps) {
         <div className="mx-auto flex h-14 max-w-6xl items-center justify-between gap-3 px-4 sm:px-6">
           <span className="mono-label min-w-0 truncate">{label}</span>
           <div className="flex shrink-0 items-center gap-2">
+            {actions}
             <AdminDrawer role={role} />
             <WalletButton />
           </div>
