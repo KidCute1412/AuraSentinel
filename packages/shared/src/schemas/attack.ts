@@ -64,6 +64,8 @@ export const ATTACK_EXPECTATIONS = {
   'wrong-recipient': { stoppedBy: 'shield1', status: 'rejected', reasonCode: 'RECIPIENT_NOT_SAFE', onchainEvidence: false },
   'unlimited-approval': { stoppedBy: 'safe', status: 'reverted', reasonCode: 'GS104', onchainEvidence: true },
   bypass: { stoppedBy: 'shield2', status: 'reverted', reasonCode: 'ExceedsPerTxCap', onchainEvidence: true },
-  // The swap itself is a normal, valid one; the attack targets the explanation only (P3).
-  'prompt-injection': { stoppedBy: 'llm-guard', status: 'confirmed', reasonCode: null, onchainEvidence: false },
+  // The text rides on an over-cap intent: the visitor asks the LLM to "approve" it, the verdict
+  // stays blocked (P3) and the guard falls back to the template if the model was fooled. No
+  // money moves and no gas is spent per click.
+  'prompt-injection': { stoppedBy: 'llm-guard', status: 'rejected', reasonCode: 'ExceedsPerTxCap', onchainEvidence: false },
 } as const satisfies Record<AttackScenario, AttackExpectation>;
