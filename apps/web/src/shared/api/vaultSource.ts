@@ -2,10 +2,13 @@ import { getAddress } from "viem";
 import type { Address } from "@agentshield/shared";
 import { sameAddress } from "@/shared/lib/address";
 
+/** How a fixture vault's simulated history is seeded (see mockChain.seedSim). */
+export type SeedScenario = "none" | "healthy" | "killed" | "demo" | "exhausted";
+
 /**
- * Everything the vault pages need to know about one vault, in the shape the real API + chain reads will return
- * (api.md GET /vaults/{safe} + Safe.getOwners + GET .../state). Fixture-backed until the backend is wired:
- * replace the bodies below, keep the signatures.
+ * Static facts about one vault, in the shape the real API + chain reads will return
+ * (api.md GET /vaults/{safe} + Safe.getOwners + admin gas check). Fixture-backed until the backend is wired:
+ * replace the bodies below, keep the signatures. Live numbers (balances, spend, jobs) are in mockChain.
  */
 export interface VaultView {
   safe: Address;
@@ -15,8 +18,12 @@ export interface VaultView {
   /** Safe.getOwners(). The role is derived from this on the client, backend only double-checks. */
   owners: Address[];
   chain: { moduleEnabled: boolean; policyActive: boolean; funded: boolean };
-  /** null while the vault is not set up far enough to have a policy. */
-  state: { isActive: boolean; budgetUsedPct: number; stale: boolean } | null;
+  /** "low" blocks Run/attack with a clear message (api: AGENT_LOW_GAS). */
+  agentGas: "ok" | "low";
+  /** Mock only: which history to seed. */
+  scenario: SeedScenario;
+  /** Mock only: simulates an RPC outage (state.stale = true). */
+  stale?: boolean;
 }
 
 const a = (hex: string): Address => getAddress(hex.toLowerCase());
@@ -33,27 +40,39 @@ const vault = (n: number, over: Partial<VaultView> = {}): VaultView => ({
   isDemo: false,
   owners: [FIXTURE_OWNER],
   chain: { moduleEnabled: true, policyActive: true, funded: true },
-  state: { isActive: true, budgetUsedPct: 13.3, stale: false },
+  agentGas: "ok",
+  scenario: "healthy",
   ...over,
 });
 
-export const FIXTURES: Record<string, VaultView> = Object.fromEntries(
-  [
-    vault(1), // healthy
-    vault(2, { state: { isActive: false, budgetUsedPct: 40, stale: false } }), // killed
-    vault(3, { chain: { moduleEnabled: false, policyActive: false, funded: false }, state: null }), // wizard stopped at step 2
-    vault(4, { chain: { moduleEnabled: true, policyActive: false, funded: false }, state: null }), // wizard stopped at step 3
-    vault(5, { isDemo: true, owners: [FIXTURE_STRANGER], state: { isActive: true, budgetUsedPct: 87.5, stale: false } }), // public demo vault
-  ].map((v) => [v.safe.toLowerCase(), v]),
-);
+const NOT_READY = { moduleEnabled: false, policyActive: false, funded: false } as const;
+
+const ALL: VaultView[] = [
+  vault(1), // healthy
+  vault(2, { scenario: "killed" }), // killed by the owner
+  vault(3, { chain: { ...NOT_READY }, scenario: "none" }), // wizard stopped at step 2
+  vault(4, { chain: { ...NOT_READY, moduleEnabled: true }, scenario: "none" }), // wizard stopped at step 3
+  vault(5, { isDemo: true, owners: [FIXTURE_STRANGER], scenario: "demo" }), // public demo vault, budget nearly used
+  vault(6, { stale: true }), // RPC outage
+  vault(7, { scenario: "exhausted" }), // daily budget used up
+  vault(8, { agentGas: "low" }), // agent is out of gas
+];
+
+export const FIXTURES: Record<string, VaultView> = Object.fromEntries(ALL.map((v) => [v.safe.toLowerCase(), v]));
 
 export const FIXTURE_SAFES = {
-  healthy: vault(1).safe,
-  killed: vault(2).safe,
-  stoppedAtModule: vault(3).safe,
-  stoppedAtPolicy: vault(4).safe,
-  demo: vault(5).safe,
+  healthy: ALL[0].safe,
+  killed: ALL[1].safe,
+  stoppedAtModule: ALL[2].safe,
+  stoppedAtPolicy: ALL[3].safe,
+  demo: ALL[4].safe,
+  stale: ALL[5].safe,
+  exhausted: ALL[6].safe,
+  lowGas: ALL[7].safe,
 } as const;
+
+/** The public sandbox vault behind /demo. */
+export const DEMO_SAFE = FIXTURE_SAFES.demo;
 
 const LATENCY_MS = 350;
 const wait = () => new Promise((r) => setTimeout(r, LATENCY_MS));

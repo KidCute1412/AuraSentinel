@@ -2,10 +2,13 @@ import { Navigate, useParams } from "react-router-dom";
 import { decideSection, sectionPath } from "../guards/access";
 import { useVaultContext } from "../layout/context";
 import { Placeholder } from "./Placeholder";
+import { VaultDashboard } from "../overview/VaultDashboard";
+import { JobDetail } from "./JobDetail";
 
-export const OverviewPage = () => (
-  <Placeholder code="VLT / OVERVIEW" title="Overview" blurb="Three-column dashboard: policy and Kill-Switch, balances before/after with the daily budget bar, and the red-team area." />
-);
+export function OverviewPage() {
+  const { view, role } = useVaultContext();
+  return <VaultDashboard view={view} role={role} mode="owner" />;
+}
 export const ActivityPage = () => (
   <Placeholder code="VLT / ACTIVITY" title="Activity" blurb="Every job with filters by status (?status=&page=). Open a row to see the full job." />
 );
@@ -21,9 +24,8 @@ export const RedTeamPage = () => (
 
 export function JobDetailPage() {
   const { jobId } = useParams();
-  return (
-    <Placeholder code="VLT / JOB" title="Job details" blurb={`Four-step timeline, explanation and Snowtrace link for job ${jobId}. This link is shareable.`} />
-  );
+  const { view } = useVaultContext();
+  return <JobDetail view={view} jobId={jobId} />;
 }
 
 /** /settings is owner-only: anyone else who types the URL goes back to Overview with a notice. */

@@ -1,12 +1,15 @@
 import { Link, Navigate, Outlet, useLocation, useParams } from "react-router-dom";
 import { Footer } from "@/shared/shell/Footer";
 import { Header } from "@/shared/shell/Header";
+import { useVaultSim } from "@/shared/api/mockChain";
 import { useVaultView } from "@/shared/api/useVaultView";
+import type { VaultView } from "@/shared/api/vaultSource";
 import { parseAddressParam, shortAddress } from "@/shared/lib/address";
 import { useSession } from "@/shared/session/sessionStore";
 import { NetworkGuard } from "@/shared/ui/NetworkGuard";
 import { Skeleton } from "@/shared/ui/Skeleton";
-import { SECTION_LABEL, vaultRole, type VaultSection } from "../guards/access";
+import { KillDock } from "../components/KillDock";
+import { SECTION_LABEL, vaultRole, type VaultRole, type VaultSection } from "../guards/access";
 import { Breadcrumb, type Crumb } from "./Breadcrumb";
 import type { VaultContext } from "./context";
 import { RouteNotice } from "./RouteNotice";
@@ -18,7 +21,7 @@ function Frame({ children }: { children: React.ReactNode }) {
     <div className="min-h-screen bg-bg text-fg">
       <Header />
       <NetworkGuard />
-      <main className="mx-auto max-w-6xl space-y-6 px-4 py-8 sm:px-6">{children}</main>
+      <main className="mx-auto max-w-6xl space-y-6 px-4 pb-28 pt-8 sm:px-6 lg:pb-10">{children}</main>
       <Footer />
     </div>
   );
@@ -34,6 +37,13 @@ function Problem({ title, children }: { title: string; children: React.ReactNode
       </div>
     </Frame>
   );
+}
+
+/** Phone-only Kill-Switch dock, shown to the owner while the vault is still active. */
+function OwnerDock({ view, role }: { view: VaultView; role: VaultRole }) {
+  const sim = useVaultSim(view);
+  if (role !== "owner" || sim?.state.isActive !== true) return null;
+  return <KillDock safe={view.safe} />;
 }
 
 const sectionOf = (pathname: string, safe: string): VaultSection => {
@@ -110,9 +120,10 @@ export function VaultLayout() {
     <Frame>
       <Breadcrumb items={crumbs} />
       <RouteNotice />
-      <VaultHeader view={view} role={role} />
+      <VaultHeader view={view} role={role} compactKill={section !== "overview"} />
       <VaultNav safe={safe} role={role} />
       <Outlet context={context} />
+      <OwnerDock view={view} role={role} />
     </Frame>
   );
 }

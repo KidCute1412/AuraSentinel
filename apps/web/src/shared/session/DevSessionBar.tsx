@@ -2,6 +2,7 @@ import { Wrench, X } from "lucide-react";
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import { AVALANCHE_FUJI_CHAIN_ID } from "@agentshield/shared";
+import { useMockChain } from "@/shared/api/mockChain";
 import { FIXTURE_OWNER, FIXTURE_SAFES, FIXTURE_STRANGER } from "@/shared/api/vaultSource";
 import { shortAddress } from "@/shared/lib/address";
 import { useSession } from "./sessionStore";
@@ -72,15 +73,23 @@ export function DevSessionBar() {
       <div className="space-y-1">
         <span className="mono-label">Sample vaults</span>
         <ul className="grid grid-cols-2 gap-1 font-mono text-xs font-bold">
-          {([["healthy", "Healthy"], ["killed", "Killed"], ["stoppedAtModule", "Incomplete"], ["demo", "Demo"]] as const).map(([k, label]) => (
+          {([["healthy", "Healthy"], ["killed", "Killed"], ["stoppedAtModule", "Incomplete"], ["stale", "Stale data"], ["exhausted", "Budget used up"], ["lowGas", "Agent low gas"]] as const).map(([k, label]) => (
             <li key={k}>
               <Link className="block border border-line px-2 py-2 text-accent-text hover:bg-hover" to={`/vaults/${FIXTURE_SAFES[k]}`}>{label}</Link>
             </li>
           ))}
+          <li><Link className="block border border-line px-2 py-2 text-accent-text hover:bg-hover" to="/demo">Public /demo</Link></li>
           <li><Link className="block border border-line px-2 py-2 text-accent-text hover:bg-hover" to="/vaults/0x123">Bad address</Link></li>
           <li><Link className="block border border-line px-2 py-2 text-accent-text hover:bg-hover" to="/vaults/new/fund">Jump to step 4</Link></li>
         </ul>
       </div>
+      <button
+        type="button"
+        onClick={() => useMockChain.getState().reset()}
+        className="min-h-9 w-full border border-line-strong px-2 font-mono text-xs font-bold hover:bg-hover"
+      >
+        Reset simulated data
+      </button>
     </aside>
   );
 }

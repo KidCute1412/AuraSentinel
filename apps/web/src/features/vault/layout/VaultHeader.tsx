@@ -1,8 +1,9 @@
-import { Lock } from "lucide-react";
+import { useVaultSim } from "@/shared/api/mockChain";
+import type { VaultView } from "@/shared/api/vaultSource";
 import { AddressChip } from "@/shared/ui/AddressChip";
 import { SnowtraceLink } from "@/shared/ui/SnowtraceLink";
 import { StatusBadge, type VaultStatus } from "@/shared/ui/StatusBadge";
-import type { VaultView } from "@/shared/api/vaultSource";
+import { KillSwitch } from "../components/KillSwitch";
 import type { VaultRole } from "../guards/access";
 
 const ROLE_TEXT: Record<VaultRole, string> = {
@@ -11,18 +12,25 @@ const ROLE_TEXT: Record<VaultRole, string> = {
   anonymous: "View only",
 };
 
-export function vaultStatus(view: VaultView): VaultStatus {
-  const ready = view.chain.moduleEnabled && view.chain.policyActive && view.state !== null;
-  if (!ready) return "incomplete";
-  return view.state!.isActive ? "active" : "revoked";
+/** Status of a vault: incomplete until set up, then protected or revoked from the live state. */
+export function vaultStatus(view: VaultView, isActive: boolean | undefined): VaultStatus {
+  if (!(view.chain.moduleEnabled && view.chain.policyActive)) return "incomplete";
+  return isActive === false ? "revoked" : "active";
 }
 
-/**
- * Identity + state of the vault, shown on every sub-page. The Kill-Switch lives here for owners so it is one
- * click away from anywhere (ui-pages §4); the real control is built in a later step, this is its reserved slot.
- */
-export function VaultHeader({ view, role }: { view: VaultView; role: VaultRole }) {
-  const status = vaultStatus(view);
+interface Props {
+  view: VaultView;
+  role: VaultRole;
+  /** Show the compact Kill-Switch here (sub-pages). The Overview has its own full block. */
+  compactKill?: boolean;
+  /** /demo: anyone can act, so the role line says so. */
+  sandbox?: boolean;
+}
+
+/** Identity + state of the vault, shown on every page of it. */
+export function VaultHeader({ view, role, compactKill, sandbox }: Props) {
+  const sim = useVaultSim(view);
+  const status = vaultStatus(view, sim?.state.isActive);
   return (
     <header className="flex flex-col gap-4 border border-line bg-surface p-4 shadow-hard sm:flex-row sm:items-center sm:justify-between sm:p-5">
       <div className="min-w-0 space-y-3">
@@ -38,15 +46,14 @@ export function VaultHeader({ view, role }: { view: VaultView; role: VaultRole }
             <AddressChip address={view.agent} />
           </span>
           <SnowtraceLink kind="address" value={view.safe} />
-          <span className="font-mono text-xs uppercase tracking-widest text-muted">{ROLE_TEXT[role]}</span>
+          <span className="font-mono text-xs uppercase tracking-widest text-muted">{sandbox ? "Public sandbox" : ROLE_TEXT[role]}</span>
         </div>
       </div>
 
-      {role === "owner" && status === "active" && (
-        <div className="hazard p-1.5" data-slot="kill-switch">
-          <div aria-disabled className="flex min-h-11 items-center gap-2 bg-bg px-4 font-mono text-xs font-bold uppercase tracking-widest text-muted">
-            <Lock aria-hidden className="size-4" />
-            Kill-Switch · coming soon
+      {compactKill && role === "owner" && status === "active" && (
+        <div className="hazard hidden p-1.5 lg:block">
+          <div className="bg-bg px-3 py-2">
+            <KillSwitch safe={view.safe} isActive size="compact" />
           </div>
         </div>
       )}

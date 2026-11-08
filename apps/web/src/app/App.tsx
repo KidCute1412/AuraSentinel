@@ -11,6 +11,7 @@ import { LandingPage } from "@/features/landing/LandingPage";
 import { AboutPage } from "@/features/about/AboutPage";
 import { ProofPage } from "@/features/proof/ProofPage";
 import { NotFoundPage } from "@/features/not-found/NotFoundPage";
+import { DemoPage } from "@/features/vault/demo/DemoPage";
 import { VaultRoutes } from "@/features/vault/routes";
 import { DevSessionBar } from "@/shared/session/DevSessionBar";
 
@@ -29,6 +30,7 @@ export function App() {
             <Route path="/signup" element={<Navigate to="/signin" replace />} />
             <Route path="/about" element={<AboutPage />} />
             <Route path="/proof" element={<ProofPage />} />
+            <Route path="/demo" element={<DemoPage />} />
             <Route path="/vaults/*" element={<VaultRoutes />} />
             <Route path="/vault" element={<Navigate to="/vaults" replace />} />
             <Route path="*" element={<NotFoundPage />} />

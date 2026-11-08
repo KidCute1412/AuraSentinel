@@ -1,16 +1,22 @@
 import { useEffect, useRef, useState, type KeyboardEvent } from "react";
 import { cn } from "@/shared/lib/cn";
-import { primaryCta } from "@/shared/ui/cta";
+import { dangerCta, primaryCta } from "@/shared/ui/cta";
 
 interface Props {
   children: string;
   onComplete: () => void;
   onStart?: () => void;
   ms?: number;
+  /** "danger" for the Kill-Switch: red fill, white label. */
+  tone?: "primary" | "danger";
+  disabled?: boolean;
+  /** Label while the button is being held. */
+  holdingLabel?: string;
+  className?: string;
 }
 
 /** Press and hold to confirm. Works with pointer and with Space/Enter held down. */
-export function HoldButton({ children, onComplete, onStart, ms = 700 }: Props) {
+export function HoldButton({ children, onComplete, onStart, ms = 700, tone = "primary", disabled, holdingLabel = "Keep holding…", className }: Props) {
   const [holding, setHolding] = useState(false);
   const timer = useRef<ReturnType<typeof setTimeout>>(undefined);
   const stop = () => {
@@ -18,7 +24,7 @@ export function HoldButton({ children, onComplete, onStart, ms = 700 }: Props) {
     setHolding(false);
   };
   const start = () => {
-    if (holding) return;
+    if (holding || disabled) return;
     setHolding(true);
     onStart?.();
     timer.current = setTimeout(() => {
@@ -34,10 +40,11 @@ export function HoldButton({ children, onComplete, onStart, ms = 700 }: Props) {
     }
   };
   return (
-    <span className="drop-hard inline-block select-none">
+    <span className={cn("drop-hard inline-block select-none", disabled && "opacity-60")}>
       <button
         type="button"
-        className={cn(primaryCta, "relative overflow-hidden touch-none")}
+        disabled={disabled}
+        className={cn(tone === "danger" ? dangerCta : primaryCta, "relative overflow-hidden touch-none disabled:cursor-not-allowed", className)}
         onPointerDown={start}
         onPointerUp={stop}
         onPointerLeave={stop}
@@ -47,8 +54,8 @@ export function HoldButton({ children, onComplete, onStart, ms = 700 }: Props) {
         onBlur={stop}
         onContextMenu={(e) => e.preventDefault()}
       >
-        <span aria-hidden className="absolute inset-y-0 left-0 bg-on-accent/25" style={{ width: holding ? "100%" : "0%", transition: holding ? `width ${ms}ms linear` : "width 120ms ease-out" }} />
-        <span className="relative">{holding ? "Keep holding…" : children}</span>
+        <span aria-hidden className={cn("absolute inset-y-0 left-0", tone === "danger" ? "bg-on-accent/30" : "bg-on-accent/25")} style={{ width: holding ? "100%" : "0%", transition: holding ? `width ${ms}ms linear` : "width 120ms ease-out" }} />
+        <span className="relative">{holding ? holdingLabel : children}</span>
       </button>
     </span>
   );

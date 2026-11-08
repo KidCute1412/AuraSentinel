@@ -5,7 +5,7 @@ import { cn } from "@/shared/lib/cn";
 import { primaryCta } from "@/shared/ui/cta";
 import { react } from "@/shared/mascot/mascotStore";
 import { LINES } from "@/shared/mascot/lines";
-import { HoldButton } from "./HoldButton";
+import { HoldButton } from "@/shared/ui/HoldButton";
 import { Identicon } from "./identity";
 import { activeStep, mockAddressFor, shortAddress, type Action, type Phase, type Step, type WalletId } from "./gateFlow";
 
