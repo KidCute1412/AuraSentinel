@@ -18,8 +18,9 @@ export function Header() {
   return (
     <div className="sticky top-0 z-40 border-b border-line bg-bg animate-hero-drop">
       <nav className="mx-auto flex h-14 max-w-6xl items-center justify-between px-4 sm:px-6">
-        <Link to="/" onClick={onLogo} aria-label="AgentShield home" className="font-mono text-sm font-bold uppercase tracking-widest">
-          <span className="text-accent-text">[</span> AgentShield <span className="text-accent-text">]</span>
+        <Link to="/" onClick={onLogo} aria-label="AgentShield home" className="inline-flex items-center gap-2.5 font-mono text-sm font-bold uppercase tracking-widest">
+          <img src="/favicon.svg" alt="" aria-hidden="true" width={28} height={28} className="h-7 w-7 shrink-0" />
+          <span>AgentShield</span>
         </Link>
         <div className="flex items-center gap-4 sm:gap-6">
           <Link to="/demo" className="text-soft hover:text-fg">Demo</Link>

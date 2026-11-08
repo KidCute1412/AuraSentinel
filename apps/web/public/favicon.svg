@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+  <!-- one palette for both light and dark tabs -->
+  <path fill="#14b57c" fill-rule="evenodd" d="M16 1 29 8.5V23.5L16 31 3 23.5V8.5Z M16 4.2 26.22 10.1V21.9L16 27.8 5.78 21.9V10.1Z"/>
+  <polygon fill="#3fd49c" points="16,7.4 23.45,11.7 16,16 8.55,11.7"/>
+  <polygon fill="#14b57c" points="8.55,11.7 16,16 16,24.6 8.55,20.3"/>
+  <polygon fill="#0a7a52" points="23.45,11.7 23.45,20.3 16,24.6 16,16"/>
+</svg>
