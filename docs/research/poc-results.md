@@ -5,14 +5,11 @@ Mỗi POC xong thì thêm một dòng vào bảng và, nếu có kết luận đ
 | # | POC | Kết quả | Ngày | Ghi chú |
 |---|---|---|---|---|
 | 1 | safe-module-fuji | Chưa làm | | |
-| 2 | owner-sign-browser | Chưa làm | | |
 | 3 | dex-on-fuji-fork | Chưa làm | | |
-| 4 | siwe-auth | Chưa làm | | |
-| 5 | simulate-before-sign | Chưa làm | | |
+| 13 | onchain-revert-proof | Chưa làm | | |
+| 2 | owner-sign-browser | Chưa làm | | gồm SIWE |
+| 5 | simulate-before-sign | Chưa làm | | gồm parity fork vs Fuji |
 | 6 | gemini-explainer | Chưa làm | | |
-| 7 | price-oracle | Chưa làm | | |
-| 8 | bullmq-execution | Chưa làm | | |
-| 9 | event-indexing | Chưa làm | | |
-| 10 | redteam-tokens | Chưa làm | | |
-| 11 | demo-reset | Chưa làm | | |
 | 12 | gate-real-device | Chưa làm | | |
+
+Đã bỏ/gộp: 4 → #2, 7 → quyết định thiết kế, 8 → integration test, 9 → #3, 10 → Foundry test + #13, 11 → việc tuần 3.
