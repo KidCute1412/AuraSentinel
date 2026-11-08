@@ -264,7 +264,7 @@ flowchart LR
 
 ## 5. Frontend — Vite + React SPA
 
-> **Lưu ý:** "1 màn 3 cột" là bản đầu. Danh sách trang hiện hành (`/`, `/demo`, `/vaults/new`, `/vaults/:safe`, `/proof`) nằm ở [`../product/ui-pages.md`](../product/ui-pages.md); 3 cột là layout của dashboard.
+> **Lưu ý:** "1 màn 3 cột" là bản đầu. Danh sách trang hiện hành (`/`, `/signin`, `/demo`, `/vaults`, `/vaults/new/*`, `/vaults/:safe` và các trang con `activity`, `policy`, `funds`, `red-team`, `settings`, `/proof`) nằm ở [`../product/ui-pages.md`](../product/ui-pages.md); 3 cột là layout của dashboard.
 
 ### 5.1 Vì sao không Next.js
 

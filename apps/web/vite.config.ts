@@ -11,6 +11,8 @@ export default defineConfig({
   },
   server: {
     port: 5173,
+    // allow access through a quick tunnel (cloudflared) when testing from a phone
+    allowedHosts: [".trycloudflare.com"],
     // API + SSE go through the proxy so the browser sees one origin (no CORS in dev)
     proxy: {
       "/api": {
