@@ -1,5 +1,9 @@
-import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, configure, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+
+// jsdom renders the whole dashboard here; on a loaded machine (CI, right after a build) the
+// default 1 s for waitFor was seen to run out once. The tour itself opens after 0 ms in tests.
+configure({ asyncUtilTimeout: 3_000 });
 import { VaultDashboardPlaceholder } from "@/app/routes/VaultDashboardPlaceholder";
 import { GuidedTour, TourButton } from "./GuidedTour";
 import { DEMO_TOUR_SEEN_KEY, DEMO_TOUR_STEPS } from "./tourSteps";
