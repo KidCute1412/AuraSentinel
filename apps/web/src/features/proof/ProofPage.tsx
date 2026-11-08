@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 import { ArrowUpRight, FileCheck2, Gauge, ShieldAlert, TriangleAlert } from "lucide-react";
 import { Header } from "@/shared/shell/Header";
 import { Footer } from "@/shared/shell/Footer";
-import { primaryCta } from "@/features/landing/cta";
+import { primaryCta } from "@/shared/ui/cta";
 import { Chamfer } from "@/shared/ui/Chamfer";
 import { Stamp } from "@/shared/ui/Stamp";
 import { Reveal } from "@/shared/ui/Reveal";

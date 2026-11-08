@@ -2,7 +2,7 @@ import { Link } from "react-router-dom";
 import { Plug, Wallet, type LucideIcon } from "lucide-react";
 import { Stamp } from "@/shared/ui/Stamp";
 import { cn } from "@/shared/lib/cn";
-import { primaryCta } from "@/features/landing/cta";
+import { primaryCta } from "@/shared/ui/cta";
 import { react } from "@/shared/mascot/mascotStore";
 import { LINES } from "@/shared/mascot/lines";
 import { HoldButton } from "./HoldButton";

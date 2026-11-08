@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type KeyboardEvent } from "react";
 import { cn } from "@/shared/lib/cn";
-import { primaryCta } from "@/features/landing/cta";
+import { primaryCta } from "@/shared/ui/cta";
 
 interface Props {
   children: string;
