@@ -1,39 +1,53 @@
 import { Inject, Injectable } from '@nestjs/common';
-import { GoogleGenAI } from '@google/genai';
-import { z } from 'zod';
+import { GoogleGenAI, Type } from '@google/genai';
 import { ENV } from '../../../core/config/config.module';
 import type { Env } from '../../../core/config/env.schema';
 import type { Explanation } from '../../../core/types';
 import type { ExplainerPort, ExplainInput } from '../explainer.port';
+import { explainWithLlm, type GenerateFn } from '../llm';
 
-const outputSchema = z.object({ messageVi: z.string().min(1).max(280) });
+/** Structured output: the model must return exactly {"messageVi": string}. Zod checks it again. */
+const RESPONSE_SCHEMA = {
+  type: Type.OBJECT,
+  properties: { messageVi: { type: Type.STRING } },
+  required: ['messageVi'],
+};
 
-/** TODO(AIE): numeric-consistency guard + <untrusted_input> prompt (skill llm-explainer-guard). */
+/**
+ * Gemini 2.5 Flash with thinking off (thinking blows the 2 s budget). Throws on timeout, bad
+ * JSON or schema mismatch; ExplainerService then swaps to the template adapter.
+ */
 @Injectable()
 export class GeminiExplainer implements ExplainerPort {
-  private readonly ai?: GoogleGenAI;
+  private readonly generate?: GenerateFn;
 
   constructor(@Inject(ENV) private readonly env: Env) {
-    if (env.GEMINI_API_KEY) this.ai = new GoogleGenAI({ apiKey: env.GEMINI_API_KEY });
+    if (!env.GEMINI_API_KEY) return;
+    const ai = new GoogleGenAI({ apiKey: env.GEMINI_API_KEY });
+    this.generate = async ({ system, user, signal }) => {
+      const res = await ai.models.generateContent({
+        model: env.GEMINI_MODEL,
+        contents: user,
+        config: {
+          systemInstruction: system,
+          responseMimeType: 'application/json',
+          responseSchema: RESPONSE_SCHEMA,
+          thinkingConfig: { thinkingBudget: 0 },
+          temperature: 0.3,
+          maxOutputTokens: 256,
+          abortSignal: signal,
+        },
+      });
+      return res.text;
+    };
+  }
+
+  get available(): boolean {
+    return this.generate !== undefined;
   }
 
   async explain(input: ExplainInput): Promise<Explanation> {
-    if (!this.ai) throw new Error('GEMINI_API_KEY not set');
-    const res = await this.ai.models.generateContent({
-      model: this.env.GEMINI_MODEL,
-      contents: `Giải thích ngắn gọn bằng tiếng Việt: ${input.verdict} ${input.reasonCode ?? ''}`,
-      config: {
-        responseMimeType: 'application/json',
-        thinkingConfig: { thinkingBudget: 0 },
-        abortSignal: AbortSignal.timeout(this.env.EXPLAINER_TIMEOUT_MS),
-      },
-    });
-    const parsed = outputSchema.parse(JSON.parse(res.text ?? '{}'));
-    return {
-      verdict: input.verdict === 'approved' ? 'safe' : 'blocked', // deterministic, never from the LLM
-      budgetUsedPct: input.budgetUsedPct ?? 0,
-      messageVi: parsed.messageVi,
-      source: 'llm',
-    };
+    if (!this.generate) throw new Error('GEMINI_API_KEY not set');
+    return explainWithLlm(input, this.generate, this.env.EXPLAINER_TIMEOUT_MS);
   }
 }
