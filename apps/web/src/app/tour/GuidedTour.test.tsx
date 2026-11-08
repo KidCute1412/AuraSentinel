@@ -59,7 +59,7 @@ describe("GuidedTour", () => {
     render(<Harness />);
     await waitFor(() => expect(dialog()).toBeInTheDocument());
     expect(screen.getByText(`Hướng dẫn · Bước 1/${DEMO_TOUR_STEPS.length}`)).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /Tiếp/ })).toHaveFocus();
+    await waitFor(() => expect(screen.getByRole("button", { name: /Tiếp/ })).toHaveFocus());
     expect(dialog()).toHaveAttribute("aria-modal", "true");
   });
 

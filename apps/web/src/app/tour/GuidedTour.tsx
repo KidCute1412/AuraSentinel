@@ -59,8 +59,9 @@ export function GuidedTour({ tour }: { tour: TourControls }) {
   const [vp, setVp] = useState<Size>(() => (typeof window === "undefined" ? CARD_ESTIMATE : viewport()));
   const [placement, setPlacement] = useState<Placement>({ mode: "center" });
 
-  // Remember what had focus before the tour, give it back afterwards.
-  useEffect(() => {
+  // Remember what had focus before the tour, give it back afterwards. A layout effect declared
+  // before the focus effect below, so it reads the old focus before the card takes it.
+  useLayoutEffect(() => {
     if (!open) return;
     returnFocus.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     return () => {
@@ -105,7 +106,8 @@ export function GuidedTour({ tour }: { tour: TourControls }) {
     setPlacement((p) => (JSON.stringify(p) === JSON.stringify(nextPlacement) ? p : nextPlacement));
   }, [open, anchor, vp, index]);
 
-  useEffect(() => {
+  // Layout effect: focus lands in the same commit that shows the card, never a frame later.
+  useLayoutEffect(() => {
     if (open) primaryRef.current?.focus();
   }, [open, index]);
 
