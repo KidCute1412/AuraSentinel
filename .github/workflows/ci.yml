@@ -1,9 +1,10 @@
 name: ci
 on:
-  # Every branch push runs CI. A PR merge lands as a push to main, so it runs again there.
+  # Branches are covered by pull_request (no double run on a branch with an open PR).
+  # push to main runs after each merge so every merge gets a full result.
   push:
-    branches: ["**"]
-  # Also test the PR merge result against its base (this is the run that gates merging).
+    branches: [main]
+  # Tests the PR merge result against its base (this is the run that gates merging).
   pull_request:
   workflow_dispatch:
   # Lets a future cd.yml reuse this exact pipeline: `uses: ./.github/workflows/ci.yml`.
@@ -65,16 +66,26 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      # shared: regenerated ABIs/schemas must match what is committed
-      - name: shared codegen is up to date
-        if: ${{ hashFiles('packages/shared/package.json') != '' }}
+      # shared: regenerated ABIs/schemas must match what is committed.
+      # Runs only once `gen` exists (it needs `forge build` output, so contracts must exist too).
+      - name: shared codegen script present?
+        id: gen
         run: |
-          pnpm --filter shared gen
+          if node -e "process.exit(require('./packages/shared/package.json').scripts?.gen ? 0 : 1)"              && [ -f packages/contracts/foundry.toml ]; then
+            echo "present=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "present=false" >> "$GITHUB_OUTPUT"
+          fi
+      - uses: foundry-rs/foundry-toolchain@v1
+        if: steps.gen.outputs.present == 'true'
+      - name: shared codegen is up to date
+        if: steps.gen.outputs.present == 'true'
+        run: |
+          (cd packages/contracts && forge build)
+          pnpm --filter @agentshield/shared gen
           git diff --exit-code -- packages/shared
-      - run: pnpm -r --if-present run lint
-      - run: pnpm typecheck
-      - run: pnpm test
-      - run: pnpm build
+      # One turbo invocation: shared is built once and reused by every task.
+      - run: pnpm turbo run lint typecheck test build
 
   # Solidity: skipped until packages/contracts exists
   contracts:
@@ -100,20 +111,98 @@ jobs:
         run: forge test -vvv --fuzz-runs 1000
         env:
           FOUNDRY_PROFILE: ci
-      - name: Slither (non-blocking for now)
+      # Blocks on high-severity findings; triage medium/low in review.
+      - name: Slither
         if: steps.has.outputs.present == 'true'
-        continue-on-error: true
         uses: crytic/slither-action@v0.4.0
         with:
           target: packages/contracts
-          fail-on: none
+          fail-on: high
 
-  # Single required check for branch protection later: "ci-pass"
+  # Server <-> chain flow on an Anvil fork of Fuji (the "demo must never fail" guard).
+  # Skipped until contracts and a `test:integration` script in apps/server exist.
+  integration:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    services:
+      redis:
+        image: redis:7
+        ports: ["6379:6379"]
+        options: >-
+          --health-cmd "redis-cli ping" --health-interval 5s --health-timeout 3s --health-retries 10
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: agentshield_test
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres" --health-interval 5s --health-timeout 3s --health-retries 10
+    env:
+      REDIS_URL: redis://localhost:6379
+      DATABASE_URL: postgres://postgres:postgres@localhost:5432/agentshield_test
+      RPC_URL: http://127.0.0.1:8545
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - id: has
+        run: |
+          if [ -f packages/contracts/foundry.toml ] &&              node -e "process.exit(require('./apps/server/package.json').scripts?.['test:integration'] ? 0 : 1)"; then
+            echo "present=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "present=false" >> "$GITHUB_OUTPUT"
+          fi
+      - uses: foundry-rs/foundry-toolchain@v1
+        if: steps.has.outputs.present == 'true'
+      - uses: pnpm/action-setup@v4
+        if: steps.has.outputs.present == 'true'
+      - uses: actions/setup-node@v4
+        if: steps.has.outputs.present == 'true'
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+      - if: steps.has.outputs.present == 'true'
+        run: pnpm install --frozen-lockfile
+      - name: Start Anvil fork of Fuji
+        if: steps.has.outputs.present == 'true'
+        run: |
+          anvil --fork-url https://api.avax-test.network/ext/bc/C/rpc --chain-id 43113 --port 8545 > anvil.log 2>&1 &
+          for i in $(seq 1 30); do cast block-number --rpc-url "$RPC_URL" && exit 0; sleep 2; done
+          cat anvil.log; exit 1
+      - if: steps.has.outputs.present == 'true'
+        run: pnpm turbo run build --filter=server...
+      - if: steps.has.outputs.present == 'true'
+        run: pnpm --filter server test:integration
+
+  # Demo runs from compose, so the images must keep building.
+  docker:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build infra compose (anvil image)
+        run: docker compose -f infra/docker-compose.yml build
+        env:
+          FORK_URL: https://api.avax-test.network/ext/bc/C/rpc
+      - name: Build prod compose (once it exists)
+        run: |
+          if [ -f infra/docker-compose.prod.yml ]; then
+            docker compose -f infra/docker-compose.prod.yml build
+          else
+            echo "infra/docker-compose.prod.yml not present yet, skipping"
+          fi
+        env:
+          FORK_URL: https://api.avax-test.network/ext/bc/C/rpc
+
+  # Single required check for branch protection: "ci-pass"
   ci-pass:
     if: always()
-    needs: [invariants, node, contracts]
+    needs: [invariants, node, contracts, integration, docker]
     runs-on: ubuntu-latest
     steps:
-      - run: |
+      # Fail on anything except success; steps inside jobs already skip themselves when not applicable.
+      - if: contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') || contains(needs.*.result, 'skipped')
+        run: |
           echo '${{ toJSON(needs) }}'
-          if echo '${{ toJSON(needs) }}' | grep -qE '"result": "(failure|cancelled)"'; then exit 1; fi
+          exit 1
