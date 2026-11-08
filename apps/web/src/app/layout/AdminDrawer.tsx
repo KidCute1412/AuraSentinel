@@ -1,10 +1,10 @@
 import { useEffect, useId, useRef, useState } from "react";
 import { ArrowUpRight, Settings2, X } from "lucide-react";
+import type { Role } from "@agentshield/shared";
+import { API_BASE, API_V1 } from "@/shared/api/client";
 
-/** Mirrors `Role` in @agentshield/shared; switch to the shared type once the web app depends on it (Q4). */
-export type SessionRole = "user" | "owner" | "admin";
-
-const API_BASE = import.meta.env.VITE_API_URL || "/api";
+/** Session role from the server (`Role` in @agentshield/shared). */
+export type SessionRole = Role;
 
 /**
  * Admin drawer (D16: no /admin route). Renders nothing unless the session role is `admin`.
@@ -76,7 +76,7 @@ export function AdminDrawer({ role }: { role: SessionRole | null | undefined }) 
               </section>
               <section className="space-y-2">
                 <span className="mono-label">Công cụ</span>
-                <a href={`${API_BASE}/admin/queues`} target="_blank" rel="noreferrer" className="flex items-center gap-1 font-bold text-accent-text hover:underline">
+                <a href={`${API_V1}/admin/queues`} target="_blank" rel="noreferrer" className="flex items-center gap-1 font-bold text-accent-text hover:underline">
                   Bull Board <ArrowUpRight aria-hidden className="size-4" />
                 </a>
                 <a href={`${API_BASE}/health`} target="_blank" rel="noreferrer" className="flex items-center gap-1 font-bold text-accent-text hover:underline">

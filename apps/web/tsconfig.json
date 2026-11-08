@@ -14,7 +14,10 @@
     "noEmit": true,
     "types": ["vite/client", "vitest/globals", "@testing-library/jest-dom"],
     "baseUrl": ".",
-    "paths": { "@/*": ["./src/*"] }
+    "paths": {
+      "@/*": ["./src/*"],
+      "@agentshield/shared": ["../../packages/shared/src/index.ts"]
+    }
   },
   "include": ["src", "vite.config.ts"]
 }
