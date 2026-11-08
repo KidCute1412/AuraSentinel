@@ -11,6 +11,7 @@
     "test": "vitest run --passWithNoTests"
   },
   "dependencies": {
+    "@agentshield/shared": "workspace:*",
     "@fontsource/geist-mono": "^5.2.0",
     "@fontsource/hanken-grotesk": "^5.2.0",
     "@hookform/resolvers": "^5.0.0",
