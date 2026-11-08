@@ -156,13 +156,14 @@ describe('prompt', () => {
 describe('LLM path', () => {
   it('returns the model sentence but keeps verdict and budget deterministic', async () => {
     // The model claims "safe"; only messageVi is read from it.
-    const generate: GenerateFn = async () => JSON.stringify({ messageVi: 'Lệnh bị chặn vì vượt hạn mức.', verdict: 'safe', budgetUsedPct: 0 });
+    const messageVi = 'Lệnh 2.000 USDC bị chặn vì lớn hơn hạn mức 500 USDC cho mỗi lần.';
+    const generate: GenerateFn = async () => JSON.stringify({ messageVi, verdict: 'safe', budgetUsedPct: 0 });
     const e = await explainWithLlm(overCap({ budgetUsedPct: 13.3 }), generate, 1_000);
-    expect(e).toEqual({ verdict: 'blocked', budgetUsedPct: 13.3, messageVi: 'Lệnh bị chặn vì vượt hạn mức.', source: 'llm' });
+    expect(e).toEqual({ verdict: 'blocked', budgetUsedPct: 13.3, messageVi, source: 'llm' });
   });
 
   it('sends the system prompt and the facts to the model', async () => {
-    const generate = vi.fn<GenerateFn>(answer('Lệnh hợp lệ, tiền vẫn ở trong két.'));
+    const generate = vi.fn<GenerateFn>(answer('Đổi 200 USDC lấy khoảng 9,5 WAVAX, tiền vẫn ở trong két.'));
     await explainWithLlm(input(), generate, 1_000);
     const req = generate.mock.calls[0]![0];
     expect(req.system).toContain('untrusted_input');
@@ -194,10 +195,23 @@ describe('LLM path', () => {
 });
 
 describe('ExplainerService', () => {
-  const env = { GEMINI_API_KEY: undefined, GEMINI_MODEL: 'gemini-2.5-flash', EXPLAINER_TIMEOUT_MS: 50 } as unknown as Env;
+  const env = {
+    GEMINI_API_KEY: undefined,
+    GEMINI_MODEL: 'gemini-2.5-flash',
+    EXPLAINER_TIMEOUT_MS: 50,
+    GEMINI_RPM: 3,
+  } as unknown as Env;
+  const llm = {
+    verdict: 'safe',
+    budgetUsedPct: 13.3,
+    messageVi: 'Đổi 200 USDC lấy khoảng 9,5 WAVAX, tiền vẫn ở trong két.',
+    source: 'llm',
+  } as const;
+  const service = (gemini: object) =>
+    new ExplainerService(gemini as unknown as GeminiExplainer, new TemplateExplainer(), env);
 
   it('uses the template when no API key is configured', async () => {
-    const svc = new ExplainerService(new GeminiExplainer(env), new TemplateExplainer());
+    const svc = new ExplainerService(new GeminiExplainer(env), new TemplateExplainer(), env);
     const e = await svc.explain(overCap());
     expect(e.source).toBe('template');
     expect(e.messageVi).toBe('Lệnh 2.000 USDC vượt hạn mức mỗi lệnh là 500 USDC.');
@@ -205,16 +219,40 @@ describe('ExplainerService', () => {
 
   it('falls back to the template when Gemini fails, and never throws', async () => {
     const gemini = { available: true, explain: vi.fn().mockRejectedValue(new ExplainTimeoutError(2_000)) };
-    const svc = new ExplainerService(gemini as unknown as GeminiExplainer, new TemplateExplainer());
-    const e = await svc.explain(overCap());
+    const e = await service(gemini).explain(overCap());
     expect(gemini.explain).toHaveBeenCalledOnce();
     expect(e).toMatchObject({ verdict: 'blocked', source: 'template' });
   });
 
   it('returns the LLM explanation when Gemini succeeds', async () => {
-    const llm = { verdict: 'safe', budgetUsedPct: 13.3, messageVi: 'Lệnh hợp lệ, tiền vẫn ở trong két.', source: 'llm' } as const;
     const gemini = { available: true, explain: vi.fn().mockResolvedValue(llm) };
-    const svc = new ExplainerService(gemini as unknown as GeminiExplainer, new TemplateExplainer());
-    expect(await svc.explain(input())).toEqual(llm);
+    expect(await service(gemini).explain(input())).toEqual(llm);
+  });
+
+  it('caches LLM answers by facts, so repeating the same swap does not call Gemini again', async () => {
+    const gemini = { available: true, explain: vi.fn().mockResolvedValue(llm) };
+    const svc = service(gemini);
+    await svc.explain(input());
+    await svc.explain(input());
+    expect(gemini.explain).toHaveBeenCalledOnce();
+    await svc.explain(input({ untrustedText: 'khác' }));
+    expect(gemini.explain).toHaveBeenCalledTimes(2);
+  });
+
+  it('does not cache failures, so the next call tries Gemini again', async () => {
+    const gemini = { available: true, explain: vi.fn().mockRejectedValueOnce(new Error('503')).mockResolvedValue(llm) };
+    const svc = service(gemini);
+    expect((await svc.explain(input())).source).toBe('template');
+    expect((await svc.explain(input())).source).toBe('llm');
+  });
+
+  it('uses the template once the per-minute Gemini budget is spent (spam the button)', async () => {
+    const gemini = { available: true, explain: vi.fn().mockResolvedValue(llm) };
+    const svc = service(gemini);
+    const results = [];
+    for (let i = 0; i < 10; i++) results.push(await svc.explain(input({ untrustedText: `spam ${i}` })));
+    expect(gemini.explain).toHaveBeenCalledTimes(3); // GEMINI_RPM
+    expect(results.filter((r) => r.source === 'template')).toHaveLength(7);
+    expect(results.every((r) => r.verdict === 'safe' && r.budgetUsedPct === 13.3)).toBe(true);
   });
 });

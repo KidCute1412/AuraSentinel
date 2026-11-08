@@ -37,6 +37,8 @@ export const envSchema = z.object({
   GEMINI_API_KEY: z.string().optional(),
   GEMINI_MODEL: z.string().default('gemini-2.5-flash'),
   EXPLAINER_TIMEOUT_MS: z.coerce.number().int().positive().default(2000),
+  /** Max Gemini calls per minute; above it the explainer uses the template (free tier is ~10 RPM). */
+  GEMINI_RPM: z.coerce.number().int().positive().default(10),
 
   REBALANCE_INTERVAL_MS: z.coerce.number().int().positive().default(15_000),
 });
