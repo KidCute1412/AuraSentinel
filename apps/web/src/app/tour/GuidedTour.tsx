@@ -111,7 +111,8 @@ export function GuidedTour({ tour }: { tour: TourControls }) {
     if (open) primaryRef.current?.focus();
   }, [open, index]);
 
-  useEffect(() => {
+  // Layout effect too: Esc and the arrow keys must work from the first frame the card is visible.
+  useLayoutEffect(() => {
     if (!open) return;
     const onKey = (e: globalThis.KeyboardEvent) => {
       if (e.key === "Escape") {
