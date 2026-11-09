@@ -88,6 +88,14 @@ Wizard `/vaults/new/*`, bước hoàn thành đọc từ chain:
 | Vault chưa hoàn tất wizard | Owner: chuyển về bước dang dở. Người khác: hiện "Vault chưa sẵn sàng" |
 | Vault chưa được indexer đăng ký | Banner "Đang đăng ký…", poll theo §5 |
 
+### 1.1b Vault demo: dùng chung rồi nâng lên bể vault
+
+`/demo` cho khách bấm cả Kill-Switch và đổi Policy. Điều này cần **server giữ khoá owner của vault demo** (ngoại lệ có chủ đích, chỉ cho vault `isDemo` trên testnet; khoá owner của vault thật không bao giờ vào server).
+
+- **Giai đoạn 1 (làm trước):** một vault demo dùng chung. Sau khi có người Kill hoặc đổi Policy, server tự đặt lại policy chuẩn sau khoảng 30-60 giây; trang hiện "Demo resets in …". Hạn mức nhỏ, cooldown theo IP, giao dịch của vault xếp hàng tuần tự (tránh trùng nonce).
+- **Giai đoạn 2 (nếu còn thời gian):** bể vault dựng sẵn bằng `pnpm seed`. `/demo` cấp cho mỗi khách một vault trong bể (cookie, khoảng 15 phút), hết giờ hoặc "Start over" thì khôi phục rồi trả về bể; hết chỗ thì hiện "Demo is busy". Giao diện vẫn là một dashboard.
+- Tiến độ hướng dẫn 4 bước chỉ tính hành động trong lượt truy cập hiện tại.
+
 ### 1.2 Thứ tự ưu tiên (để kịp buổi demo)
 
 "Demo" ở đây là buổi trình diễn cho ban giám khảo (xem `pitch.md`) và trang `/demo` dùng cho nó.
