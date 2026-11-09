@@ -1,0 +1,49 @@
+import { parseAbi } from 'viem';
+
+/**
+ * Hand-written ABI fragments, TEMPORARY until L1 commits the generated ABIs to
+ * @agentshield/shared (D5, skill `shared-contract-sync`). They follow contracts.md §3–§5 exactly.
+ * A drift here (e.g. a custom error that gains parameters) changes the selector: the call still
+ * reverts on-chain, but the decoder reports UNKNOWN_REVERT instead of the real reason.
+ */
+export const POLICY_MODULE_ABI = parseAbi([
+  'function executeGuardedSwap(address tokenIn, address tokenOut, uint256 amountIn, uint256 minOut, uint256 deadline)',
+  'function policy() view returns (address agentSigner, address router, uint64 expiry, bool isActive)',
+  'function limits(address token) view returns (uint128 maxPerTx, uint128 dailyCap)',
+  'function spentToday(address token) view returns (uint256)',
+  // contracts.md §4: one custom error per gate. Names must match REASONS in shared/errors.ts.
+  'error UnauthorizedAgent()',
+  'error PolicyInactive()',
+  'error PolicyExpired()',
+  'error TokenNotWhitelisted()',
+  'error SameToken()',
+  'error ExceedsPerTxCap()',
+  'error ExceedsDailyCap()',
+  'error ZeroMinOut()',
+  'error DeadlineTooFar()',
+  'error SwapFailed()',
+  'error InsufficientOutput()',
+  'error ResidualAllowance()',
+]);
+
+/** Safe ModuleManager. Safe core errors are `Error(string)` with codes like "GS104". */
+export const SAFE_MODULE_ABI = parseAbi([
+  'function execTransactionFromModule(address to, uint256 value, bytes data, uint8 operation) returns (bool success)',
+]);
+
+export const ERC20_ABI = parseAbi([
+  'function approve(address spender, uint256 amount) returns (bool)',
+  'function balanceOf(address owner) view returns (uint256)',
+  'function allowance(address owner, address spender) view returns (uint256)',
+]);
+
+/** Module deadline window is 10 minutes (C4); we ask for half of it. */
+export const SWAP_DEADLINE_SECONDS = 300n;
+
+/**
+ * Manual gas for executeGuardedSwap (Safe approve + router swap + approve reset, with headroom).
+ * Manual on purpose: with estimation a Shield 2 revert is caught in the client and never mined,
+ * so there is no hash (system-design §5). The simulator uses the same value so an out-of-gas
+ * swap fails in the sim first.
+ */
+export const SWAP_GAS = 700_000n;

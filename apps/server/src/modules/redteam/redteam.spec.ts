@@ -173,20 +173,42 @@ describe('RedteamController: POST /vaults/{safe}/attacks', () => {
   });
 });
 
-describe('RedteamProcessor (until A4 provides sendRaw)', () => {
-  it('builds the exact bypass transaction but marks the job failed instead of faking a revert', async () => {
+describe('RedteamProcessor', () => {
+  const TX = `0x${'ab'.repeat(32)}` as const;
+  const make = (sendRaw: ReturnType<typeof vi.fn>, e: Env = env) => {
     const jobs = { transition: vi.fn().mockResolvedValue(undefined) };
-    const p = new RedteamProcessor(jobs as never, env);
-    const call = await p.process({ data: { jobId: JOB_ID, vault: SAFE, scenario: 'bypass' } } as never);
+    const sender = { address: AGENT, sendSwap: vi.fn(), sendRaw };
+    return { jobs, sendRaw, p: new RedteamProcessor(jobs as never, e, sender as never) };
+  };
+
+  it('sends the exact bypass transaction and records the mined revert with its hash and reason', async () => {
+    const { p, jobs, sendRaw } = make(
+      vi.fn().mockResolvedValue({ txHash: TX, status: 'reverted', blockNumber: 1n, revertReason: 'ExceedsPerTxCap' }),
+    );
+    await p.process({ data: { jobId: JOB_ID, vault: SAFE, scenario: 'bypass' } } as never);
+    const call = sendRaw.mock.calls[0]?.[0];
     expect(call?.to).toBe(MODULE);
     expect(call?.gas).toBe(ATTACK_GAS);
-    expect(jobs.transition).toHaveBeenCalledWith(JOB_ID, 'failed');
+    expect(jobs.transition).toHaveBeenNthCalledWith(1, JOB_ID, 'broadcasting');
+    expect(jobs.transition).toHaveBeenLastCalledWith(JOB_ID, 'reverted', { txHash: TX, reasonCode: 'ExceedsPerTxCap' });
+  });
+
+  it('flags an attack that was not reverted as confirmed (security alarm), never hides it', async () => {
+    const { p, jobs } = make(vi.fn().mockResolvedValue({ txHash: TX, status: 'success', blockNumber: 1n }));
+    await p.process({ data: { jobId: JOB_ID, vault: SAFE, scenario: 'unlimited-approval' } } as never);
+    expect(jobs.transition).toHaveBeenLastCalledWith(JOB_ID, 'confirmed', { txHash: TX });
+  });
+
+  it('marks the job failed (not a fake revert) when the sender cannot send', async () => {
+    const { p, jobs } = make(vi.fn().mockRejectedValue(new Error('no session key')));
+    await expect(p.process({ data: { jobId: JOB_ID, vault: SAFE, scenario: 'bypass' } } as never)).resolves.toBeNull();
+    expect(jobs.transition).toHaveBeenLastCalledWith(JOB_ID, 'failed');
   });
 
   it('fails the job when the module address is unknown', async () => {
-    const jobs = { transition: vi.fn().mockResolvedValue(undefined) };
-    const p = new RedteamProcessor(jobs as never, { ...env, POLICY_MODULE_ADDRESS: undefined } as Env);
+    const { p, jobs, sendRaw } = make(vi.fn(), { ...env, POLICY_MODULE_ADDRESS: undefined } as Env);
     await expect(p.process({ data: { jobId: JOB_ID, vault: SAFE, scenario: 'unlimited-approval' } } as never)).resolves.toBeNull();
+    expect(sendRaw).not.toHaveBeenCalled();
     expect(jobs.transition).toHaveBeenCalledWith(JOB_ID, 'failed');
   });
 });

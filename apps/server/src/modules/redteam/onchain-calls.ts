@@ -1,4 +1,6 @@
-import { encodeFunctionData, parseAbi, type Address, type Hex } from 'viem';
+import { encodeFunctionData, type Address } from 'viem';
+import { ERC20_ABI, POLICY_MODULE_ABI, SAFE_MODULE_ABI } from '../../core/chain/abis';
+import type { RawCall } from '../execution/tx-sender.port';
 import type { OnchainPlan } from './scenarios';
 
 /**
@@ -11,33 +13,15 @@ export const ATTACK_GAS = 300_000n;
 export const BYPASS_DEADLINE_SECONDS = 300n;
 
 /**
- * Hand-written fragments. Safe and ERC-20 are stable standards. The module signature follows
- * contracts.md §3 and MUST be replaced by the generated ABI from @agentshield/shared once L1
- * commits it (D5): a wrong selector would revert without data (UNKNOWN_REVERT), not with
- * ExceedsPerTxCap.
+ * ABIs come from core/chain (hand-written per contracts.md until L1 commits the generated ones,
+ * D5): a wrong selector would revert without data (UNKNOWN_REVERT), not with ExceedsPerTxCap.
  */
-export const POLICY_MODULE_ABI = parseAbi([
-  'function executeGuardedSwap(address tokenIn, address tokenOut, uint256 amountIn, uint256 minOut, uint256 deadline)',
-]);
-export const SAFE_MODULE_ABI = parseAbi([
-  'function execTransactionFromModule(address to, uint256 value, bytes data, uint8 operation) returns (bool success)',
-]);
-export const ERC20_ABI = parseAbi(['function approve(address spender, uint256 amount) returns (bool)']);
+export { ERC20_ABI, POLICY_MODULE_ABI, SAFE_MODULE_ABI };
 
 /** Enum.Operation.Call. Never DelegateCall (C6). */
 const OPERATION_CALL = 0;
 
-/** A raw transaction for the session key to sign. No key and no signing here. */
-export interface RawCall {
-  to: Address;
-  data: Hex;
-  gas: bigint;
-}
-
-/** Signing happens in modules/execution only (P5); A4 implements this on the shared TxSender. */
-export interface RawTxSender {
-  sendRaw(call: RawCall): Promise<{ hash: Hex; status: 'success' | 'reverted'; revertData?: Hex }>;
-}
+export type { RawCall };
 
 export function buildOnchainCall(
   plan: OnchainPlan,

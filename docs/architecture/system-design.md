@@ -144,6 +144,8 @@ Worker sinh event (job đổi trạng thái, event chain), API giữ kết nối
 
 **Bẫy quan trọng — fork bị stale:** Anvil fork tại block lúc khởi động. Sau vài swap thật trên Fuji, `spentInDay` trong fork **lệch** với chain thật → sim sai. Giải pháp: **đầu mỗi job gọi `anvil_reset` về block mới nhất** (viem test action `reset`). Queue concurrency 1 nên không có race. Nếu reset chậm (>500ms do tải lazy state), phương án B: `evm_snapshot` trước sim / `evm_revert` sau, và reset định kỳ khi Indexer thấy event `GuardedSwap` mới.
 
+> **Đã chọn phương án B (A5, đo 10/11 trên RPC public Fuji):** `anvil_reset` ~1,5s, mỗi slot nguội sau reset ~0,2s; trên fork đã ấm, snapshot + đọc + revert ~85ms. Vì vậy `AnvilSimulator` chạy mỗi sim trên snapshot gốc rồi `evm_revert`; reset + chạy lại sim gần nhất để làm ấm cache diễn ra **nền** (mỗi 20s, ngay khi `invalidate()` sau tx của mình, và đồng bộ chỉ khi base cũ hơn 60s). Fork lệch vài giây chấp nhận được: precheck đọc chain thật, Shield 2 là bảo đảm cuối.
+
 ### 3.6 Web3 library — **viem (BE) + wagmi v2 (FE)**
 - Type inference từ ABI `as const` → sai tên hàm/kiểu tham số là lỗi compile.
 - `fallback()` transport nhiều RPC (chống RPC chết lúc demo), `nonceManager` cho session key, test actions cho Anvil (`reset`, `impersonateAccount`, `setBalance`).
