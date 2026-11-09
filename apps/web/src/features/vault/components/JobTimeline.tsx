@@ -1,6 +1,7 @@
 import { Check, Circle, Minus, X } from "lucide-react";
 import type { JobDetailDto } from "@agentshield/shared";
 import { cn } from "@/shared/lib/cn";
+import { clockTime } from "@/shared/lib/time";
 import { timelineSteps, type StepState } from "../lib/timeline";
 
 const MARK: Record<StepState, { box: string; label: string }> = {
@@ -20,7 +21,7 @@ function Icon({ state }: { state: StepState }) {
 }
 
 /** Shield 1 (pre-check, simulation, invariants) then Shield 2 (on-chain). Text + icon + color, never color alone. */
-export function JobTimeline({ job }: { job: JobDetailDto }) {
+export function JobTimeline({ job, showTimes = false }: { job: JobDetailDto; /** Job page: print when each step finished. */ showTimes?: boolean }) {
   const steps = timelineSteps(job);
   return (
     <ol aria-label="Job pipeline" className="space-y-0">
@@ -35,6 +36,11 @@ export function JobTimeline({ job }: { job: JobDetailDto }) {
               <span className="text-sm font-bold">{s.label}</span>
               <span className="mono-label">{s.shield}</span>
               <span className={cn("font-mono text-[11px] uppercase tracking-widest", s.state === "fail" ? "text-danger-text" : s.state === "pass" ? "text-accent-text" : "text-muted")}>{MARK[s.state].label}</span>
+              {showTimes && s.ts && (
+                <time dateTime={s.ts} className="tabular font-mono text-[11px] text-muted">
+                  {clockTime(s.ts)}
+                </time>
+              )}
             </div>
             {s.note && <p className="mt-0.5 text-xs text-soft">{s.note}</p>}
           </div>

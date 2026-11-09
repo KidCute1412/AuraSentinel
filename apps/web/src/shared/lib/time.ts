@@ -10,6 +10,14 @@ export function timeAgo(iso: string, nowMs: number = Date.now()): string {
   return `${Math.floor(h / 24)} d ago`;
 }
 
+/** "14:03:27" in the viewer's time zone, 24-hour clock. "--:--:--" for a bad timestamp. Display only. */
+export function clockTime(iso: string): string {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "--:--:--";
+  const two = (n: number) => String(n).padStart(2, "0");
+  return `${two(d.getHours())}:${two(d.getMinutes())}:${two(d.getSeconds())}`;
+}
+
 /** "29 days", "5 h", "12 min", "expired". Used for policy expiry. */
 export function timeLeft(expirySec: number, nowSec: number): string {
   const s = expirySec - nowSec;

@@ -1,7 +1,14 @@
 import { describe, expect, it } from "vitest";
-import { timeAgo, timeLeft } from "./time";
+import { clockTime, timeAgo, timeLeft } from "./time";
 
 const NOW = Date.parse("2026-11-09T12:00:00Z");
+
+describe("clockTime", () => {
+  it("prints a 24-hour HH:MM:SS clock and survives a bad timestamp", () => {
+    expect(clockTime("2026-11-09T12:00:00Z")).toMatch(/^([01]\d|2[0-3]):[0-5]\d:[0-5]\d$/);
+    expect(clockTime("not a date")).toBe("--:--:--");
+  });
+});
 
 describe("timeAgo", () => {
   it("buckets from seconds to days", () => {
