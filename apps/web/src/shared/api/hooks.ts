@@ -1,7 +1,17 @@
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import type { CreateAttackRequest } from "@agentshield/shared";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { applyServerEvent } from "./cache";
-import { getJob, getJobs, getSession, getVaultState } from "./endpoints";
+import {
+  createAttack,
+  createRebalanceJob,
+  getJob,
+  getJobs,
+  getRebalancerStatus,
+  getSession,
+  getVaultState,
+  setRebalancerPaused,
+} from "./endpoints";
 import { queryKeys } from "./queryKeys";
 import { connectVaultEvents, type Backoff, type SseStatus } from "./sse";
 
@@ -63,4 +73,39 @@ export function useVaultEvents(safe: string | null | undefined, options: { enabl
   }, [qc, safe, enabled]);
 
   return status;
+}
+
+// ---- Writes (Q10). The new job arrives through SSE; the jobs list is also refetched in case
+// the stream is down, so the timeline never misses a button press.
+
+/** POST /vaults/{safe}/jobs (rebalance). `amountIn` is base units as a string. */
+export function useCreateRebalance(safe: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (amountIn: string) => createRebalanceJob(safe, { kind: "rebalance", amountIn }),
+    onSuccess: () => void qc.invalidateQueries({ queryKey: queryKeys.vaultJobs(safe) }),
+  });
+}
+
+/** POST /vaults/{safe}/attacks. */
+export function useLaunchAttack(safe: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (body: CreateAttackRequest) => createAttack(safe, body),
+    onSuccess: () => void qc.invalidateQueries({ queryKey: queryKeys.vaultJobs(safe) }),
+  });
+}
+
+/** GET /admin/rebalancer. Only call it for admins (the server answers 401/403 otherwise). */
+export function useRebalancerStatus(enabled: boolean) {
+  return useQuery({ queryKey: queryKeys.adminRebalancer, queryFn: ({ signal }) => getRebalancerStatus(signal), enabled });
+}
+
+/** PATCH /admin/rebalancer { paused }: Demo mode. */
+export function useSetRebalancerPaused() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (paused: boolean) => setRebalancerPaused(paused),
+    onSuccess: (status) => qc.setQueryData(queryKeys.adminRebalancer, status),
+  });
 }
