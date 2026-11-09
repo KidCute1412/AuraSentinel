@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import { ArrowUpRight, Construction } from "lucide-react";
 import type { Address } from "viem";
+import { ActivityPanel } from "@/features/activity/ActivityPanel";
 import { Chamfer } from "@/shared/ui/Chamfer";
 import { Stamp } from "@/shared/ui/Stamp";
 import { FUJI } from "@/shared/web3/config";
@@ -47,8 +48,13 @@ const COLUMNS: Column[] = [
     slots: [
       { name: "Số dư trước / sau", task: "L8", note: "Số dư Safe trước và sau giao dịch gần nhất.", tour: "balances" },
       { name: "Hạn mức ngày đã dùng", task: "L8", note: "Đã tiêu / hạn mức ngày, lấy từ chain.", tour: "balances" },
-      { name: "Dòng thời gian job", task: "Q9", note: "Shield 1 → Shield 2, thẻ giải thích, link Snowtrace.", tour: "activity" },
-      { name: "Lịch sử job", task: "Q9", note: "Danh sách lệnh đã duyệt và bị chặn.", tour: "activity" },
+      {
+        name: "Dòng thời gian job",
+        task: "Q9",
+        note: "Shield 1 → Shield 2, thẻ giải thích, link Snowtrace.",
+        tour: "activity",
+        panel: ({ safe }) => <ActivityPanel safe={safe} />,
+      },
     ],
   },
   {
