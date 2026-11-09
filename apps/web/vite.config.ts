@@ -9,7 +9,8 @@ export default defineConfig({
   resolve: {
     alias: {
       "@": fileURLToPath(new URL("./src", import.meta.url)),
-      // Consume the shared package from source so the web app needs no prior `shared` build.
+      // Bundle the shared Zod contracts from source: the web build (Vercel included) never
+      // depends on packages/shared/dist being built first. Mirrored in tsconfig "paths".
       "@agentshield/shared": fileURLToPath(new URL("../../packages/shared/src/index.ts", import.meta.url)),
     },
   },
@@ -17,12 +18,12 @@ export default defineConfig({
     port: 5173,
     // allow access through a quick tunnel (cloudflared) when testing from a phone
     allowedHosts: [".trycloudflare.com"],
-    // API + SSE go through the proxy so the browser sees one origin (no CORS in dev)
+    // API + SSE go through the proxy so the browser sees one origin (no CORS in dev).
+    // Paths pass through unchanged: the server owns the /api/v1 prefix (api.md §1).
     proxy: {
       "/api": {
         target: "http://localhost:4000",
         changeOrigin: true,
-        rewrite: (path) => path.replace(/^\/api/, ""),
       },
     },
   },
