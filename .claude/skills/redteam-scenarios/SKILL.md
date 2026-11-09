@@ -23,7 +23,7 @@ Every button must cause a **real** action and a real block, not a UI animation. 
 Pass `gas: 300_000n` explicitly. If viem runs `estimateGas`, the revert is caught client-side and **never mined**, so no Snowtrace evidence exists. The agent EOA needs a little AVAX for gas. Decode the revert from the receipt/`call` replay with `decodeErrorResult` and publish `job.updated {status:"reverted", txHash, revertError}`.
 
 ## Structure
-`scenario.interface.ts` -> `run(ctx): Promise<ScenarioResult>`; one file per scenario; `redteam.processor.ts` (`@Processor('attack')`, `concurrency: 1`, shares the single `TxSender`, see `tx-execution`). Controller: `POST /attacks/:scenario` (`over-withdraw|wrong-recipient|unlimited-approval|bypass`) and `POST /attacks/inject {text}`.
+`scenario.interface.ts` -> `plan(ctx, text?): AttackPlan` (pure, no I/O); one file per scenario, registered in `scenarios/index.ts` as `Record<AttackScenario, …>` so a missing one fails to compile. Plans are `shield1` (a `SwapIntent` sent through the normal `swap` queue) or `onchain` (built by `onchain-calls.ts` with manual gas). Controller: `POST /vaults/{safe}/attacks` with body `CreateAttackRequest` from `packages/shared` (`{scenario}` or `{scenario:"prompt-injection", text}`), api.md #12; it routes Shield 1 plans to the swap queue and on-chain plans to `@Processor('attack')` (`concurrency: 1`, shares the single `TxSender`, see `tx-execution`). Expected outcomes per scenario live in shared `ATTACK_EXPECTATIONS`.
 
 ## Adding a scenario
 Add id to the shared enum, implement the interface, state which shield must stop it and what evidence shows, add an integration test asserting the block (and, for on-chain ones, that the Safe balance is unchanged). Attacks never use the owner key.

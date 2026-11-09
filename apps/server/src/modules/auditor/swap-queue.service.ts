@@ -14,10 +14,17 @@ export class SwapQueueService {
     private readonly jobs: JobsService,
   ) {}
 
-  async enqueue(kind: string, intent: SwapIntent): Promise<string> {
+  /**
+   * Creates the job row and queues it for the Auditor. `untrustedText` (red-team injection box)
+   * travels with the job so the Auditor can hand it to the explainer as <untrusted_input>; it
+   * never reaches precheck, simulation or signing.
+   */
+  async enqueue(kind: string, intent: SwapIntent, opts: { untrustedText?: string } = {}): Promise<string> {
     const wire = intentToWire(intent);
     const job = await this.jobs.create(kind, wire);
-    await this.queue.add('audit', { jobId: job.id, intent: wire }, { jobId: job.id });
+    const data: SwapJobData = { jobId: job.id, intent: wire };
+    if (opts.untrustedText) data.untrustedText = opts.untrustedText;
+    await this.queue.add('audit', data, { jobId: job.id });
     return job.id;
   }
 }

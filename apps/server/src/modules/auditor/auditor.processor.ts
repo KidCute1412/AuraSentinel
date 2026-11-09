@@ -7,6 +7,8 @@ import { AuditorService } from './auditor.service';
 export interface SwapJobData {
   jobId: string;
   intent: SwapIntentWire;
+  /** Red-team prompt-injection text. TODO(A6): pass to ExplainInput.untrustedText, nowhere else. */
+  untrustedText?: string;
 }
 
 /** concurrency: 1 because this path signs; serializes nonce usage. */
