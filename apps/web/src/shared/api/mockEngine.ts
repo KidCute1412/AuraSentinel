@@ -76,20 +76,24 @@ export type ReasonCode =
   | "ExceedsPerTxCap"
   | "ExceedsDailyCap"
   | "InsufficientBalance"
-  | "WrongRecipient"
-  | "UnlimitedApproval";
+  | "RECIPIENT_NOT_SAFE"
+  | "GS104";
 
 export type Decision = { ok: true } | { ok: false; code: ReasonCode };
 
-/** Shield 1 pre-check for a USDC -> WAVAX swap. The first failing rule wins, in this fixed order. */
+/**
+ * Shield 1 pre-check for a USDC -> WAVAX swap. The first failing rule wins, in the same order as the server's
+ * precheck (auditor/domain/precheck.ts): policy, caps, then the recipient. Codes match @agentshield/shared REASONS
+ * where one exists, so swapping this mock for the real API keeps every label.
+ */
 export function evaluateSwap(state: StateDto, amountIn: bigint, nowSec: number, recipientIsVault = true): Decision {
   const { maxPerTx, dailyCap } = usdcLimit(state);
   if (!state.isActive) return { ok: false, code: "PolicyInactive" };
   if (state.policy.expiry <= nowSec) return { ok: false, code: "PolicyExpired" };
   if (amountIn <= 0n) return { ok: false, code: "InvalidAmount" };
-  if (!recipientIsVault) return { ok: false, code: "WrongRecipient" };
   if (amountIn > maxPerTx) return { ok: false, code: "ExceedsPerTxCap" };
   if (spentUsdc(state) + amountIn > dailyCap) return { ok: false, code: "ExceedsDailyCap" };
+  if (!recipientIsVault) return { ok: false, code: "RECIPIENT_NOT_SAFE" };
   if (amountIn > balanceOf(state, "USDC")) return { ok: false, code: "InsufficientBalance" };
   return { ok: true };
 }
@@ -122,9 +126,10 @@ export function planJob(spec: JobSpec, state: StateDto, safe: Address, nowSec: n
       : { ...base, kind: "swap", origin: "manual", amountIn: spec.amountIn, progress: ["queued", "prechecking"], terminal: "rejected", code: d.code, failAt: "precheck" };
   }
   if (spec.type === "injection") {
-    // The text is data. It cannot change the verdict: the drain it asks for fails the same rules.
-    const d = evaluateSwap(state, ATTACK_AMOUNT, nowSec, false);
-    return { ...base, kind: "attack", origin: "redteam", amountIn: ATTACK_AMOUNT, recipient: ATTACKER, progress: ["queued", "prechecking"], terminal: "rejected", code: d.ok ? "ExceedsPerTxCap" : d.code, failAt: "precheck", injected: true };
+    // The text is data, never instructions: the server sends the same fixed 2,000 USDC intent as over-withdraw
+    // and hands the text to the explainer only (redteam/scenarios/prompt-injection.ts). So the verdict cannot move.
+    const d = evaluateSwap(state, ATTACK_AMOUNT, nowSec);
+    return { ...base, kind: "attack", origin: "redteam", amountIn: ATTACK_AMOUNT, progress: ["queued", "prechecking"], terminal: "rejected", code: d.ok ? "ExceedsPerTxCap" : d.code, failAt: "precheck", injected: true };
   }
   switch (spec.scenario) {
     case "over-withdraw": {
@@ -133,10 +138,12 @@ export function planJob(spec: JobSpec, state: StateDto, safe: Address, nowSec: n
     }
     case "wrong-recipient": {
       const d = evaluateSwap(state, 200_000_000n, nowSec, false);
-      return { ...base, kind: "attack", origin: "redteam", amountIn: 200_000_000n, recipient: ATTACKER, progress: ["queued", "prechecking"], terminal: "rejected", code: d.ok ? "WrongRecipient" : d.code, failAt: "precheck" };
+      return { ...base, kind: "attack", origin: "redteam", amountIn: 200_000_000n, recipient: ATTACKER, progress: ["queued", "prechecking"], terminal: "rejected", code: d.ok ? "RECIPIENT_NOT_SAFE" : d.code, failAt: "precheck" };
     }
     case "unlimited-approval":
-      return { ...base, kind: "attack", origin: "redteam", amountIn: 0n, progress: ["queued", "prechecking"], terminal: "rejected", code: state.isActive ? "UnlimitedApproval" : "PolicyInactive", failAt: "precheck" };
+      // The session key calls safe.execTransactionFromModule(approve(MAX)) itself. The agent EOA is not an enabled
+      // module, so the Safe reverts with GS104 on-chain whatever the policy says: there is a tx to show, no allowance.
+      return { ...base, kind: "attack", origin: "redteam", amountIn: 0n, progress: ["queued", "broadcasting"], terminal: "reverted", code: "GS104", failAt: "onchain", skipsShield1: true };
     case "bypass":
       // Goes straight to the chain with a hand-set gas limit, so only the contract can stop it.
       return { ...base, kind: "attack", origin: "redteam", amountIn: ATTACK_AMOUNT, progress: ["queued", "broadcasting"], terminal: "reverted", code: state.isActive ? "ExceedsPerTxCap" : "PolicyInactive", failAt: "onchain", skipsShield1: true };
@@ -151,8 +158,8 @@ export const REASONS: Record<ReasonCode, { title: string; sentence: string }> = 
   ExceedsPerTxCap: { title: "Over the per-transaction cap", sentence: "This trade is larger than the most the agent may move in one transaction." },
   ExceedsDailyCap: { title: "Over the daily cap", sentence: "This trade would push today's total spending past the daily limit." },
   InsufficientBalance: { title: "Not enough balance", sentence: "The vault does not hold enough of this token for the trade." },
-  WrongRecipient: { title: "Wrong recipient", sentence: "Proceeds must return to the vault. Any other recipient is refused." },
-  UnlimitedApproval: { title: "Unlimited approval", sentence: "An unlimited allowance would let a router pull every token later, so it is refused before signing." },
+  RECIPIENT_NOT_SAFE: { title: "Recipient is not the vault", sentence: "Proceeds must return to the vault. Any other recipient is refused." },
+  GS104: { title: "Refused by the Safe (GS104)", sentence: "The agent key is not an enabled module of the Safe, so the Safe refused the call. No allowance was granted." },
 };
 
 export const reasonTitle = (code: string | null): string => (code && code in REASONS ? REASONS[code as ReasonCode].title : code ?? "Unknown reason");
@@ -181,9 +188,18 @@ function explain(plan: Plan, state: StateDto, outAmount: bigint, source: Explana
     };
   }
   const reason = plan.code ? REASONS[plan.code] : null;
-  const who = plan.terminal === "reverted" ? "Shield 2 (the contract) blocked this on-chain" : "Shield 1 blocked this before anything was signed";
+  const bySafe = plan.code === "GS104";
+  const who = bySafe
+    ? "The Safe blocked this on-chain"
+    : plan.terminal === "reverted"
+      ? "Shield 2 (the contract) blocked this on-chain"
+      : "Shield 1 blocked this before anything was signed";
   const inj = plan.injected ? " The instruction hidden in the text was ignored; the verdict comes from the rules only." : "";
-  const bypass = plan.skipsShield1 ? " It skipped the website, but the rules live on-chain, so the contract still refused it." : "";
+  const bypass = !plan.skipsShield1
+    ? ""
+    : bySafe
+      ? " Skipping the website does not help: the Safe checks the caller itself."
+      : " It skipped the website, but the rules live on-chain, so the contract still refused it.";
   return { verdict: "blocked", budgetUsedPct: pct, source, messageVi: `${who}. ${reason?.sentence ?? "The rules were not met."}${inj}${bypass}` };
 }
 

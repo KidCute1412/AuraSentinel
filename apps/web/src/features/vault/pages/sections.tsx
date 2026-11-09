@@ -3,24 +3,28 @@ import { decideSection, sectionPath } from "../guards/access";
 import { useVaultContext } from "../layout/context";
 import { Placeholder } from "./Placeholder";
 import { VaultDashboard } from "../overview/VaultDashboard";
+import { Activity } from "./Activity";
 import { JobDetail } from "./JobDetail";
+import { RedTeam } from "./RedTeam";
 
 export function OverviewPage() {
   const { view, role } = useVaultContext();
   return <VaultDashboard view={view} role={role} mode="owner" />;
 }
-export const ActivityPage = () => (
-  <Placeholder code="VLT / ACTIVITY" title="Activity" blurb="Every job with filters by status (?status=&page=). Open a row to see the full job." />
-);
+export function ActivityPage() {
+  const { view, role } = useVaultContext();
+  return <Activity view={view} role={role} />;
+}
 export const PolicyPage = () => (
   <Placeholder code="VLT / POLICY" title="Policy" blurb="Current limits, a policy form (preview, then sign with the owner wallet) and the change history read from the chain." />
 );
 export const FundsPage = () => (
   <Placeholder code="VLT / FUNDS" title="Funds" blurb="Balances per token, deposit and withdraw (owner) and transfer history." />
 );
-export const RedTeamPage = () => (
-  <Placeholder code="VLT / RED-TEAM" title="Red team" blurb="Run a rebalance, launch the four attacks or try a prompt injection. Results appear right beside the buttons." />
-);
+export function RedTeamPage() {
+  const { view, role } = useVaultContext();
+  return <RedTeam view={view} role={role} />;
+}
 
 export function JobDetailPage() {
   const { jobId } = useParams();

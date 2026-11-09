@@ -54,7 +54,7 @@ const sectionOf = (pathname: string, safe: string): VaultSection => {
 /** Shell of every /vaults/:safe/* page: validates the address, loads the vault, derives the role, draws header + nav. */
 export function VaultLayout() {
   const { safe: param } = useParams();
-  const { pathname } = useLocation();
+  const { pathname, search } = useLocation();
   const wallet = useSession((s) => s.wallet);
   const safe = parseAddressParam(param);
   const { data: view, isPending, isError, refetch } = useVaultView(safe);
@@ -70,8 +70,8 @@ export function VaultLayout() {
     );
   }
 
-  // Mixed or lower case in the URL -> canonical checksum form, keeping the sub-path.
-  if (param !== safe) return <Navigate to={pathname.replace(param!, safe)} replace />;
+  // Mixed or lower case in the URL -> canonical checksum form, keeping the sub-path and the query (activity filters).
+  if (param !== safe) return <Navigate to={{ pathname: pathname.replace(param!, safe), search }} replace />;
 
   if (isPending) {
     return (

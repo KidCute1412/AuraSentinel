@@ -10,6 +10,8 @@ export interface TimelineStep {
   shield: "Shield 1" | "Shield 2";
   state: StepState;
   note: string | null;
+  /** When the step finished (audit entry timestamp); null if it never ran. */
+  ts: string | null;
 }
 
 const STEPS: { id: StepId; label: string; shield: TimelineStep["shield"] }[] = [
@@ -33,9 +35,9 @@ export function timelineSteps(job: Pick<JobDetailDto, "status" | "audit" | "prec
   const bypassed = terminal && job.origin === "redteam" && job.precheck === null;
   return STEPS.map((s) => {
     const entry = job.audit.find((a) => a.shield === s.id);
-    if (entry) return { ...s, state: entry.result === "pass" ? "pass" : "fail", note: entry.result === "fail" ? reasonTitle(entry.reason) : null } as TimelineStep;
-    if (!terminal) return { ...s, state: s.id === active ? "active" : "pending", note: null };
-    return { ...s, state: "skipped", note: bypassed && s.shield === "Shield 1" ? "Skipped: the website was bypassed" : "Not reached" };
+    if (entry) return { ...s, state: entry.result === "pass" ? "pass" : "fail", note: entry.result === "fail" ? reasonTitle(entry.reason) : null, ts: entry.ts } as TimelineStep;
+    if (!terminal) return { ...s, state: s.id === active ? "active" : "pending", note: null, ts: null };
+    return { ...s, state: "skipped", note: bypassed && s.shield === "Shield 1" ? "Skipped: the website was bypassed" : "Not reached", ts: null };
   });
 }
 

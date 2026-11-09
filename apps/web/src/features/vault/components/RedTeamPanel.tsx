@@ -1,10 +1,12 @@
 import { Bug, Lock, Play } from "lucide-react";
 import { useState } from "react";
+import type { AttackScenario as Scenario } from "@agentshield/shared";
 import { startJob } from "@/shared/api/mockChain";
 import type { AttackScenario } from "@/shared/api/mockEngine";
 import type { VaultView } from "@/shared/api/vaultSource";
 import { cn } from "@/shared/lib/cn";
 import { Panel } from "@/shared/ui/Panel";
+import { expectationLine } from "../lib/attacks";
 import { parseLimit } from "../lib/policyForm";
 
 const ATTACKS: { id: AttackScenario; title: string; hint: string }[] = [
@@ -25,7 +27,8 @@ interface Props {
   view: VaultView;
   /** Whether this visitor may fire actions (owner, or anyone on the public demo vault). */
   canAct: boolean;
-  onStarted: (jobId: string) => void;
+  /** `scenario` is the attack that was launched (null for a rebalance), so a page can check the outcome. */
+  onStarted: (jobId: string, scenario: Scenario | null) => void;
 }
 
 const btn = "min-h-11 border border-line-strong px-4 text-left text-sm font-bold hover:bg-hover disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-transparent";
@@ -38,9 +41,9 @@ export function RedTeamPanel({ view, canAct, onStarted }: Props) {
   const lowGas = view.agentGas === "low";
   const off = !canAct || lowGas;
 
-  const run = (fn: () => string) => {
+  const run = (fn: () => string, scenario: Scenario | null = null) => {
     try {
-      onStarted(fn());
+      onStarted(fn(), scenario);
       setError(null);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Could not start the job");
@@ -114,10 +117,11 @@ export function RedTeamPanel({ view, canAct, onStarted }: Props) {
         <ul className="grid gap-2">
           {ATTACKS.map((a, i) => (
             <li key={a.id}>
-              <button type="button" disabled={off} onClick={() => run(() => startJob(view, { type: "attack", scenario: a.id }))} className={cn(btn, "w-full")}>
+              <button type="button" disabled={off} onClick={() => run(() => startJob(view, { type: "attack", scenario: a.id }), a.id)} className={cn(btn, "w-full py-2")}>
                 <span className="mono-label mr-2">0{i + 1}</span>
                 {a.title}
                 <span className="block text-xs font-medium text-muted">{a.hint}</span>
+                <span className="mt-1 block font-mono text-[11px] font-medium text-soft">{expectationLine(a.id)}</span>
               </button>
             </li>
           ))}
@@ -146,10 +150,11 @@ export function RedTeamPanel({ view, canAct, onStarted }: Props) {
             </button>
           ))}
         </div>
-        <button type="button" disabled={off || text.trim() === ""} onClick={() => run(() => startJob(view, { type: "injection", text }))} className={cn(btn, "mt-3 inline-flex items-center gap-2")}>
+        <button type="button" disabled={off || text.trim() === ""} onClick={() => run(() => startJob(view, { type: "injection", text }), "prompt-injection")} className={cn(btn, "mt-3 inline-flex items-center gap-2")}>
           <Bug aria-hidden className="size-4" />
           Send as agent input
         </button>
+        <p className="mt-2 font-mono text-[11px] text-soft">{expectationLine("prompt-injection")}</p>
       </Panel>
 
       {error && <p role="alert" className="border-l-4 border-danger bg-tint-pink px-3 py-2 text-sm">{error}</p>}

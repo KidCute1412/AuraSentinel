@@ -15,13 +15,14 @@ import { JobTimeline } from "./JobTimeline";
 function headline(job: JobDetailDto): string {
   if (job.status === "confirmed") return `Safe: used ${formatPct(job.explanation?.budgetUsedPct ?? 0)} of today's limit`;
   if (job.status === "rejected") return "Shield 1 blocked this";
-  if (job.status === "reverted") return "Shield 2 blocked this on-chain";
+  // GS### is the Safe itself refusing a caller that is not an enabled module (attack #3), not the policy module.
+  if (job.status === "reverted") return job.revertError?.startsWith("GS") ? "The Safe blocked this on-chain" : "Shield 2 blocked this on-chain";
   if (job.status === "failed") return "Infrastructure error";
   return "Auditing…";
 }
 
 /** The verdict for one job: stamp, plain-language explanation, source badge, pipeline timeline and the proof link. */
-export function VerdictCard({ job, detailsTo }: { job: JobDetailDto; detailsTo?: string }) {
+export function VerdictCard({ job, detailsTo, showTimes = false }: { job: JobDetailDto; detailsTo?: string; showTimes?: boolean }) {
   const done = isTerminal(job.status);
   const safe = job.status === "confirmed";
   const blocked = job.status === "rejected" || job.status === "reverted";
@@ -70,7 +71,7 @@ export function VerdictCard({ job, detailsTo }: { job: JobDetailDto; detailsTo?:
       )}
 
       <div className="mt-5 border-t border-line pt-4">
-        <JobTimeline job={job} />
+        <JobTimeline job={job} showTimes={showTimes} />
       </div>
 
       <div className="mt-4 flex flex-wrap items-center gap-x-5 gap-y-2">

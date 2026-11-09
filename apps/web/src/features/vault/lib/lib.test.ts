@@ -101,6 +101,11 @@ describe("timelineSteps", () => {
     expect(steps[0].note).toBe("Skipped: the website was bypassed");
   });
 
+  it("carries the audit timestamp of each step that ran, and none for the others", () => {
+    const steps = timelineSteps({ ...base, status: "rejected", audit: [e("precheck", "fail", "ExceedsPerTxCap")] });
+    expect(steps.map((s) => s.ts)).toEqual(["t", null, null, null]);
+  });
+
   it("a confirmed job passes everything", () => {
     expect(states(timelineSteps({ ...base, status: "confirmed", audit: [e("precheck"), e("simulation"), e("invariant"), e("onchain")] }))).toEqual(["pass", "pass", "pass", "pass"]);
   });
