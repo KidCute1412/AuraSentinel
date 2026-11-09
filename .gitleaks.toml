@@ -3,9 +3,21 @@ title = "agentshield gitleaks config"
 [extend]
 useDefault = true
 
+# Single [allowlist] table: CI pins gitleaks 8.24.x, which silently ignores the newer
+# [[allowlists]] array syntax (verified locally with zricethezav/gitleaks:v8.24.3).
+[allowlist]
+description = "Known false positives"
+
 # False positive: the task title "Auth SIWE: nonce/verify/me/logout" in docs/runbook
 # looks like `auth: <high-entropy value>` to the generic-api-key rule. It is a list of endpoints.
-[[allowlists]]
-description = "SIWE endpoint list in the task plan"
 regexTarget = "line"
 regexes = ['''Auth SIWE: nonce/verify/me/logout''']
+
+# Anvil's built-in dev accounts #0 and #1, derived from the public mnemonic
+# "test test test test test test test test test test test junk". Printed by every `anvil` start,
+# hold no value, used only by server tests against a local Anvil. Exact values only: any other
+# key still fails the scan.
+stopwords = [
+  "ac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80",
+  "59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d",
+]
