@@ -1,10 +1,13 @@
 import { useRef } from "react";
 import { Link } from "react-router-dom";
 import { toggleShades, touch } from "@/shared/mascot/mascotStore";
+import { shortAddress } from "@/shared/lib/address";
+import { useSession } from "@/shared/session/sessionStore";
 import { ThemeToggle } from "@/shared/theme/ThemeToggle";
 
 export function Header() {
   const taps = useRef<number[]>([]);
+  const wallet = useSession((s) => s.wallet);
   // Easter egg: tap the logo 5x within 3s and Aura-kun puts on shades.
   const onLogo = () => {
     touch();
@@ -27,7 +30,11 @@ export function Header() {
           <Link to="/vaults/new" className="hidden text-soft hover:text-fg md:inline">Create vault</Link>
           <Link to="/proof" className="hidden text-soft hover:text-fg md:inline">Proof</Link>
           <Link to="/about" className="hidden text-soft hover:text-fg md:inline">About</Link>
-          <Link to="/signin" className="font-bold text-fg hover:text-accent-text">Sign in</Link>
+          {wallet ? (
+            <Link to="/vaults" className="font-mono text-xs font-bold text-fg hover:text-accent-text" title="Signed in. Open your vaults.">{shortAddress(wallet.address)}</Link>
+          ) : (
+            <Link to="/signin" className="font-bold text-fg hover:text-accent-text">Sign in</Link>
+          )}
           <ThemeToggle />
         </div>
       </nav>

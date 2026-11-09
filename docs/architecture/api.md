@@ -362,11 +362,11 @@ Browser: wagmi `revoke` → Fuji (`PolicyRevoked`) → Indexer phát `chain.revo
 | API # | Trang dùng |
 |---|---|
 | 1–4 | App shell (SIWE) |
-| 5 | Menu "Vault của tôi" |
-| 6 | `/vaults/new`, dashboard header |
-| 7, 9, 11, 13 | `/demo`, `/vaults/{safe}` |
-| 8 | `/vaults/new` (fallback) |
-| 10, 12 | `/demo`, `/vaults/{safe}` (cột Red-team) |
+| 5 | `/vaults` (danh sách; lọc theo `owner` ở client), menu "Vault của tôi" |
+| 6 | `/vaults/new/*`, `VaultHeader` của mọi trang `/vaults/{safe}/*` |
+| 7, 9, 11, 13 | `/demo`, `/vaults/{safe}` (Tổng quan), `/activity`, `/activity/:jobId`, `/policy`, `/funds`, `/settings` |
+| 8 | `/vaults/new/module` (fallback) |
+| 10, 12 | `/demo`, `/vaults/{safe}` (cột Red-team), `/vaults/{safe}/red-team` |
 | 14 | `/proof`, `/` |
 | 15–17 | Drawer Admin (trong dashboard) |
 | 18 | CI smoke, uptime |
@@ -377,3 +377,5 @@ Browser: wagmi `revoke` → Fuji (`PolicyRevoked`) → Indexer phát `chain.revo
 2. ~~`/admin` route riêng hay panel~~ — đã chốt D16: drawer trong dashboard, endpoint `/admin/*` giữ nguyên.
 3. `budgetUsedPct` trong state: giữ (tiện UI) hay để UI tự tính từ bigint.
 4. Có đổi sang subdomain `api.<domain>` thay cho tiền tố `/api/v1` (đổi lại cấu hình CORS và cookie).
+5. `/vaults` (danh sách "của tôi"): `GET /vaults` hiện trả **toàn bộ** registry, FE lọc theo `owner` = ví kết nối. Nếu registry lớn thì thêm `?owner=0x…` (phân trang) — chưa cần cho hackathon.
+6. Lịch sử thay đổi policy (`/policy`) và lịch sử chuyển tiền (`/funds`): **không có endpoint**; FE đọc event on-chain (`PolicySet`, `PolicyRevoked`, `Transfer`) bằng wagmi/viem `getLogs`, chấp nhận giới hạn khoảng block. Nếu chậm thì thêm endpoint từ indexer sau.

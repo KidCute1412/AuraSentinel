@@ -1,6 +1,6 @@
 import { Link, useParams } from "react-router-dom";
 import { AppShell } from "@/app/layout/AppShell";
-import { primaryCta, secondaryCta } from "@/features/landing/cta";
+import { primaryCta, secondaryCta } from "@/shared/ui/cta";
 import { Chamfer } from "@/shared/ui/Chamfer";
 import { Stamp } from "@/shared/ui/Stamp";
 import { parseSafeParam } from "@/shared/web3/walletStatus";

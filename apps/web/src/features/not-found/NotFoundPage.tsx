@@ -1,8 +1,8 @@
 import { useEffect } from "react";
 import { Link, useLocation } from "react-router-dom";
-import { Header } from "@/features/landing/Header";
-import { Footer } from "@/features/landing/Footer";
-import { primaryCta, secondaryCta } from "@/features/landing/cta";
+import { Header } from "@/shared/shell/Header";
+import { Footer } from "@/shared/shell/Footer";
+import { primaryCta, secondaryCta } from "@/shared/ui/cta";
 import { Chamfer } from "@/shared/ui/Chamfer";
 import { Stamp } from "@/shared/ui/Stamp";
 import { react } from "@/shared/mascot/mascotStore";

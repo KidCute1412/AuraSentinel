@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { activeStep, identicon, initialPhase, MOCK_ADDRESS, reduce, shortAddress, stageOf } from "./gateFlow";
+import { activeStep, identicon, initialPhase, MOCK_ADDRESS, mockAddressFor, reduce, safeReturnPath, shortAddress, stageOf } from "./gateFlow";
 
 describe("gate flow", () => {
   it("walks connect -> sign -> verify -> done", () => {
@@ -34,5 +34,25 @@ describe("gate flow", () => {
 
   it("shortens addresses", () => {
     expect(shortAddress(MOCK_ADDRESS)).toBe("0x7A3f…Cd02");
+  });
+});
+
+describe("safeReturnPath", () => {
+  it("accepts same-site paths, keeping query and hash", () => {
+    expect(safeReturnPath("/vaults/new/policy")).toBe("/vaults/new/policy");
+    expect(safeReturnPath("/vaults/0xabc/activity?status=rejected&page=2#top")).toBe("/vaults/0xabc/activity?status=rejected&page=2#top");
+  });
+
+  it("rejects anything that could leave the site or loop", () => {
+    for (const bad of [undefined, null, 42, "", "vaults", "//evil.com", "https://evil.com", "javascript:alert(1)", "/\\evil.com", "/signin", "/signin?x=1", "/signup"]) {
+      expect(safeReturnPath(bad)).toBeNull();
+    }
+  });
+});
+
+describe("mockAddressFor", () => {
+  it("gives the new-wallet path a different address from the returning owner", () => {
+    expect(mockAddressFor("core")).toBe(MOCK_ADDRESS);
+    expect(mockAddressFor("metamask")).not.toBe(MOCK_ADDRESS);
   });
 });

@@ -1,7 +1,7 @@
 import { Reveal } from "@/shared/ui/Reveal";
 import { AttackCards } from "./AttackCards";
-import { Footer } from "./Footer";
-import { Header } from "./Header";
+import { Footer } from "@/shared/shell/Footer";
+import { Header } from "@/shared/shell/Header";
 import { Hero } from "./Hero";
 import { KillSwitch } from "./KillSwitch";
 import { Stats } from "./Stats";

@@ -12,15 +12,18 @@ import { LandingPage } from "@/features/landing/LandingPage";
 import { AboutPage } from "@/features/about/AboutPage";
 import { ProofPage } from "@/features/proof/ProofPage";
 import { NotFoundPage } from "@/features/not-found/NotFoundPage";
-import { DemoPage } from "./routes/DemoPage";
-import { NewVaultPage } from "./routes/NewVaultPage";
-import { VaultPage } from "./routes/VaultPage";
+import { DemoPage } from "@/features/vault/demo/DemoPage";
+import { VaultRoutes } from "@/features/vault/routes";
+import { DevSessionBar } from "@/shared/session/DevSessionBar";
 
 const queryClient = new QueryClient({
   defaultOptions: { queries: { retry: false, refetchOnWindowFocus: false } },
 });
 
-/** Routes follow D16: / · /demo · /vaults/new · /vaults/:safe · /proof (admin is a drawer, not a route). */
+/**
+ * Routes follow D16 and docs/product/ui-pages.md. /demo and /vaults/* are served by features/vault (simulated data
+ * for now). The earlier placeholder pages in app/routes/* are kept in the tree but no longer routed.
+ */
 export function App() {
   return (
     <Web3Provider queryClient={queryClient}>
@@ -29,8 +32,8 @@ export function App() {
           <Routes>
             <Route path="/" element={<LandingPage />} />
             <Route path="/demo" element={<DemoPage />} />
-            <Route path="/vaults/new" element={<NewVaultPage />} />
-            <Route path="/vaults/:safe" element={<VaultPage />} />
+            <Route path="/vaults/*" element={<VaultRoutes />} />
+            <Route path="/vault" element={<Navigate to="/vaults" replace />} />
             <Route path="/proof" element={<ProofPage />} />
             <Route path="/signin" element={<AccessGate />} />
             <Route path="/signup" element={<Navigate to="/signin" replace />} />
@@ -44,6 +47,7 @@ export function App() {
         <GridSpotlight />
         <EmergencyDrill />
         <ClickPulse />
+        {import.meta.env.DEV && <DevSessionBar />}
       </BrowserRouter>
     </Web3Provider>
   );

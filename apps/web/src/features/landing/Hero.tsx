@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom";
-import { primaryCta, secondaryCta } from "./cta";
+import { primaryCta, secondaryCta } from "@/shared/ui/cta";
 import { LiveFeed } from "./LiveFeed";
 import { AttackLane } from "./AttackLane";
 

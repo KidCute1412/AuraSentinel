@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
-import { Header } from "@/features/landing/Header";
-import { Footer } from "@/features/landing/Footer";
+import { Header } from "@/shared/shell/Header";
+import { Footer } from "@/shared/shell/Footer";
 import { NetworkGuard } from "@/shared/web3/NetworkGuard";
 import { WalletButton } from "@/shared/web3/WalletButton";
 import { AdminDrawer, type SessionRole } from "./AdminDrawer";

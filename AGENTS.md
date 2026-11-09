@@ -37,4 +37,4 @@ Frontmatter such as `paths`, `disable-model-invocation`, `context`, `argument-hi
 ## Commands (once scaffolded)
 `pnpm dev` · `pnpm --filter shared gen` (ABIs) · `forge test` / `forge test --fuzz-runs 10000` in `packages/contracts` · `docker compose -f infra/docker-compose.yml up` · `pnpm seed --verify`.
 
-Language: code and comments in English; `docs/` are written in Vietnamese (technical identifiers stay English); user-facing explanation strings in Vietnamese.
+Language: code and comments in English; `docs/` are written in Vietnamese (technical identifiers stay English); **all user-facing web UI copy is English** (labels, buttons, notices, errors, aria text; numbers formatted en-US: `1,500.5`, `13.3%`). Docs that quote Vietnamese UI strings describe intent only; the shipped string is English. Open decision: the language of the LLM explanation field `messageVi` (contract in `packages/shared`) is not yet aligned with this rule.

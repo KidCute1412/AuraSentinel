@@ -7,7 +7,7 @@ import { useReducedMotion } from "@/shared/lib/useReducedMotion";
 import { LINES, pick } from "@/shared/mascot/lines";
 import { registerBlockedAttack } from "@/shared/mascot/auraEvents";
 import { react } from "@/shared/mascot/mascotStore";
-import { primaryCta } from "@/features/landing/cta";
+import { primaryCta } from "@/shared/ui/cta";
 import { NODES, route, SCENARIOS, scenarioById, type NodeId, type ScenarioId } from "./attackScenarios";
 
 const STEP_MS = 450;
