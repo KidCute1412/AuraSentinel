@@ -19,3 +19,14 @@ export type SwapIntent = SwapIntentBigint;
 
 export const intentFromWire = intentToBigint;
 export { intentToWire };
+
+type Address = SwapIntentWire['recipient'];
+
+/**
+ * Which vault a transaction or simulation acts on. Comes from the vault registry (or env until
+ * A3/A6 serve it per vault), never from the intent: `recipient` is attacker-controllable.
+ */
+export interface VaultTarget {
+  safe: Address;
+  module: Address;
+}

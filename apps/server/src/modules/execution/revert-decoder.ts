@@ -1,7 +1,5 @@
 /**
- * TODO: decodeErrorResult(abi from shared, data) -> reason code from shared/errors.
- * Unknown selectors map to 'UNKNOWN_REVERT'.
+ * Lives in core/chain because both execution (mined reverts) and simulation (sim reverts) decode
+ * with the same ABI and must agree on the reason code.
  */
-export function decodeRevert(_error: unknown): string {
-  return 'UNKNOWN_REVERT';
-}
+export { decodeRevert, extractRevertData } from '../../core/chain/revert-decoder';

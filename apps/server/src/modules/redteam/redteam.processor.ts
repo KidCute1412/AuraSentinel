@@ -4,20 +4,20 @@ import type { Job } from 'bullmq';
 import { ENV } from '../../core/config/config.module';
 import type { Env } from '../../core/config/env.schema';
 import { QUEUES } from '../../core/queue/queue.constants';
+import { TX_SENDER, type TxResult, type TxSenderPort } from '../execution/tx-sender.port';
 import { JobsService } from '../jobs/jobs.service';
-import { buildOnchainCall, type RawCall } from './onchain-calls';
+import { buildOnchainCall } from './onchain-calls';
 import type { AttackJobData } from './redteam.controller';
 import { attackContext, SCENARIOS } from './scenarios';
 
 /**
- * Worker side of the on-chain attacks (#3 unlimited approval, #4 bypass). concurrency 1: these
- * are signed with the same session key as swaps (P4).
+ * Worker side of the on-chain attacks (#3 unlimited approval, #4 bypass). concurrency 1, and the
+ * same TxSender instance as swaps (one mutex, one nonce chain: P4).
  *
- * Today it builds the exact transaction and stops: sending needs TxSender.sendRaw (A4, manual
- * gas, revert is a result not an error) and a deployed module (L4). Until then the job ends as
- * `failed`, never as a fake revert. TODO(A4): inject the shared TxSender as RawTxSender, send
- * `call`, then transition to `reverted` with txHash + decoded error (revert-decoder, L6), or
- * `confirmed` (which would be a security bug worth an alarm).
+ * The call skips Shield 1 and goes straight to Fuji with manual gas, so Shield 2's revert is mined:
+ * - reverted  -> job `reverted` with txHash + decoded reason (the expected outcome);
+ * - success   -> job `confirmed`, logged as a SECURITY alarm (Shield 2 let an attack through);
+ * - infra error or no session key -> job `failed`, never a fake revert.
  */
 @Processor(QUEUES.attack, { concurrency: 1 })
 export class RedteamProcessor extends WorkerHost {
@@ -26,11 +26,12 @@ export class RedteamProcessor extends WorkerHost {
   constructor(
     private readonly jobs: JobsService,
     @Inject(ENV) private readonly env: Env,
+    @Inject(TX_SENDER) private readonly sender: TxSenderPort,
   ) {
     super();
   }
 
-  async process(job: Job<AttackJobData>): Promise<RawCall | null> {
+  async process(job: Job<AttackJobData>): Promise<TxResult | null> {
     const { jobId, vault, scenario } = job.data;
     const plan = SCENARIOS[scenario].plan(attackContext(this.env, vault));
     const module = this.env.POLICY_MODULE_ADDRESS;
@@ -40,8 +41,23 @@ export class RedteamProcessor extends WorkerHost {
       return null;
     }
     const call = buildOnchainCall(plan, { safe: vault, module }, BigInt(Math.floor(Date.now() / 1000)));
-    this.log.warn(`attack ${scenario} (${jobId}) built for ${call.to}, not sent: TxSender.sendRaw (A4) not available yet`);
-    await this.jobs.transition(jobId, 'failed');
-    return call;
+    await this.jobs.transition(jobId, 'broadcasting');
+
+    let tx: TxResult;
+    try {
+      tx = await this.sender.sendRaw(call);
+    } catch (e) {
+      this.log.error(`attack ${scenario} (${jobId}) not sent: ${e instanceof Error ? e.message : String(e)}`);
+      await this.jobs.transition(jobId, 'failed');
+      return null;
+    }
+
+    if (tx.status === 'reverted') {
+      await this.jobs.transition(jobId, 'reverted', { txHash: tx.txHash, reasonCode: tx.revertReason ?? 'UNKNOWN_REVERT' });
+    } else {
+      this.log.error(`SECURITY: attack ${scenario} (${jobId}) was NOT reverted on-chain: ${tx.txHash}`);
+      await this.jobs.transition(jobId, 'confirmed', { txHash: tx.txHash });
+    }
+    return tx;
   }
 }
