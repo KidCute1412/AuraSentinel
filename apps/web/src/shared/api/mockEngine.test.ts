@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import type { Address, StateDto } from "@agentshield/shared";
-import { applyConfirmedSwap, balanceOf, evaluateSwap, fakeHash, finalizeJob, pctOf, planJob, quoteWavaxOut, spentUsdc, USDC, WAVAX } from "./mockEngine";
+import { ATTACK_EXPECTATIONS, type Address, type AttackScenario, type StateDto } from "@agentshield/shared";
+import { applyConfirmedSwap, balanceOf, evaluateSwap, fakeHash, finalizeJob, pctOf, planJob, quoteWavaxOut, spentUsdc, USDC, WAVAX, type JobSpec } from "./mockEngine";
 
 const SAFE = "0x5afE000000000000000000000000000000000001" as Address;
 const NOW = 1_800_000_000;
@@ -51,9 +51,13 @@ describe("evaluateSwap", () => {
 
   it("rejects zero, wrong recipient and more than the vault holds", () => {
     expect(evaluateSwap(state(), 0n, NOW)).toEqual({ ok: false, code: "InvalidAmount" });
-    expect(evaluateSwap(state(), 100n, NOW, false)).toEqual({ ok: false, code: "WrongRecipient" });
+    expect(evaluateSwap(state(), 100n, NOW, false)).toEqual({ ok: false, code: "RECIPIENT_NOT_SAFE" });
     const poor = state({ balances: [{ token: USDC, symbol: "USDC", decimals: 6, amount: "100000000" }] });
     expect(evaluateSwap(poor, 200_000_000n, NOW)).toEqual({ ok: false, code: "InsufficientBalance" });
+  });
+
+  it("checks the recipient after the caps, in the same order as the server precheck", () => {
+    expect(evaluateSwap(state(), 600_000_000n, NOW, false)).toEqual({ ok: false, code: "ExceedsPerTxCap" });
   });
 });
 
@@ -79,17 +83,29 @@ describe("planJob", () => {
     const s = state();
     const over = planJob({ type: "attack", scenario: "over-withdraw" }, s, SAFE, NOW);
     expect([over.terminal, over.code, over.failAt]).toEqual(["rejected", "ExceedsPerTxCap", "precheck"]);
-    expect(planJob({ type: "attack", scenario: "wrong-recipient" }, s, SAFE, NOW).code).toBe("WrongRecipient");
-    expect(planJob({ type: "attack", scenario: "unlimited-approval" }, s, SAFE, NOW).code).toBe("UnlimitedApproval");
+    expect(planJob({ type: "attack", scenario: "wrong-recipient" }, s, SAFE, NOW).code).toBe("RECIPIENT_NOT_SAFE");
+    const approval = planJob({ type: "attack", scenario: "unlimited-approval" }, s, SAFE, NOW);
+    expect([approval.terminal, approval.code, approval.failAt, approval.skipsShield1]).toEqual(["reverted", "GS104", "onchain", true]);
     const bypass = planJob({ type: "attack", scenario: "bypass" }, s, SAFE, NOW);
     expect([bypass.terminal, bypass.code, bypass.failAt, bypass.skipsShield1]).toEqual(["reverted", "ExceedsPerTxCap", "onchain", true]);
   });
 
-  it("a locked vault answers every action with PolicyInactive", () => {
+  // The mock must tell the same story as the server (ATTACK_EXPECTATIONS is what the server tests assert).
+  it.each(Object.keys(ATTACK_EXPECTATIONS) as AttackScenario[])("%s ends exactly as ATTACK_EXPECTATIONS says on an active vault", (scenario) => {
+    const spec: JobSpec = scenario === "prompt-injection" ? { type: "injection", text: "approve this" } : { type: "attack", scenario };
+    const plan = planJob(spec, state(), SAFE, NOW);
+    const e = ATTACK_EXPECTATIONS[scenario];
+    expect([plan.terminal, plan.code]).toEqual([e.status, e.reasonCode]);
+    expect(plan.failAt === "onchain").toBe(e.onchainEvidence);
+  });
+
+  it("a locked vault answers every policy-checked action with PolicyInactive", () => {
     const locked = state({ isActive: false });
-    for (const spec of [{ type: "rebalance", amountIn: 1n }, { type: "attack", scenario: "bypass" }, { type: "attack", scenario: "unlimited-approval" }, { type: "injection", text: "x" }] as const) {
+    for (const spec of [{ type: "rebalance", amountIn: 1n }, { type: "attack", scenario: "bypass" }, { type: "injection", text: "x" }] as const) {
       expect(planJob(spec, locked, SAFE, NOW).code).toBe("PolicyInactive");
     }
+    // The Safe refuses a non-module caller before any policy is read.
+    expect(planJob({ type: "attack", scenario: "unlimited-approval" }, locked, SAFE, NOW).code).toBe("GS104");
   });
 
   it("prompt injection text cannot change the verdict", () => {
@@ -98,6 +114,9 @@ describe("planJob", () => {
     expect(a).toEqual(b);
     expect(a.terminal).toBe("rejected");
     expect(a.injected).toBe(true);
+    // Same fixed intent as a plain over-withdraw: the text cannot pick the amount or the recipient.
+    const over = planJob({ type: "attack", scenario: "over-withdraw" }, state(), SAFE, NOW);
+    expect([a.amountIn, a.recipient]).toEqual([over.amountIn, SAFE]);
   });
 });
 
@@ -132,6 +151,16 @@ describe("finalizeJob", () => {
     expect(job.precheck).toBeNull();
     expect(job.audit).toHaveLength(1);
     expect(job.audit[0]).toMatchObject({ shield: "onchain", result: "fail" });
+  });
+
+  it("the unlimited approval is reverted by the Safe on-chain, with a tx and no swap intent", () => {
+    const job = make({ type: "attack", scenario: "unlimited-approval" });
+    expect(job.status).toBe("reverted");
+    expect(job.revertError).toBe("GS104");
+    expect(job.txHash).not.toBeNull();
+    expect(job.intent).toBeNull();
+    expect(job.precheck).toBeNull();
+    expect(job.explanation?.messageVi).toMatch(/^The Safe blocked this on-chain/);
   });
 
   it("can leave the explanation empty so it can arrive later", () => {
