@@ -169,6 +169,36 @@ export const REASONS = {
       'Sau swap vẫn còn quyền rút tiền chưa thu hồi. Lệnh bị huỷ để không ai rút thêm được từ két.',
   },
 
+  // Owner functions and the reentrancy guard. The swap pipeline never sees these (the agent cannot call
+  // setPolicy or revoke); they show up when a wallet signs a bad owner transaction, so the UI can explain it.
+  NotOwner: {
+    kind: 'contract',
+    title: 'Không phải chủ két',
+    messageVi: 'Chỉ ví chủ két mới được đổi chính sách hoặc bật Kill-Switch. Giao dịch bị từ chối.',
+  },
+  InvalidPolicy: {
+    kind: 'contract',
+    title: 'Chính sách không hợp lệ',
+    messageVi:
+      'Chính sách bị từ chối: ví agent hoặc router trống, hạn dùng đã qua, hoặc hạn mức token không hợp lệ.',
+  },
+  Reentrancy: {
+    kind: 'contract',
+    title: 'Gọi lồng nhau',
+    messageVi: 'Module từ chối lệnh gọi lồng nhau trong lúc đang swap. Không có tiền nào rời két.',
+  },
+  // Factory (wizard /vaults/new)
+  NotSafeOwner: {
+    kind: 'contract',
+    title: 'Không phải chủ Safe',
+    messageVi: 'Chỉ chủ của Safe này mới được tạo module bảo vệ cho nó. Yêu cầu bị từ chối.',
+  },
+  ModuleExists: {
+    kind: 'contract',
+    title: 'Safe đã có module',
+    messageVi: 'Safe này đã có module bảo vệ nên yêu cầu tạo lại bị từ chối.',
+  },
+
   // Safe core
   GS104: {
     kind: 'safe',

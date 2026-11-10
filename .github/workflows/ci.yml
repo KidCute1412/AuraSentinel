@@ -66,22 +66,10 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      # shared: regenerated ABIs/schemas must match what is committed.
-      # Runs only once `gen` exists (it needs `forge build` output, so contracts must exist too).
-      - name: shared codegen script present?
-        id: gen
-        run: |
-          if node -e "process.exit(require('./packages/shared/package.json').scripts?.gen ? 0 : 1)"              && [ -f packages/contracts/foundry.toml ]; then
-            echo "present=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "present=false" >> "$GITHUB_OUTPUT"
-          fi
-      - uses: foundry-rs/foundry-toolchain@v1
-        if: steps.gen.outputs.present == 'true'
+      # shared: generated ABIs must match packages/contracts/abi (D5). Reads the committed JSON only, so no
+      # forge here; the contracts job checks that abi/ itself matches the Solidity.
       - name: shared codegen is up to date
-        if: steps.gen.outputs.present == 'true'
         run: |
-          (cd packages/contracts && forge build)
           pnpm --filter @agentshield/shared gen
           git diff --exit-code -- packages/shared
       # One turbo invocation: shared is built once and reused by every task.
@@ -107,6 +95,12 @@ jobs:
         run: forge fmt --check
       - if: steps.has.outputs.present == 'true'
         run: forge build --sizes
+      # D5: committed ABIs must be exactly what the Solidity compiles to.
+      - name: ABIs in abi/ are up to date
+        if: steps.has.outputs.present == 'true'
+        run: |
+          node script/export-abi.mjs
+          git diff --exit-code -- abi
       - if: steps.has.outputs.present == 'true'
         run: forge test -vvv --fuzz-runs 1000
         env:

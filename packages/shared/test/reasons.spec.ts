@@ -29,6 +29,12 @@ const SPEC_CONTRACT_ERRORS = [
   'SwapFailed',
   'InsufficientOutput',
   'ResidualAllowance',
+  // Owner functions, reentrancy guard and factory (IAgentPolicyModule / IAgentShieldFactory)
+  'NotOwner',
+  'InvalidPolicy',
+  'Reentrancy',
+  'NotSafeOwner',
+  'ModuleExists',
 ];
 
 /** Committed ABI JSON (D5). Absent until packages/contracts exists (task L1). */
