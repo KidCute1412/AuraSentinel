@@ -2,7 +2,7 @@
 
 > Đặc tả Solidity cho `AgentPolicyModule`. Hợp nhất pseudo-code gốc với các bản sửa C1–C9 trong [`system-design.md` §6](./system-design.md#6-sửa-thiết-kế-smart-contract). **Đây là nguồn duy nhất cho chữ ký hàm, error, event.** Đổi chữ ký ⇒ sửa file này, chạy `pnpm --filter shared gen`, rồi sửa mọi nơi TypeScript báo lỗi.
 >
-> Trạng thái: **spec** (chưa có code). FS1 chốt các mục đánh dấu ❓ trong tuần 1.
+> Trạng thái: **đã có code** ở `packages/contracts` (L1 + L2, 10/11). Ba mục ❓ đã chốt bên dưới (ghi **Chốt**). Factory và MockUSDC mới có interface (`src/interfaces/`), phần cài đặt là L3.
 
 ---
 
@@ -16,7 +16,7 @@
 
 - `owner` của module = EOA chủ ví → Kill-Switch là **1 tx ~1.5s**, không cần luồng ký multisig Safe (C7).
 - Lớp kill thứ 2: owner gọi `safe.disableModule()` (qua Safe, chậm hơn).
-- ❓ Owner của module và owner của Safe có thể là cùng 1 EOA (Safe 1/1) cho demo. Roadmap: Safe 2/3.
+- **Chốt (D9):** owner của module và owner của Safe có thể là cùng 1 EOA (Safe 1/1) cho demo; factory kiểm `ISafe.isOwner(msg.sender)` và đặt người gọi làm `owner` (immutable, không có hàm đổi owner). Roadmap: Safe 2/3.
 
 ## 2. Storage
 
@@ -30,12 +30,17 @@ struct Policy {
 struct Limits { uint128 maxPerTx; uint128 dailyCap; }   // đơn vị nhỏ nhất của token (C1)
 
 ISafe   public immutable safe;
+address public immutable owner;
 Policy  public policy;
-mapping(address token => Limits)                       public limits;       // limits[token].dailyCap == 0 ⇒ token KHÔNG được phép
-mapping(address token => mapping(uint256 dayId => uint256)) public spentInDay;
+uint256 public policyEpoch;                                   // +1 mỗi lần setPolicy (D10)
+mapping(address token => Limits) public limits;               // limits[token].dailyCap == 0 ⇒ token KHÔNG được phép
+address[] private _tokens;                                    // danh sách whitelist hiện tại, tối đa MAX_TOKENS = 16
+mapping(uint256 epoch => mapping(address token => mapping(uint256 dayId => uint256))) private _spent;
 ```
 
-- Whitelist token = `limits[token].dailyCap > 0` (một mapping, không cần `allowedTokens` riêng). ❓ FS1 có thể tách nếu muốn rõ nghĩa hơn.
+`spentInDay(token, dayId)` và `spentToday(token)` là view đọc `_spent[policyEpoch]`; `whitelistedTokens()` trả `_tokens`. Policy mới ⇒ epoch mới ⇒ ngân sách về 0 (reset sandbox, kích hoạt lại sau Kill) mà không cần xoá storage.
+
+- Whitelist token = `limits[token].dailyCap > 0` (một mapping, không cần `allowedTokens` riêng). **Chốt:** không tách; `_tokens` chỉ để `setPolicy` xoá sạch limits cũ.
 - `dayId = block.timestamp / 1 days` (UTC). Qua ngày mới counter tự về 0.
 - Giá trị demo: USDC `maxPerTx = 500e6`, `dailyCap = 1500e6`; WAVAX đặt tương đương giá trị (vd `maxPerTx = 20e18`, `dailyCap = 60e18`).
 
@@ -43,10 +48,11 @@ mapping(address token => mapping(uint256 dayId => uint256)) public spentInDay;
 
 | Hàm | Ai gọi | Mô tả |
 |---|---|---|
-| `setPolicy(Policy p, address[] tokens, Limits[] l)` | owner | Ghi policy + limits. Emit `PolicySet`. `p.router != 0`, `p.agentSigner != 0`, `expiry > now` |
-| `revoke()` | owner | `policy.isActive = false`. Emit `PolicyRevoked` |
+| `setPolicy(Policy p, address[] tokens, Limits[] l)` | owner | Thay toàn bộ policy + limits, `policyEpoch++`, emit `PolicySet`. Revert `InvalidPolicy` nếu: `agentSigner`/`router` = 0, `expiry <= now`, hai mảng lệch độ dài, quá 16 token, token = 0 hoặc trùng, `maxPerTx == 0`, `dailyCap == 0`, hoặc `maxPerTx > dailyCap`. Token không còn trong danh sách bị xoá khỏi whitelist. Đặt `p.isActive = true` để kích hoạt lại sau Kill |
+| `revoke()` | owner | `policy.isActive = false` (Kill-Switch). Emit `PolicyRevoked`. Idempotent |
 | `executeGuardedSwap(tokenIn, tokenOut, amountIn, minOut, deadline)` | agentSigner | Xem §4 |
-| `spentToday(token) → uint256` | view | `spentInDay[token][block.timestamp / 1 days]` (backend/UI đọc cái này, không lưu DB) |
+| `spentToday(token) → uint256` | view | Đã dùng hôm nay trong epoch hiện tại (backend/UI đọc cái này, không lưu DB) |
+| `spentInDay(token, dayId)`, `whitelistedTokens()`, `policyEpoch()`, `owner()`, `safe()` | view | Đọc state |
 
 Không có tham số `recipient`, `path`, `approve` ở bất kỳ hàm nào: kẻ tấn công **không có ô để điền** (xem system-design §4).
 
@@ -76,12 +82,14 @@ Thứ tự kiểm tra (revert sớm nhất thắng, nên attack 2000 USDC trả 
 7. `spentInDay[tokenIn][today] += amountIn` — cập nhật state **trước** call ngoài (checks-effects-interactions); revert thì rollback cả.
 8. Emit `GuardedSwap`.
 
-Dùng `nonReentrant`. ❓ FS1 xác nhận có cần không (module chỉ gọi Safe/router đã whitelist, nhưng rẻ nên nên có).
+Dùng `nonReentrant` (revert `Reentrancy`). **Chốt:** có; router là contract ngoài nên guard rẻ mà chắc.
+
+Gas: `executeGuardedSwap` đo ~273k với router mock. Router Trader Joe thật tốn thêm; server đặt `SWAP_GAS = 700_000`, cần đo lại ở fork test (L4/L5) để chắc còn dư.
 
 ## 5. Event
 
 ```solidity
-event PolicySet(address indexed agentSigner, address router, uint64 expiry, address[] tokens, Limits[] limits);
+event PolicySet(address indexed agentSigner, uint256 epoch, address router, uint64 expiry, bool isActive, address[] tokens, Limits[] limits);
 event PolicyRevoked(address indexed by, uint64 at);
 event GuardedSwap(
     address indexed tokenIn, address indexed tokenOut,
@@ -90,15 +98,17 @@ event GuardedSwap(
 );
 ```
 
-Indexer chỉ cần 3 event này (poll `getLogs`, PK `(tx_hash, log_index)`).
+`epoch` là `policyEpoch` sau khi ghi (D10). Indexer chỉ cần 3 event này của module (poll `getLogs`, PK `(tx_hash, log_index)`) cộng `ModuleDeployed(safe, module, owner)` của factory.
 
 ## 6. Error → reason code → tiếng Việt
 
 Map đầy đủ nằm ở `packages/shared/src/errors.ts` (AIE sở hữu câu tiếng Việt). Mỗi custom error ở §4 **bắt buộc** có mục tương ứng; test trong `shared` kiểm tra không thiếu.
 
+Ngoài 12 error của §4, module có thêm 3 error cho owner và guard: `NotOwner`, `InvalidPolicy`, `Reentrancy`; factory có `NotSafeOwner`, `ModuleExists`. Agent không bao giờ gặp chúng trong pipeline swap, nhưng wizard và Policy panel cần giải thích khi ví ký sai, nên cũng có mục trong `REASONS`.
+
 Revert ngoài module (không phải custom error của ta): Safe `GS104` = "caller không phải module đã enable" (attack #3).
 
-Quy ước tên reason code (`REASONS` trong `errors.ts`): **PascalCase** = custom error của module (precheck và sim mirror gate thì trả đúng tên này) · **`GS###`** = lỗi Safe · **SCREAMING_SNAKE** = chỉ có off-chain (`RECIPIENT_NOT_SAFE`, `INVARIANT_*`, `UNKNOWN_REVERT`). Câu tiếng Việt lấy qua `formatReasonVi(code, params)`; thiếu số thì tự dùng câu không số, mã lạ thì về `UNKNOWN_REVERT`. Khi `packages/contracts/abi/` có ABI, test `reasons.spec.ts` fail nếu một error trong ABI chưa có mục.
+Quy ước tên reason code (`REASONS` trong `errors.ts`): **PascalCase** = custom error của module (precheck và sim mirror gate thì trả đúng tên này) · **`GS###`** = lỗi Safe · **SCREAMING_SNAKE** = chỉ có off-chain (`RECIPIENT_NOT_SAFE`, `INVARIANT_*`, `UNKNOWN_REVERT`). Câu tiếng Việt lấy qua `formatReasonVi(code, params)`; thiếu số thì tự dùng câu không số, mã lạ thì về `UNKNOWN_REVERT`. `packages/contracts/abi/` đã có ABI; test `reasons.spec.ts` fail nếu một error trong ABI chưa có mục.
 
 ## 7. Test (Foundry)
 

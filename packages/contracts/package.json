@@ -1,0 +1,8 @@
+{
+  "name": "@agentshield/contracts",
+  "version": "0.0.0",
+  "private": true,
+  "scripts": {
+    "abi": "node script/export-abi.mjs"
+  }
+}
