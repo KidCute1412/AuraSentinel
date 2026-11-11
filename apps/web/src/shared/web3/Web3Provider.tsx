@@ -16,7 +16,7 @@ export function Web3Provider({ queryClient, children }: Web3ProviderProps) {
   return (
     <WagmiProvider config={wagmiConfig}>
       <QueryClientProvider client={queryClient}>
-        <RainbowKitProvider theme={sentinelTheme} locale="vi-VN" initialChain={FUJI} appInfo={{ appName: APP_NAME }} modalSize="compact">
+        <RainbowKitProvider theme={sentinelTheme} locale="en-US" initialChain={FUJI} appInfo={{ appName: APP_NAME }} modalSize="compact">
           {children}
         </RainbowKitProvider>
       </QueryClientProvider>

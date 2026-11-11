@@ -19,22 +19,22 @@ export function VaultPage() {
             <Chamfer edge="bg-danger" code="ERR-ADDRESS" ground="vault-invalid" className="mx-auto max-w-3xl" innerClassName="p-6 pb-10 sm:p-10 sm:pb-12">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <span className="mono-label">Status: invalid address</span>
-                <Stamp tone="danger">Không hợp lệ</Stamp>
+                <Stamp tone="danger">Invalid</Stamp>
               </div>
-              <h1 className="mt-6 text-3xl font-black sm:text-4xl">Địa chỉ vault không hợp lệ</h1>
+              <h1 className="mt-6 text-3xl font-black sm:text-4xl">Invalid vault address</h1>
               <p className="mt-3 text-soft">
-                <code className="break-all bg-hover px-1.5 py-0.5 font-mono text-sm text-fg">{raw}</code> không phải địa chỉ ví (cần dạng
-                0x và 40 ký tự hex). Kiểm tra lại đường dẫn.
+                <code className="break-all bg-hover px-1.5 py-0.5 font-mono text-sm text-fg">{raw}</code> is not a wallet address (expected 0x followed by 40 hex
+                characters). Check the link.
               </p>
               <div className="mt-8 flex flex-wrap items-center gap-4">
                 <span className="drop-hard">
                   <Link to="/demo" className={primaryCta}>
-                    Xem vault demo
+                    View the demo vault
                   </Link>
                 </span>
                 <span className="drop-hard">
                   <Link to="/" className={secondaryCta}>
-                    Về trang chủ
+                    Back to home
                   </Link>
                 </span>
               </div>

@@ -11,9 +11,9 @@ interface JobDetailProps {
 }
 
 const RESULT = {
-  pass: { icon: Check, text: "Qua", className: "text-accent-text" },
-  fail: { icon: X, text: "Chặn", className: "text-danger-text" },
-  skipped: { icon: Minus, text: "Không chạy", className: "text-muted" },
+  pass: { icon: Check, text: "Pass", className: "text-accent-text" },
+  fail: { icon: X, text: "Blocked", className: "text-danger-text" },
+  skipped: { icon: Minus, text: "Skipped", className: "text-muted" },
 } as const;
 
 /** Audit trail of one job (api.md #11): which stage passed, which one stopped it, and the simulated deltas. */
@@ -21,7 +21,7 @@ export function JobDetail({ detail, isLoading, isError, tokens }: JobDetailProps
   if (isLoading) {
     return (
       <div aria-busy="true" className="space-y-2 border border-line p-4">
-        <span className="sr-only">Đang tải chi tiết kiểm tra</span>
+        <span className="sr-only">Loading audit detail</span>
         {[0, 1, 2, 3].map((i) => (
           <div key={i} aria-hidden className="h-5 animate-pulse bg-hover" />
         ))}
@@ -29,7 +29,7 @@ export function JobDetail({ detail, isLoading, isError, tokens }: JobDetailProps
     );
   }
   if (isError || !detail) {
-    return <p className="border border-line p-4 text-soft">Không tải được chi tiết kiểm tra của lệnh này.</p>;
+    return <p className="border border-line p-4 text-soft">Could not load the audit detail for this order.</p>;
   }
 
   const stages = stageViews(detail.audit);
@@ -56,7 +56,7 @@ export function JobDetail({ detail, isLoading, isError, tokens }: JobDetailProps
 
       {failedChecks.length > 1 && (
         <div>
-          <span className="mono-label">Mọi điều kiện precheck không đạt</span>
+          <span className="mono-label">All failed precheck rules</span>
           <ul className="mt-2 flex flex-wrap gap-2">
             {failedChecks.map((code) => (
               <li key={code} className="rounded-pill border border-line-strong px-2 py-0.5 font-mono text-[11px]">
@@ -69,14 +69,14 @@ export function JobDetail({ detail, isLoading, isError, tokens }: JobDetailProps
 
       {detail.sim && intent && (
         <dl className="grid grid-cols-1 gap-x-4 gap-y-1 font-mono text-sm sm:grid-cols-2">
-          <dt className="text-muted">Chạy thử</dt>
-          <dd className={detail.sim.ok ? "text-accent-text" : "text-danger-text"}>{detail.sim.ok ? "Không revert" : "Revert"}</dd>
-          <dt className="text-muted">Két trả ra</dt>
+          <dt className="text-muted">Simulation</dt>
+          <dd className={detail.sim.ok ? "text-accent-text" : "text-danger-text"}>{detail.sim.ok ? "No revert" : "Revert"}</dd>
+          <dt className="text-muted">Vault paid</dt>
           <dd className="tabular break-all">{formatTokenAmount(abs(detail.sim.deltaSafeTokenIn), intent.tokenIn, tokens)}</dd>
-          <dt className="text-muted">Két nhận về</dt>
+          <dt className="text-muted">Vault received</dt>
           <dd className="tabular break-all">{formatTokenAmount(abs(detail.sim.deltaSafeTokenOut), intent.tokenOut, tokens)}</dd>
-          <dt className="text-muted">Quyền rút còn lại</dt>
-          <dd className="tabular">{detail.sim.allowanceAfter === "0" ? "0" : "Còn (bị chặn)"}</dd>
+          <dt className="text-muted">Allowance left</dt>
+          <dd className="tabular">{detail.sim.allowanceAfter === "0" ? "0" : "Open (blocked)"}</dd>
         </dl>
       )}
     </div>

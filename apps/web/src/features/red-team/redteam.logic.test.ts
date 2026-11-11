@@ -1,7 +1,8 @@
-import { ATTACK_EXPECTATIONS, AttackScenario, REASONS } from "@agentshield/shared";
+import { ATTACK_EXPECTATIONS, AttackScenario } from "@agentshield/shared";
 import { act, renderHook } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ApiError } from "@/shared/api";
+import { REASON_COPY } from "@/shared/lib/reasonCopy";
 import { job } from "@/test/apiFixtures";
 import { describeApiError } from "./apiErrorCopy";
 import { ATTACKS, DEMO_REBALANCE_AMOUNT, compareOutcome, expectationLabel } from "./attackCatalog";
@@ -24,13 +25,13 @@ describe("attack catalog", () => {
     const label = expectationLabel(scenario);
     const blocks = e.status === "rejected" || e.status === "reverted";
     if (e.stoppedBy === "llm-guard") {
-      expect(label.startsWith("LLM không có quyền")).toBe(true);
-      expect(label.includes("bị chặn")).toBe(blocks);
+      expect(label.startsWith("LLM has no authority")).toBe(true);
+      expect(label.includes("still blocked")).toBe(blocks);
       return;
     }
     expect(label).toContain({ shield1: "Shield 1", shield2: "Shield 2", safe: "Safe" }[e.stoppedBy]);
-    if (e.reasonCode) expect(label).toContain(REASONS[e.reasonCode].title);
-    expect(label.includes("có link Snowtrace")).toBe(e.onchainEvidence);
+    if (e.reasonCode) expect(label).toContain(REASON_COPY[e.reasonCode].title);
+    expect(label.includes("Snowtrace link")).toBe(e.onchainEvidence);
   });
 });
 
@@ -51,7 +52,7 @@ describe("compareOutcome", () => {
     const e = ATTACK_EXPECTATIONS.bypass;
     expect(compareOutcome(job({ status: e.status, revertError: "SomethingElse" }), "bypass")).toEqual({
       kind: "unexpected",
-      label: `Khác dự kiến: ${e.status} · SomethingElse`,
+      label: `Not as expected: ${e.status} · SomethingElse`,
     });
   });
 
@@ -66,19 +67,19 @@ describe("describeApiError", () => {
     new ApiError({ status, code, retryAfterSec, problem: detail ? { type: "/errors/x", title: "x", status, code: code as never, detail } : null });
 
   it("turns 429 into a wait message with the Retry-After seconds", () => {
-    expect(describeApiError(err("COOLDOWN", 429, 30))).toEqual({ message: "Đang trong thời gian chờ để chống spam.", retryAfterSec: 30 });
-    expect(describeApiError(err("RATE_LIMITED", 429)).message).toContain("Thử lại sau ít phút");
+    expect(describeApiError(err("COOLDOWN", 429, 30))).toEqual({ message: "Cooling down to prevent spam.", retryAfterSec: 30 });
+    expect(describeApiError(err("RATE_LIMITED", 429)).message).toContain("Try again in a few minutes");
   });
 
   it("explains busy queue, low gas and invalid input", () => {
-    expect(describeApiError(err("QUEUE_BUSY", 409)).message).toBe("Đang có một lệnh khác chạy. Đợi lệnh đó xong rồi bấm lại.");
-    expect(describeApiError(err("AGENT_LOW_GAS", 503)).message).toContain("hết AVAX");
-    expect(describeApiError(err("VALIDATION_ERROR", 400, null, "text quá dài")).message).toBe("Yêu cầu không hợp lệ: text quá dài");
+    expect(describeApiError(err("QUEUE_BUSY", 409)).message).toBe("Another order is running. Wait for it to finish, then press again.");
+    expect(describeApiError(err("AGENT_LOW_GAS", 503)).message).toContain("out of AVAX");
+    expect(describeApiError(err("VALIDATION_ERROR", 400, null, "text is too long")).message).toBe("Invalid request: text is too long");
   });
 
-  it("keeps the client's Vietnamese text for network failures and handles non-API errors", () => {
-    expect(describeApiError(err("NETWORK_ERROR", 0)).message).toContain("Không kết nối được máy chủ");
-    expect(describeApiError(new Error("boom")).message).toBe("Có lỗi không mong đợi. Thử lại sau.");
+  it("keeps the client's text for network failures and handles non-API errors", () => {
+    expect(describeApiError(err("NETWORK_ERROR", 0)).message).toContain("Cannot reach the server");
+    expect(describeApiError(new Error("boom")).message).toBe("Something unexpected went wrong. Try again later.");
   });
 });
 

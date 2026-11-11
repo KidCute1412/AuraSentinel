@@ -43,7 +43,7 @@ describe("demo tour content", () => {
   });
 
   it("shows no numbers that look like live data", () => {
-    for (const s of DEMO_TOUR_STEPS) expect(`${s.title} ${s.body}`).not.toMatch(/\d[\d.,]*\s*(USDC|WAVAX|AVAX|%|giây|s\b)/i);
+    for (const s of DEMO_TOUR_STEPS) expect(`${s.title} ${s.body}`).not.toMatch(/\d[\d.,]*\s*(USDC|WAVAX|AVAX|%|sec|s\b)/i);
   });
 
   it("every anchor exists on the dashboard", () => {
@@ -58,8 +58,8 @@ describe("GuidedTour", () => {
   it("opens by itself on the first visit and focuses the next button", async () => {
     render(<Harness />);
     await waitFor(() => expect(dialog()).toBeInTheDocument());
-    expect(screen.getByText(`Hướng dẫn · Bước 1/${DEMO_TOUR_STEPS.length}`)).toBeInTheDocument();
-    await waitFor(() => expect(screen.getByRole("button", { name: /Tiếp/ })).toHaveFocus());
+    expect(screen.getByText(`Tour · Step 1/${DEMO_TOUR_STEPS.length}`)).toBeInTheDocument();
+    await waitFor(() => expect(screen.getByRole("button", { name: /Next/ })).toHaveFocus());
     expect(dialog()).toHaveAttribute("aria-modal", "true");
   });
 
@@ -79,37 +79,37 @@ describe("GuidedTour", () => {
   it("walks every step with buttons and arrow keys, then finishes", async () => {
     localStorage.setItem(DEMO_TOUR_SEEN_KEY, "1");
     render(<Harness />);
-    fireEvent.click(screen.getByRole("button", { name: "Xem hướng dẫn" }));
+    fireEvent.click(screen.getByRole("button", { name: "Show the guided tour" }));
     expect(screen.getByRole("heading", { name: DEMO_TOUR_STEPS[0]!.title })).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole("button", { name: /Tiếp/ }));
+    fireEvent.click(screen.getByRole("button", { name: /Next/ }));
     expect(screen.getByRole("heading", { name: DEMO_TOUR_STEPS[1]!.title })).toBeInTheDocument();
     fireEvent.keyDown(window, { key: "ArrowLeft" });
     expect(screen.getByRole("heading", { name: DEMO_TOUR_STEPS[0]!.title })).toBeInTheDocument();
 
     for (let i = 1; i < DEMO_TOUR_STEPS.length; i++) fireEvent.keyDown(window, { key: "ArrowRight" });
     expect(screen.getByRole("heading", { name: DEMO_TOUR_STEPS.at(-1)!.title })).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: /Xong/ }));
+    fireEvent.click(screen.getByRole("button", { name: /Done/ }));
     expect(dialog()).not.toBeInTheDocument();
   });
 
   it("returns focus to the replay button when closed", async () => {
     localStorage.setItem(DEMO_TOUR_SEEN_KEY, "1");
     render(<Harness />);
-    const replay = screen.getByRole("button", { name: "Xem hướng dẫn" });
+    const replay = screen.getByRole("button", { name: "Show the guided tour" });
     replay.focus();
     fireEvent.click(replay);
     expect(dialog()).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Bỏ qua" }));
+    fireEvent.click(screen.getByRole("button", { name: "Skip" }));
     await waitFor(() => expect(replay).toHaveFocus());
   });
 
   it("keeps Tab inside the card", async () => {
     localStorage.setItem(DEMO_TOUR_SEEN_KEY, "1");
     render(<Harness />);
-    fireEvent.click(screen.getByRole("button", { name: "Xem hướng dẫn" }));
-    const next = screen.getByRole("button", { name: /Tiếp/ });
-    const closeX = screen.getByRole("button", { name: "Bỏ qua hướng dẫn" });
+    fireEvent.click(screen.getByRole("button", { name: "Show the guided tour" }));
+    const next = screen.getByRole("button", { name: /Next/ });
+    const closeX = screen.getByRole("button", { name: "Skip the tour" });
     next.focus();
     fireEvent.keyDown(next, { key: "Tab" });
     expect(closeX).toHaveFocus();

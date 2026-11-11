@@ -1,6 +1,6 @@
 import type { Explanation, JobStatus } from "@agentshield/shared";
 import { cn } from "@/shared/lib/cn";
-import { formatPctVi } from "../jobView";
+import { formatBudgetPct } from "../jobView";
 
 interface ExplanationCardProps {
   explanation: Explanation | null;
@@ -28,7 +28,7 @@ export function ExplanationCard({ explanation, status, terminal }: ExplanationCa
       )}
     >
       <div className="flex items-center justify-between gap-3">
-        <span className="mono-label">Giải thích</span>
+        <span className="mono-label">Explanation</span>
         {/* ink is cream in dark and near-black in light; text-bg keeps the contrast in both themes. */}
         {explanation && (
           <span className="bg-ink px-1.5 py-0.5 font-mono text-[11px] font-bold uppercase tracking-widest text-bg">
@@ -40,7 +40,7 @@ export function ExplanationCard({ explanation, status, terminal }: ExplanationCa
         <>
           <p className="mt-2 text-base leading-relaxed sm:text-lg">{explanation.messageVi}</p>
           <p className="mt-2 font-mono text-xs text-muted">
-            Hạn mức ngày đã dùng: <span className="tabular text-fg">{formatPctVi(explanation.budgetUsedPct)}</span>
+            Daily budget used: <span className="tabular text-fg">{formatBudgetPct(explanation.budgetUsedPct)}</span>
           </p>
         </>
       ) : (
@@ -51,11 +51,11 @@ export function ExplanationCard({ explanation, status, terminal }: ExplanationCa
 }
 
 function Pending({ status, terminal }: { status: JobStatus; terminal: boolean }) {
-  if (status === "failed") return <p className="mt-2 text-soft">Lệnh lỗi hạ tầng nên không có giải thích.</p>;
-  if (!terminal) return <p className="mt-2 text-soft">Giải thích sẽ có khi lệnh chạy xong.</p>;
+  if (status === "failed") return <p className="mt-2 text-soft">The order failed on infrastructure, so there is no explanation.</p>;
+  if (!terminal) return <p className="mt-2 text-soft">The explanation appears once the order finishes.</p>;
   return (
     <div className="mt-2">
-      <p className="text-soft">Đang viết giải thích…</p>
+      <p className="text-soft">Writing the explanation…</p>
       <div aria-hidden className="mt-3 space-y-2">
         <div className="h-3 w-11/12 animate-pulse bg-hover" />
         <div className="h-3 w-3/4 animate-pulse bg-hover" />

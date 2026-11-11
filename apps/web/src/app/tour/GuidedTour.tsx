@@ -34,18 +34,18 @@ export function TourButton({ onClick }: { onClick: () => void }) {
     <button
       type="button"
       onClick={onClick}
-      aria-label="Xem hướng dẫn"
+      aria-label="Show the guided tour"
       className="inline-flex h-10 items-center gap-2 rounded-none border border-line-strong px-3 font-mono text-xs font-bold uppercase tracking-widest hover:bg-hover"
     >
       <Route aria-hidden className="size-4" />
-      <span className="hidden sm:inline">Hướng dẫn</span>
+      <span className="hidden sm:inline">Tour</span>
     </button>
   );
 }
 
 /**
  * Step-by-step overlay: dims the page except the anchored panel and shows a card next to it
- * (bottom sheet on phones). Esc or "Bỏ qua" skips, arrow keys move, Tab stays inside the card,
+ * (bottom sheet on phones). Esc or "Skip" skips, arrow keys move, Tab stays inside the card,
  * and focus returns to where it was when the tour closes.
  */
 export function GuidedTour({ tour }: { tour: TourControls }) {
@@ -179,9 +179,9 @@ export function GuidedTour({ tour }: { tour: TourControls }) {
       >
         <div className="flex items-center justify-between gap-3">
           <span className="mono-label">
-            Hướng dẫn · Bước {index + 1}/{steps.length}
+            Tour · Step {index + 1}/{steps.length}
           </span>
-          <button type="button" onClick={close} aria-label="Bỏ qua hướng dẫn" className="inline-flex size-10 items-center justify-center hover:bg-hover">
+          <button type="button" onClick={close} aria-label="Skip the tour" className="inline-flex size-10 items-center justify-center hover:bg-hover">
             <X aria-hidden className="size-5" />
           </button>
         </div>
@@ -201,23 +201,23 @@ export function GuidedTour({ tour }: { tour: TourControls }) {
 
         <div className="mt-5 flex flex-wrap items-center justify-between gap-3">
           <button type="button" onClick={close} className="h-10 px-1 font-bold text-soft underline-offset-4 hover:text-fg hover:underline">
-            Bỏ qua
+            Skip
           </button>
           <div className="flex items-center gap-2">
             {index > 0 && (
               <button type="button" onClick={prev} className={secondaryBtn}>
                 <ArrowLeft aria-hidden className="size-4" />
-                Quay lại
+                Back
               </button>
             )}
             <button ref={primaryRef} type="button" onClick={next} className={primaryBtn}>
               {isLast ? (
                 <>
-                  Xong <Check aria-hidden className="size-4" strokeWidth={2.5} />
+                  Done <Check aria-hidden className="size-4" strokeWidth={2.5} />
                 </>
               ) : (
                 <>
-                  Tiếp <ArrowRight aria-hidden className="size-4" strokeWidth={2.5} />
+                  Next <ArrowRight aria-hidden className="size-4" strokeWidth={2.5} />
                 </>
               )}
             </button>

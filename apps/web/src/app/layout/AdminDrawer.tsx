@@ -1,8 +1,9 @@
 import { useEffect, useId, useRef, useState } from "react";
 import { ArrowUpRight, Pause, Play, Settings2, TriangleAlert, X } from "lucide-react";
-import { formatAmountVi, type Role } from "@agentshield/shared";
+import type { Role } from "@agentshield/shared";
 import { useRebalancerStatus, useSetRebalancerPaused } from "@/shared/api";
 import { API_BASE, API_V1 } from "@/shared/api/client";
+import { formatTokenAmount } from "@/shared/lib/format";
 
 /** Session role from the server (`Role` in @agentshield/shared). */
 export type SessionRole = Role;
@@ -58,15 +59,15 @@ export function AdminDrawer({ role }: { role: SessionRole | null | undefined }) 
             className="absolute right-0 top-0 flex h-full w-full max-w-sm flex-col border-l border-line-strong bg-surface shadow-hard"
           >
             <div className="flex items-center justify-between border-b border-line px-5 py-4">
-              <h2 id={titleId} className="text-xl font-extrabold">Bảng admin</h2>
-              <button ref={closeRef} type="button" onClick={close} aria-label="Đóng bảng admin" className="inline-flex size-10 items-center justify-center hover:bg-hover">
+              <h2 id={titleId} className="text-xl font-extrabold">Admin panel</h2>
+              <button ref={closeRef} type="button" onClick={close} aria-label="Close admin panel" className="inline-flex size-10 items-center justify-center hover:bg-hover">
                 <X aria-hidden className="size-5" />
               </button>
             </div>
             <div className="flex-1 space-y-6 overflow-y-auto px-5 py-5">
               <RebalancerControls />
               <section className="space-y-2">
-                <span className="mono-label">Công cụ</span>
+                <span className="mono-label">Tools</span>
                 <a href={`${API_V1}/admin/queues`} target="_blank" rel="noreferrer" className="flex items-center gap-1 font-bold text-accent-text hover:underline">
                   Bull Board <ArrowUpRight aria-hidden className="size-4" />
                 </a>
@@ -93,11 +94,11 @@ function RebalancerControls() {
       <section>
         <span className="mono-label">Demo mode · rebalancer</span>
         {status.isPending && <div aria-hidden className="mt-3 h-10 animate-pulse bg-hover" />}
-        {status.isError && <p className="mt-2 text-sm text-soft">Chưa kết nối được API admin: {status.error.message}</p>}
+        {status.isError && <p className="mt-2 text-sm text-soft">Cannot reach the admin API: {status.error.message}</p>}
         {s && (
           <>
             <p className="mt-2 font-mono text-sm">
-              {s.paused ? "ĐANG TẠM DỪNG" : "ĐANG CHẠY"} · mỗi {Math.round(s.intervalMs / 1000)} giây
+              {s.paused ? "PAUSED" : "RUNNING"} · every {Math.round(s.intervalMs / 1000)}s
             </p>
             <button
               type="button"
@@ -107,25 +108,25 @@ function RebalancerControls() {
               className="mt-3 inline-flex h-10 items-center gap-2 rounded-none border border-line-strong px-4 font-bold hover:bg-hover disabled:cursor-not-allowed disabled:opacity-40"
             >
               {s.paused ? <Play aria-hidden className="size-4" /> : <Pause aria-hidden className="size-4" />}
-              {s.paused ? "Chạy lại rebalancer" : "Tạm dừng rebalancer"}
+              {s.paused ? "Resume rebalancer" : "Pause rebalancer"}
             </button>
-            {toggle.isError && <p className="mt-2 text-sm text-soft">Không đổi được: {toggle.error.message}</p>}
+            {toggle.isError && <p className="mt-2 text-sm text-soft">Could not change it: {toggle.error.message}</p>}
           </>
         )}
       </section>
       <section>
-        <span className="mono-label">Gas của agent</span>
+        <span className="mono-label">Agent gas</span>
         {s ? (
           <p className="mt-2 flex items-center gap-2 font-mono text-sm tabular">
-            {formatAmountVi(BigInt(s.agent.avaxBalance), 18, "AVAX")}
+            {formatTokenAmount(BigInt(s.agent.avaxBalance), 18)} AVAX
             {s.agent.lowGas && (
               <span className="inline-flex items-center gap-1 font-bold text-warn">
-                <TriangleAlert aria-hidden className="size-4" /> Sắp hết gas
+                <TriangleAlert aria-hidden className="size-4" /> Low gas
               </span>
             )}
           </p>
         ) : (
-          <p className="mt-2 text-sm text-soft">Chưa có dữ liệu.</p>
+          <p className="mt-2 text-sm text-soft">No data yet.</p>
         )}
       </section>
     </>

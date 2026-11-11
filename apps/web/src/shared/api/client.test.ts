@@ -49,7 +49,7 @@ describe("apiRequest", () => {
   it("turns problem+json into a typed ApiError", async () => {
     fetchMock.mockResolvedValueOnce(
       problemResponse(
-        { type: "/errors/not-owner", title: "Not owner", status: 403, detail: "Ví không phải owner của Safe", code: "NOT_OWNER", reason: null },
+        { type: "/errors/not-owner", title: "Not owner", status: 403, detail: "Wallet is not an owner of the Safe", code: "NOT_OWNER", reason: null },
         403,
       ),
     );
@@ -57,7 +57,7 @@ describe("apiRequest", () => {
     expect(err.status).toBe(403);
     expect(err.code).toBe("NOT_OWNER");
     expect(err.reason).toBeNull();
-    expect(err.message).toBe("Ví không phải owner của Safe");
+    expect(err.message).toBe("Wallet is not an owner of the Safe");
   });
 
   it("keeps the reason code and Retry-After", async () => {
@@ -78,7 +78,7 @@ describe("apiRequest", () => {
     const err = await caught(getVaultState(SAFE));
     expect(err.code).toBe("HTTP_ERROR");
     expect(err.status).toBe(502);
-    expect(err.message).toMatch(/Máy chủ/);
+    expect(err.message).toMatch(/server/);
   });
 
   it("rejects a payload that drifted from the shared schema", async () => {

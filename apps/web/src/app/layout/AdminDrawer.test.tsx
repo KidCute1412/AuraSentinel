@@ -41,8 +41,8 @@ describe("AdminDrawer", () => {
     expect(fetchMock).not.toHaveBeenCalled(); // fetched only once opened
 
     fireEvent.click(screen.getByRole("button", { name: /admin/i }));
-    expect(screen.getByRole("dialog", { name: "Bảng admin" })).toBeInTheDocument();
-    await screen.findByText(/ĐANG CHẠY/);
+    expect(screen.getByRole("dialog", { name: "Admin panel" })).toBeInTheDocument();
+    await screen.findByText(/RUNNING/);
 
     fireEvent.keyDown(window, { key: "Escape" });
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
@@ -55,20 +55,20 @@ describe("AdminDrawer", () => {
     render(wrap(<AdminDrawer role="admin" />));
     fireEvent.click(screen.getByRole("button", { name: /admin/i }));
 
-    fireEvent.click(await screen.findByRole("button", { name: "Tạm dừng rebalancer" }));
-    await screen.findByRole("button", { name: "Chạy lại rebalancer" });
+    fireEvent.click(await screen.findByRole("button", { name: "Pause rebalancer" }));
+    await screen.findByRole("button", { name: "Resume rebalancer" });
     const patch = fetchMock.mock.calls.find(([, init]) => init?.method === "PATCH");
     expect(String(patch![0])).toMatch(/\/api\/v1\/admin\/rebalancer$/);
     expect(JSON.parse(String(patch![1]!.body))).toEqual({ paused: true });
-    expect(screen.getByText(/ĐANG TẠM DỪNG/)).toBeInTheDocument();
+    expect(screen.getByText(/PAUSED/)).toBeInTheDocument();
     expect(screen.getByText("5 AVAX")).toBeInTheDocument();
-    expect(screen.getByText("Sắp hết gas")).toBeInTheDocument();
+    expect(screen.getByText("Low gas")).toBeInTheDocument();
   });
 
   it("says so when the admin API is not reachable", async () => {
     fetchMock.mockRejectedValue(new TypeError("Failed to fetch"));
     render(wrap(<AdminDrawer role="admin" />));
     fireEvent.click(screen.getByRole("button", { name: /admin/i }));
-    await waitFor(() => expect(screen.getByText(/Chưa kết nối được API admin/)).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText(/Cannot reach the admin API/)).toBeInTheDocument());
   });
 });
