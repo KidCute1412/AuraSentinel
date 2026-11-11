@@ -23,7 +23,7 @@ export function WalletButton({ className }: { className?: string }) {
           return (
             <button type="button" onClick={openConnectModal} className={cn(primary, className)}>
               <Wallet aria-hidden className="size-4" strokeWidth={2.5} />
-              Kết nối ví
+              Connect wallet
             </button>
           );
         }
@@ -31,7 +31,7 @@ export function WalletButton({ className }: { className?: string }) {
           return (
             <button type="button" onClick={openChainModal} className={cn(caution, className)}>
               <TriangleAlert aria-hidden className="size-4" strokeWidth={2.5} />
-              Sai mạng
+              Wrong network
             </button>
           );
         }
@@ -45,7 +45,7 @@ export function WalletButton({ className }: { className?: string }) {
               type="button"
               onClick={openAccountModal}
               title={account.address}
-              aria-label={`Ví đã kết nối ${account.address}. Mở tuỳ chọn ví`}
+              aria-label={`Connected wallet ${account.address}. Open wallet options`}
               className={cn(secondary, "font-mono text-sm")}
             >
               {account.displayName}

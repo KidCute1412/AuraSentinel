@@ -13,10 +13,10 @@ export const apiUrl = (path: string): string => `${API_V1}${path.startsWith("/")
 /** Server codes from problem+json, plus the three failures that never reach the server's error format. */
 export type ApiErrorCode = ErrorCode | "NETWORK_ERROR" | "BAD_RESPONSE" | "HTTP_ERROR";
 
-const FALLBACK_VI: Record<"NETWORK_ERROR" | "BAD_RESPONSE" | "HTTP_ERROR", string> = {
-  NETWORK_ERROR: "Không kết nối được máy chủ. Kiểm tra mạng rồi thử lại.",
-  BAD_RESPONSE: "Máy chủ trả dữ liệu không đúng định dạng.",
-  HTTP_ERROR: "Máy chủ đang gặp lỗi. Thử lại sau ít phút.",
+const FALLBACK_COPY: Record<"NETWORK_ERROR" | "BAD_RESPONSE" | "HTTP_ERROR", string> = {
+  NETWORK_ERROR: "Cannot reach the server. Check your connection and try again.",
+  BAD_RESPONSE: "The server sent data in an unexpected format.",
+  HTTP_ERROR: "The server hit an error. Try again in a few minutes.",
 };
 
 interface ApiErrorInit {
@@ -28,10 +28,10 @@ interface ApiErrorInit {
 }
 
 /**
- * Every failed API call throws this. `message` is user-facing Vietnamese: the server's
+ * Every failed API call throws this. `message` is user-facing English: the server's
  * problem `detail`/`title`, or a fixed sentence when the server could not answer.
  * `reason` carries the revert/precheck reason code when the server sends one; once the Q1
- * reason codes are on this branch, map it with `formatReasonVi(reason)` for the UI.
+ * map it with `formatReason(reason)` (shared/lib/reasonCopy) for the UI.
  */
 export class ApiError extends Error {
   readonly status: number;
@@ -41,7 +41,7 @@ export class ApiError extends Error {
   readonly retryAfterSec: number | null;
 
   constructor({ status, code, problem = null, retryAfterSec = null, cause }: ApiErrorInit) {
-    const fallback = code in FALLBACK_VI ? FALLBACK_VI[code as keyof typeof FALLBACK_VI] : FALLBACK_VI.HTTP_ERROR;
+    const fallback = code in FALLBACK_COPY ? FALLBACK_COPY[code as keyof typeof FALLBACK_COPY] : FALLBACK_COPY.HTTP_ERROR;
     super(problem?.detail ?? problem?.title ?? fallback, { cause });
     this.name = "ApiError";
     this.status = status;

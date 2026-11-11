@@ -16,7 +16,7 @@ describe("ExplanationCard", () => {
   it("swaps a late explanation in place, in the same box", () => {
     const { rerender } = render(<ExplanationCard explanation={null} status="confirmed" terminal />);
     const box = screen.getByTestId("explanation-card");
-    expect(box).toHaveTextContent("Đang viết giải thích…");
+    expect(box).toHaveTextContent("Writing the explanation…");
     expect(box).toHaveClass("min-h-28");
 
     rerender(<ExplanationCard explanation={{ ...explanation, source: "llm" }} status="confirmed" terminal />);
@@ -24,7 +24,7 @@ describe("ExplanationCard", () => {
     expect(box).toHaveClass("min-h-28");
     expect(box).toHaveTextContent(explanation.messageVi);
     expect(box).toHaveTextContent("LLM");
-    expect(box).toHaveTextContent("13,3%");
+    expect(box).toHaveTextContent("Daily budget used: 13.3%");
     expect(box).toHaveAttribute("aria-live", "polite");
   });
 
@@ -37,9 +37,9 @@ describe("ExplanationCard", () => {
 
   it("says why there is no explanation yet or at all", () => {
     const { rerender } = render(<ExplanationCard explanation={null} status="simulating" terminal={false} />);
-    expect(screen.getByTestId("explanation-card")).toHaveTextContent("Giải thích sẽ có khi lệnh chạy xong.");
+    expect(screen.getByTestId("explanation-card")).toHaveTextContent("The explanation appears once the order finishes.");
     rerender(<ExplanationCard explanation={null} status="failed" terminal />);
-    expect(screen.getByTestId("explanation-card")).toHaveTextContent("Lệnh lỗi hạ tầng nên không có giải thích.");
+    expect(screen.getByTestId("explanation-card")).toHaveTextContent("The order failed on infrastructure, so there is no explanation.");
   });
 });
 
@@ -63,34 +63,34 @@ describe("JobTimeline", () => {
 
     const [ok, shield1, shield2, running] = rows as [HTMLElement, HTMLElement, HTMLElement, HTMLElement];
     expect(within(ok).getByText("APPROVE")).toBeInTheDocument();
-    expect(within(ok).getByText("Đã khớp lệnh 200 USDC")).toBeInTheDocument();
+    expect(within(ok).getByText("Swapped 200 USDC")).toBeInTheDocument();
     expect(within(ok).getByRole("link", { name: /Snowtrace/ })).toHaveAttribute("href", `https://testnet.snowtrace.io/tx/${TX}`);
 
     expect(within(shield1).getByText("BLOCKED")).toBeInTheDocument();
-    expect(within(shield1).getByText("Shield 1 chặn lệnh 2.000 USDC")).toBeInTheDocument();
-    expect(within(shield1).getByText("Vượt hạn mức mỗi lệnh")).toBeInTheDocument();
+    expect(within(shield1).getByText("Shield 1 blocked the 2,000 USDC order")).toBeInTheDocument();
+    expect(within(shield1).getByText("Over the per-transaction cap")).toBeInTheDocument();
     expect(within(shield1).queryByRole("link", { name: /Snowtrace/ })).not.toBeInTheDocument();
 
-    expect(within(shield2).getByText("Shield 2 chặn lệnh")).toBeInTheDocument();
-    expect(within(shield2).getByText("Safe từ chối (GS104)")).toBeInTheDocument();
+    expect(within(shield2).getByText("Shield 2 blocked the order")).toBeInTheDocument();
+    expect(within(shield2).getByText("Refused by the Safe (GS104)")).toBeInTheDocument();
     expect(within(shield2).getByRole("link", { name: /Snowtrace/ })).toBeInTheDocument();
 
     expect(within(running).queryByText("APPROVE")).not.toBeInTheDocument();
-    expect(within(running).getByText("Shield 1 đang chạy thử")).toBeInTheDocument();
+    expect(within(running).getByText("Shield 1 is simulating")).toBeInTheDocument();
   });
 
   it("toggles one detail at a time", () => {
     const onToggle = vi.fn();
     const renderDetail = vi.fn(() => <p>detail</p>);
     const { rerender } = render(<JobTimeline jobs={jobs} tokens={tokens} openId={null} onToggle={onToggle} renderDetail={renderDetail} />);
-    const buttons = screen.getAllByRole("button", { name: /Chi tiết kiểm tra/ });
+    const buttons = screen.getAllByRole("button", { name: /Audit detail/ });
     fireEvent.click(buttons[1]!);
     expect(onToggle).toHaveBeenCalledWith("00000000-0000-4000-8000-000000000002");
     expect(renderDetail).not.toHaveBeenCalled();
 
     rerender(<JobTimeline jobs={jobs} tokens={tokens} openId="00000000-0000-4000-8000-000000000002" onToggle={onToggle} renderDetail={renderDetail} />);
     expect(renderDetail).toHaveBeenCalledWith("00000000-0000-4000-8000-000000000002");
-    expect(screen.getAllByRole("button", { name: /Chi tiết kiểm tra/ })[1]).toHaveAttribute("aria-expanded", "true");
+    expect(screen.getAllByRole("button", { name: /Audit detail/ })[1]).toHaveAttribute("aria-expanded", "true");
     expect(screen.getByText("detail")).toBeInTheDocument();
   });
 });
@@ -109,9 +109,9 @@ describe("JobDetail", () => {
       ],
     });
     render(<JobDetail detail={detail} isLoading={false} isError={false} tokens={tokens} />);
-    expect(screen.getAllByText("Qua")).toHaveLength(4);
+    expect(screen.getAllByText("Pass")).toHaveLength(4);
     expect(screen.getByText("200 USDC")).toBeInTheDocument();
-    expect(screen.getByText("9,5 WAVAX")).toBeInTheDocument();
+    expect(screen.getByText("9.5 WAVAX")).toBeInTheDocument();
   });
 
   it("lists every failed precheck reason and the stages that never ran", () => {
@@ -122,16 +122,16 @@ describe("JobDetail", () => {
       audit: [{ shield: "precheck", result: "fail", reason: "ExceedsPerTxCap", ts }],
     });
     render(<JobDetail detail={detail} isLoading={false} isError={false} tokens={tokens} />);
-    expect(screen.getByText("Chặn")).toBeInTheDocument();
-    expect(screen.getAllByText("Không chạy")).toHaveLength(3);
-    expect(screen.getByText("Vượt hạn mức ngày")).toBeInTheDocument();
+    expect(screen.getByText("Blocked")).toBeInTheDocument();
+    expect(screen.getAllByText("Skipped")).toHaveLength(3);
+    expect(screen.getByText("Over the daily cap")).toBeInTheDocument();
   });
 
   it("has loading and error states", () => {
     const { rerender } = render(<JobDetail detail={undefined} isLoading isError={false} tokens={tokens} />);
-    expect(screen.getByText("Đang tải chi tiết kiểm tra")).toBeInTheDocument();
+    expect(screen.getByText("Loading audit detail")).toBeInTheDocument();
     rerender(<JobDetail detail={undefined} isLoading={false} isError tokens={tokens} />);
-    expect(screen.getByText(/Không tải được chi tiết/)).toBeInTheDocument();
+    expect(screen.getByText(/Could not load the audit detail/)).toBeInTheDocument();
   });
 });
 
@@ -151,7 +151,7 @@ describe("ActivityPanel", () => {
 
   it("without a vault address shows an honest empty state and needs no QueryClient", () => {
     render(<ActivityPanel safe={null} />);
-    expect(screen.getByRole("status")).toHaveTextContent("chưa được deploy");
+    expect(screen.getByRole("status")).toHaveTextContent("not deployed");
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
@@ -163,7 +163,7 @@ describe("ActivityPanel", () => {
       return new Response(null, { status: 404 });
     });
     render(wrap(<ActivityPanel safe={SAFE} />));
-    expect(await screen.findByText("Shield 1 chặn lệnh 200 USDC")).toBeInTheDocument();
+    expect(await screen.findByText("Shield 1 blocked the 200 USDC order")).toBeInTheDocument();
   });
 
   it("says so when the vault has no jobs yet", async () => {
@@ -171,19 +171,19 @@ describe("ActivityPanel", () => {
       String(input).includes("/jobs") ? jsonResponse({ items: [], nextCursor: null }) : jsonResponse(state),
     );
     render(wrap(<ActivityPanel safe={SAFE} />));
-    expect(await screen.findByText("Chưa có lệnh nào")).toBeInTheDocument();
+    expect(await screen.findByText("No orders yet")).toBeInTheDocument();
   });
 
   it("shows the API error and retries", async () => {
     fetchMock.mockRejectedValue(new TypeError("Failed to fetch"));
     render(wrap(<ActivityPanel safe={SAFE} />));
-    expect(await screen.findByText("Chưa kết nối được API vault")).toBeInTheDocument();
-    expect(screen.getByText(/Không kết nối được máy chủ/)).toBeInTheDocument();
+    expect(await screen.findByText("Cannot reach the vault API")).toBeInTheDocument();
+    expect(screen.getByText(/Cannot reach the server/)).toBeInTheDocument();
 
     fetchMock.mockImplementation(async (input) =>
       String(input).includes("/jobs") ? jsonResponse({ items: [], nextCursor: null }) : jsonResponse(state),
     );
-    fireEvent.click(screen.getByRole("button", { name: /Thử lại/ }));
-    await waitFor(() => expect(screen.getByText("Chưa có lệnh nào")).toBeInTheDocument());
+    fireEvent.click(screen.getByRole("button", { name: /Retry/ }));
+    await waitFor(() => expect(screen.getByText("No orders yet")).toBeInTheDocument());
   });
 });

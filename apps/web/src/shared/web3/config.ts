@@ -34,7 +34,7 @@ function buildable(wallets: CreateWalletFn[]): CreateWalletFn[] {
 
 const walletList: WalletList = [
   {
-    groupName: "Ví đề xuất",
+    groupName: "Recommended",
     wallets: buildable([coreWallet, metaMaskWallet, injectedWallet, ...(hasWalletConnect ? [walletConnectWallet] : [])]),
   },
 ];

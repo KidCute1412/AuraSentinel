@@ -37,7 +37,7 @@ interface JobTimelineProps {
  */
 export function JobTimeline({ jobs, tokens, openId, onToggle, renderDetail }: JobTimelineProps) {
   return (
-    <ol className="space-y-4" aria-label="Dòng thời gian lệnh">
+    <ol className="space-y-4" aria-label="Order timeline">
       {jobs.map((job) => (
         <JobRow key={job.id} job={job} tokens={tokens} open={openId === job.id} onToggle={onToggle} renderDetail={renderDetail} />
       ))}
@@ -91,13 +91,13 @@ function JobRow({ job, tokens, open, onToggle, renderDetail }: JobRowProps) {
             <div className="border border-danger bg-tint-pink p-3">
               <p className="font-bold text-danger-text">{v.reason.title}</p>
               <p className="mt-1">{v.reason.message}</p>
-              {v.reason.raw && <p className="mt-1 break-all font-mono text-xs text-muted">Mã gốc: {v.reason.raw}</p>}
+              {v.reason.raw && <p className="mt-1 break-all font-mono text-xs text-muted">Raw code: {v.reason.raw}</p>}
             </div>
           )}
 
           {v.txUrl && (
             <a href={v.txUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 font-bold text-accent-text hover:underline">
-              Xem giao dịch trên Snowtrace <ArrowUpRight aria-hidden className="size-4" />
+              View transaction on Snowtrace <ArrowUpRight aria-hidden className="size-4" />
             </a>
           )}
 
@@ -110,7 +110,7 @@ function JobRow({ job, tokens, open, onToggle, renderDetail }: JobRowProps) {
             onClick={() => onToggle(job.id)}
             className="inline-flex h-10 items-center gap-2 rounded-none border border-line-strong px-3 font-bold hover:bg-hover"
           >
-            Chi tiết kiểm tra
+            Audit detail
             <ChevronDown aria-hidden className={cn("size-4 transition-transform duration-150", open && "rotate-180")} />
           </button>
           <div id={detailId} hidden={!open}>
