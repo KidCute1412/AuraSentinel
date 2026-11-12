@@ -73,8 +73,7 @@ contract CreateVault is Script {
         address[] memory owners = new address[](1);
         owners[0] = owner;
         bytes memory init = abi.encodeCall(
-            ISafeFull.setup,
-            (owners, 1, address(0), "", Fuji.SAFE_FALLBACK_HANDLER, address(0), 0, payable(address(0)))
+            ISafeFull.setup, (owners, 1, address(0), "", Fuji.SAFE_FALLBACK_HANDLER, address(0), 0, payable(address(0)))
         );
         safe = ISafeProxyFactory(Fuji.SAFE_PROXY_FACTORY).createProxyWithNonce(Fuji.SAFE_L2_SINGLETON, init, saltNonce);
     }
@@ -82,9 +81,19 @@ contract CreateVault is Script {
     /// Safe 1/1: the owner sending the tx is its own signature (v = 1, r = owner, "approved by msg.sender").
     function _enableModule(address safe, address owner, address module) internal {
         bytes memory sig = abi.encodePacked(uint256(uint160(owner)), uint256(0), uint8(1));
-        bool ok = ISafeFull(safe).execTransaction(
-            safe, 0, abi.encodeCall(ISafeFull.enableModule, (module)), 0, 0, 0, 0, address(0), payable(address(0)), sig
-        );
+        bool ok = ISafeFull(safe)
+            .execTransaction(
+                safe,
+                0,
+                abi.encodeCall(ISafeFull.enableModule, (module)),
+                0,
+                0,
+                0,
+                0,
+                address(0),
+                payable(address(0)),
+                sig
+            );
         require(ok, "CreateVault: enableModule failed");
     }
 
@@ -97,10 +106,7 @@ contract CreateVault is Script {
         limits[1] = IAgentPolicyModule.Limits({maxPerTx: WAVAX_MAX_TX, dailyCap: WAVAX_DAILY});
         module.setPolicy(
             IAgentPolicyModule.Policy({
-                agentSigner: agent,
-                router: d.router,
-                expiry: uint64(block.timestamp) + POLICY_TTL,
-                isActive: true
+                agentSigner: agent, router: d.router, expiry: uint64(block.timestamp) + POLICY_TTL, isActive: true
             }),
             tokens,
             limits
