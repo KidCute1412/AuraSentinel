@@ -32,6 +32,9 @@ Thumbs.db
 packages/contracts/out/
 packages/contracts/cache/
 packages/contracts/broadcast/
+# dry-run deployments (only the real Fuji file is committed)
+packages/contracts/deployments/*.json
+!packages/contracts/deployments/fuji.json
 
 # local data / test artifacts
 infra/data/

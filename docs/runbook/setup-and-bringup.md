@@ -31,13 +31,12 @@ Owner private key **không** có trong bất kỳ file env nào (invariant #5).
 
 1. **Faucet:** AVAX Fuji cho owner và agent (agent cần AVAX trả gas; attack #4 ký bằng key này).
 2. **Contracts:** `cd packages/contracts && forge build && forge test`.
-3. **Deploy:** `forge script script/Deploy.s.sol --rpc-url fuji --broadcast` (MockUSDC + module) → `SetupPool.s.sol` (pool MockUSDC/WAVAX trên TJ Fuji).
-4. **Safe:** deploy Safe v1.4.1 (Protocol Kit hoặc app.safe.global nếu hỗ trợ Fuji); điền `SAFE_ADDRESS`.
-5. **Owner thiết lập (ký bằng ví owner):** `safe.enableModule(module)` rồi `setPolicy(...)`.
-6. **ABI:** `pnpm --filter shared gen` (sinh `packages/shared/src/generated/abis.ts`).
-7. **Chạy stack:** `docker compose -f infra/docker-compose.yml up` (redis, postgres, anvil, api, worker, web).
-8. **Seed + verify:** `pnpm seed --verify` (mint MockUSDC, addLiquidity, fund Safe, fund gas cho agent, kiểm tra policy). Phải in toàn `PASS`.
-9. Mở `http://localhost:3000`.
+3. **Deploy (token, factory, pool, 2 vault, swap thử):** làm theo [`deploy-fuji.md`](./deploy-fuji.md). Safe, `enableModule` và `setPolicy` nằm trong `CreateVault.s.sol`, ký bằng ví owner trên máy owner.
+4. **Env:** điền `SAFE_ADDRESS`, `POLICY_MODULE_ADDRESS`, `TOKEN_A_ADDRESS`, `TOKEN_B_ADDRESS` từ `packages/contracts/deployments/fuji.json`.
+5. **ABI:** `pnpm --filter shared gen` (sinh `packages/shared/src/generated/abis.ts`).
+6. **Chạy stack:** `docker compose -f infra/docker-compose.yml up` (redis, postgres, anvil, api, worker, web).
+7. **Seed + verify:** `pnpm seed --verify` (chỉ đọc: policy, số dư Safe, reserve pool, gas của agent; L10). Phải in toàn `PASS`.
+8. Mở `http://localhost:3000`.
 
 Dev hàng ngày: `pnpm dev`.
 

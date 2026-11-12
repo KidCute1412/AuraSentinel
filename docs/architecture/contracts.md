@@ -123,7 +123,9 @@ Slither + checklist: skill `secure-workflow-guide`, chạy trước khi deploy.
 
 ## 8. Deploy
 
-`forge script` theo thứ tự: `Deploy.s.sol` (MockUSDC + factory; module của 2 vault demo tạo qua `factory.deployModule`, **không** `new` trực tiếp, để indexer thấy `ModuleDeployed`) → `SetupPool.s.sol` (addLiquidity cặp MockUSDC/WAVAX trên factory TJ Fuji) → owner `safe.enableModule(module)` → `SetPolicy.s.sol`. Chi tiết lệnh: [`../runbook/setup-and-bringup.md`](../runbook/setup-and-bringup.md).
+`forge script` theo thứ tự (chi tiết từng lệnh: [`../runbook/deploy-fuji.md`](../runbook/deploy-fuji.md)): `Deploy.s.sol` (MockUSDC + MockWAVAX + factory) → `SetupPool.s.sol` (pool MockUSDC/MockWAVAX trên router TJ V1 Fuji, 1 WAVAX = 25 USDC) → `CreateVault.s.sol` ×2 (`public`, `stage`: Safe 1/1 → `factory.deployModule` → `enableModule` → `setPolicy` → nạp tiền; module **luôn** tạo qua factory để indexer thấy `ModuleDeployed`) → `ManualSwap.s.sol` (agent ký 1 swap). Địa chỉ ghi vào `packages/contracts/deployments/<DEPLOYMENT>.json`; CI chạy nguyên chuỗi này trên Anvil fork (job `deploy-dry-run`).
+
+**MockWAVAX thay WAVAX thật (L4):** faucet Fuji chỉ cho vài AVAX/ngày, pool WAVAX thật sẽ quá mỏng cho swap 500 USDC. `MockWAVAX` (18 decimals, cùng luật faucet với MockUSDC, chung base `FaucetToken`) cho pool sâu tuỳ ý. Module không phân biệt: chỉ cần 2 token trong whitelist.
 
 ## 9. AgentShieldFactory và MockUSDC (L3)
 

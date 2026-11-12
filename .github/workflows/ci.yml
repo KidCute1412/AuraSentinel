@@ -189,10 +189,67 @@ jobs:
         env:
           FORK_URL: https://api.avax-test.network/ext/bc/C/rpc
 
+  # L4: the exact Fuji deploy sequence (scripts in packages/contracts/script) on an Anvil fork of Fuji, so the real
+  # deploy only runs scripts that already worked against the real Trader Joe router and Safe v1.4.1 contracts.
+  # Keys are Anvil's public dev accounts #0 (deployer/owner) and #1 (agent); see .gitleaks.toml.
+  deploy-dry-run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: packages/contracts
+    env:
+      DEPLOYMENT: fork
+      RPC: http://127.0.0.1:8545
+      OWNER_KEY: "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80"
+      AGENT_KEY: "0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d"
+      AGENT_ADDRESS: "0x70997970C51812dc3A010C7d01b50e0d17dc79C8"
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - uses: foundry-rs/foundry-toolchain@v1
+      - name: Start Anvil fork of Fuji
+        run: |
+          anvil --fork-url https://api.avax-test.network/ext/bc/C/rpc --chain-id 43113 --port 8545 > anvil.log 2>&1 &
+          for i in $(seq 1 30); do cast block-number --rpc-url "$RPC" && exit 0; sleep 2; done
+          cat anvil.log; exit 1
+      - name: 1. Deploy MockUSDC, MockWAVAX, factory
+        run: forge script script/Deploy.s.sol --rpc-url "$RPC" --private-key "$OWNER_KEY" --broadcast
+      - name: 2. Trader Joe pool
+        run: forge script script/SetupPool.s.sol --rpc-url "$RPC" --private-key "$OWNER_KEY" --broadcast
+      - name: 3. Public and stage vaults
+        run: |
+          VAULT=public forge script script/CreateVault.s.sol --rpc-url "$RPC" --private-key "$OWNER_KEY" --broadcast
+          VAULT=stage forge script script/CreateVault.s.sol --rpc-url "$RPC" --private-key "$OWNER_KEY" --broadcast
+      - name: 4. Guarded swap signed by the agent (both vaults)
+        run: |
+          VAULT=public forge script script/ManualSwap.s.sol --rpc-url "$RPC" --private-key "$AGENT_KEY" --broadcast
+          VAULT=stage forge script script/ManualSwap.s.sol --rpc-url "$RPC" --private-key "$AGENT_KEY" --broadcast
+      - name: 5. Over-cap swap is mined and reverts with ExceedsPerTxCap (attack #2)
+        run: |
+          MODULE=$(jq -r .publicModule deployments/fork.json)
+          USDC=$(jq -r .usdc deployments/fork.json)
+          WAVAX=$(jq -r .wavax deployments/fork.json)
+          DEADLINE=$(( $(cast block --rpc-url "$RPC" -f timestamp) + 300 ))
+          OUT=$(cast send "$MODULE" "executeGuardedSwap(address,address,uint256,uint256,uint256)" \
+            "$USDC" "$WAVAX" 2000000000 1 "$DEADLINE" --gas-limit 300000 \
+            --rpc-url "$RPC" --private-key "$AGENT_KEY" --json || true)
+          echo "$OUT"
+          test "$(echo "$OUT" | jq -r .status)" = "0x0"
+          # Same call as eth_call: the revert data must start with the ExceedsPerTxCap selector.
+          SEL=$(cast sig "ExceedsPerTxCap()")
+          ERR=$(cast call "$MODULE" "executeGuardedSwap(address,address,uint256,uint256,uint256)" \
+            "$USDC" "$WAVAX" 2000000000 1 "$DEADLINE" --from "$AGENT_ADDRESS" --rpc-url "$RPC" 2>&1 || true)
+          echo "$ERR"
+          echo "$ERR" | grep -qi "${SEL#0x}"
+      - run: cat deployments/fork.json
+        if: always()
+
   # Single required check for branch protection: "ci-pass"
   ci-pass:
     if: always()
-    needs: [invariants, node, contracts, integration, docker]
+    needs: [invariants, node, contracts, integration, docker, deploy-dry-run]
     runs-on: ubuntu-latest
     steps:
       # Fail on anything except success; steps inside jobs already skip themselves when not applicable.
