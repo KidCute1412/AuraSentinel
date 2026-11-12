@@ -298,7 +298,7 @@ Cache dài (≥ 30s), dữ liệu công khai.
   "tests": { "fuzzRuns": 10000, "invariants": ["spentTodayLeCap","attackerBalanceZero","revokedMeansNoSpend"], "passed": true, "slither": "0 high" },
   "blockedTxs": [ { "txHash": "0x…", "error": "ExceedsPerTxCap", "at": "…", "explorerUrl": "…" } ] }
 ```
-`tests` đọc từ file tĩnh sinh ở CI (không chạy lúc request). `finality` lấy từ `chain.revoked.latencyMs` đã index.
+`tests` đọc từ file tĩnh `packages/contracts/proof/tests.json` (commit trong repo, CI kiểm không lệch; không chạy test lúc request). File có thêm `totals`, `invariantConfig`, `forgeVersion`, `generatedAt`; client bỏ qua trường thừa. `finality` lấy từ `chain.revoked.latencyMs` đã index.
 
 ---
 

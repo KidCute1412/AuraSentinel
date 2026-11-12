@@ -115,9 +115,27 @@ Quy ước tên reason code (`REASONS` trong `errors.ts`): **PascalCase** = cust
 | Loại | Nội dung |
 |---|---|
 | Unit | 1 test / gate / custom error, bao gồm biên (`amountIn == maxPerTx`, `== dailyCap`) |
-| Fuzz (10,000 runs) | `testFuzz_attackerNeverProfits(amount, caller)`: mọi caller, mọi amount ⇒ số dư attacker = 0 |
-| Invariant + Handler | Handler gọi ngẫu nhiên `executeGuardedSwap`, `vm.warp` qua ngày, `revoke`, gọi từ attacker. Invariants: `spentInDay[token][today] <= dailyCap`; attacker balance = 0; sau `revoke` thì `spentInDay` không tăng |
+| Fuzz (10,000 runs) | `testFuzz_attackerNeverProfits(amount, caller)`: mọi caller, mọi amount, thử mọi cửa (swap, `setPolicy`, `revoke`, gọi thẳng Safe ⇒ GS104, `transferFrom` từ Safe) ⇒ attacker có 0 token, Safe và policy không đổi |
+| Invariant + Handler | `test/handlers/PolicyHandler.sol` gọi ngẫu nhiên: agent swap 2 chiều (amount tới 2 × `maxPerTx`, `minOut` và deadline ngẫu nhiên), attacker (3 địa chỉ) thử 6 cửa, `warp` tới 1 ngày (qua nửa đêm UTC), `revoke`, `setPolicy` lại với cap mới (epoch mới), router "xấu" (fail, trả thiếu, kéo một phần allowance). 256 run × depth 64 |
 | Fork test Fuji | Swap thật với router TJ + pool đã tạo (kiểm exact approval, allowance = 0 sau swap) |
+
+Invariants (`test/AgentPolicyModule.invariant.t.sol`, tên hiện trên `/proof`):
+
+| Invariant | Ý nghĩa |
+|---|---|
+| `spentTodayLeCap` | Mọi token whitelist: `spentToday <= dailyCap`, kể cả sau khi đổi cap |
+| `attackerBalanceZero` | Attacker không bao giờ có token, không call nào của attacker thành công |
+| `revokedMeansNoSpend` | Khi đã Kill: không swap nào thành công, `spentInDay` của ngày Kill không tăng |
+| `allowanceZero` | `allowance(safe, router) == 0` sau mọi call (C5) |
+| `fundsStayInSafeOrRouter` | Mỗi token: `bal(safe) + bal(router) == totalSupply` (không lọt sang địa chỉ thứ ba); mọi swap thành công Safe nhận `>= minOut` |
+
+Kết quả ghi vào `packages/contracts/proof/tests.json` bằng `script/export-proof.mjs` (chạy 10,000 fuzz runs, đọc báo cáo Slither, chỉ đếm finding trong `src/`). File được commit; CI chạy lại với `--check` và fail nếu các trường `fuzzRuns`, `invariants`, `passed`, `slither`, `totals`, `invariantConfig` lệch. Thêm, xoá hay đổi tên test thì chạy lại `pnpm proof` (xem `packages/contracts/README.md`). Shape:
+
+```json
+{ "fuzzRuns": 10000, "invariants": ["allowanceZero", "attackerBalanceZero", "..."], "passed": true,
+  "slither": "0 high, 0 medium, 0 low", "totals": { "tests": 84, "passed": 84, "failed": 0 },
+  "invariantConfig": { "runs": 256, "depth": 64 }, "forgeVersion": "forge 1.x", "generatedAt": "2026-11-12T…" }
+```
 
 Slither + checklist: skill `secure-workflow-guide`, chạy trước khi deploy.
 

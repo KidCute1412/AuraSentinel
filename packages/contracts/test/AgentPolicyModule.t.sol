@@ -553,17 +553,50 @@ contract AgentPolicyModuleTest is Test {
         _swap(50e6);
     }
 
-    // ----------------------------------------------------------------- attacker properties (full fuzz in L5)
+    // ----------------------------------------------------------------- attacker properties (stateful: invariant suite)
 
-    function testFuzz_attackerCannotSwapOrMoveAnything(address caller, uint256 amount, uint256 minOut) public {
-        vm.assume(caller != agent && caller != address(safe) && caller != address(module));
+    /// contracts.md section 7: any caller, any amount => the attacker ends with nothing and the vault is untouched.
+    /// Tries every way in: swap as the agent, take over the policy, Kill-Switch griefing, act as a module (GS104),
+    /// and pull through an allowance.
+    function testFuzz_attackerNeverProfits(uint256 amount, address caller) public {
+        vm.assume(caller != agent && caller != owner);
+        vm.assume(caller != address(safe) && caller != address(module) && caller != address(router));
+        assumeNotForgeAddress(caller);
+        amount = bound(amount, 1, type(uint128).max);
         uint256 usdcBefore = usdc.balanceOf(address(safe));
-        vm.prank(caller);
+        uint256 wavaxBefore = wavax.balanceOf(address(safe));
+        (address[] memory tokens, IAgentPolicyModule.Limits[] memory l) = _limits();
+        tokens[0] = address(usdc);
+        tokens[1] = address(wavax);
+        l[0] = IAgentPolicyModule.Limits(type(uint128).max, type(uint128).max);
+        l[1] = l[0];
+
+        vm.startPrank(caller);
         vm.expectRevert(IAgentPolicyModule.UnauthorizedAgent.selector);
-        module.executeGuardedSwap(address(usdc), address(wavax), amount, minOut, block.timestamp + 1 minutes);
-        assertEq(usdc.balanceOf(address(safe)), usdcBefore);
+        module.executeGuardedSwap(address(usdc), address(wavax), amount, 1, block.timestamp + 1 minutes);
+
+        vm.expectRevert(IAgentPolicyModule.NotOwner.selector);
+        module.setPolicy(
+            IAgentPolicyModule.Policy(caller, address(router), uint64(block.timestamp + 1 days), true), tokens, l
+        );
+
+        vm.expectRevert(IAgentPolicyModule.NotOwner.selector);
+        module.revoke();
+
+        vm.expectRevert(bytes("GS104"));
+        safe.execTransactionFromModule(address(usdc), 0, abi.encodeCall(MockERC20.transfer, (caller, amount)), 0);
+
+        vm.expectRevert();
+        usdc.transferFrom(address(safe), caller, amount);
+        vm.stopPrank();
+
         assertEq(usdc.balanceOf(caller), 0);
         assertEq(wavax.balanceOf(caller), 0);
+        assertEq(usdc.balanceOf(address(safe)), usdcBefore);
+        assertEq(wavax.balanceOf(address(safe)), wavaxBefore);
+        (address a,,, bool active) = module.policy();
+        assertEq(a, agent);
+        assertTrue(active);
     }
 
     function testFuzz_agentNeverExceedsCaps(uint256 a, uint256 b) public {

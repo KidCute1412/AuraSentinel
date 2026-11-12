@@ -10,6 +10,8 @@ contract MockRouter {
     uint256 public rate = 1e18;
     uint256 public shortfallBps;
     bool public failSwap;
+    /// Lying router: pays the shortfall without enforcing amountOutMin (the module must catch it, C9).
+    bool public ignoreMinOut;
     /// Pull this fraction (bps) of amountIn, leaving the rest of the allowance behind.
     uint256 public pullBps = 10_000;
     address public reenterTarget;
@@ -29,6 +31,10 @@ contract MockRouter {
 
     function setFailSwap(bool v) external {
         failSwap = v;
+    }
+
+    function setIgnoreMinOut(bool v) external {
+        ignoreMinOut = v;
     }
 
     function setPullBps(uint256 v) external {
@@ -72,7 +78,7 @@ contract MockRouter {
         MockERC20(path[0]).transferFrom(msg.sender, address(this), amountIn * pullBps / 10_000);
         uint256 out = amountIn * rate / 1e18;
         out = out * (10_000 - shortfallBps) / 10_000;
-        require(out >= amountOutMin, "INSUFFICIENT_OUTPUT_AMOUNT");
+        if (!ignoreMinOut) require(out >= amountOutMin, "INSUFFICIENT_OUTPUT_AMOUNT");
         MockERC20(path[1]).mint(to, out);
 
         amounts = new uint256[](2);

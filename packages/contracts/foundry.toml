@@ -15,12 +15,14 @@ fs_permissions = [{ access = "read", path = "./abi" }, { access = "read-write", 
 [profile.default.fuzz]
 runs = 10000
 
+# 256 sequences x 64 calls per invariant. Reverts are valid outcomes (the handler wraps every call in try/catch).
 [profile.default.invariant]
 runs = 256
 depth = 64
+fail_on_revert = false
 
-# CI keeps the run time bounded; the 10k-run gate is `forge test --fuzz-runs 10000` (L5).
-[profile.ci.fuzz]
+# Quick local loop only. CI and proof/tests.json always use 10,000 runs (script/export-proof.mjs).
+[profile.quick.fuzz]
 runs = 1000
 
 [rpc_endpoints]

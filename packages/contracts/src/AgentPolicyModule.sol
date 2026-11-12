@@ -161,6 +161,9 @@ contract AgentPolicyModule is IAgentPolicyModule {
         path[1] = tokenOut;
 
         address safeAddr = address(_safe);
+        // Reading the balance before the external calls is the point of C9. Re-entering executeGuardedSwap is
+        // blocked by nonReentrant; any other change in between can only add tokenOut to the Safe.
+        // slither-disable-start reentrancy-balance
         uint256 balBefore = IERC20(tokenOut).balanceOf(safeAddr);
 
         // Exact approval, then the swap with the Safe as recipient (hard-coded).
@@ -173,6 +176,7 @@ contract AgentPolicyModule is IAgentPolicyModule {
         // C9: judge by the balance change, not by what the router says it returned.
         amountOut = IERC20(tokenOut).balanceOf(safeAddr) - balBefore;
         if (amountOut < minOut) revert InsufficientOutput();
+        // slither-disable-end reentrancy-balance
 
         // C5: no allowance may survive the call.
         if (IERC20(tokenIn).allowance(safeAddr, router) != 0) {

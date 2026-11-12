@@ -101,17 +101,22 @@ jobs:
         run: |
           node script/export-abi.mjs
           git diff --exit-code -- abi
-      - if: steps.has.outputs.present == 'true'
-        run: forge test -vvv --fuzz-runs 1000
-        env:
-          FOUNDRY_PROFILE: ci
-      # Blocks on high-severity findings; triage medium/low in review.
+      # Blocks on high-severity findings; triage medium/low in review. The JSON feeds proof/tests.json.
       - name: Slither
         if: steps.has.outputs.present == 'true'
         uses: crytic/slither-action@v0.4.0
         with:
           target: packages/contracts
           fail-on: high
+          slither-args: --json ${{ github.workspace }}/packages/contracts/slither.json
+      # L5: full suite at 10,000 fuzz runs + invariants; fails if a test is red or the committed
+      # proof/tests.json (read by GET /proof) no longer matches.
+      - name: Tests (10k fuzz + invariants) and proof/tests.json
+        if: steps.has.outputs.present == 'true'
+        run: node script/export-proof.mjs --slither slither.json --check
+      - name: Failing test traces
+        if: failure() && steps.has.outputs.present == 'true'
+        run: forge test -vvv --fuzz-runs 10000
 
   # Server <-> chain flow on an Anvil fork of Fuji (the "demo must never fail" guard).
   # Skipped until contracts and a `test:integration` script in apps/server exist.

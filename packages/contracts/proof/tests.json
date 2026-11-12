@@ -1,0 +1,23 @@
+{
+  "fuzzRuns": 10000,
+  "invariants": [
+    "allowanceZero",
+    "attackerBalanceZero",
+    "fundsStayInSafeOrRouter",
+    "revokedMeansNoSpend",
+    "spentTodayLeCap"
+  ],
+  "passed": true,
+  "slither": "0 high, 0 medium, 4 low",
+  "totals": {
+    "tests": 84,
+    "passed": 84,
+    "failed": 0
+  },
+  "invariantConfig": {
+    "runs": 256,
+    "depth": 64
+  },
+  "forgeVersion": "forge Version: 1.5.1-stable",
+  "generatedAt": "2026-11-12T15:06:16.350Z"
+}

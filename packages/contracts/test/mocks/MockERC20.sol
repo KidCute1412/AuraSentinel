@@ -6,6 +6,8 @@ contract MockERC20 {
     string public name;
     uint8 public immutable decimals;
     bool public stickyApprove;
+    /// Tracked so the invariant suite can prove no token ends up outside the Safe and the router.
+    uint256 public totalSupply;
 
     mapping(address => uint256) public balanceOf;
     mapping(address => mapping(address => uint256)) public allowance;
@@ -16,6 +18,7 @@ contract MockERC20 {
     }
 
     function mint(address to, uint256 amount) external {
+        totalSupply += amount;
         balanceOf[to] += amount;
     }
 

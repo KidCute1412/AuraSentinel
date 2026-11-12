@@ -3,6 +3,7 @@
   "version": "0.0.0",
   "private": true,
   "scripts": {
-    "abi": "node script/export-abi.mjs"
+    "abi": "node script/export-abi.mjs",
+    "proof": "node script/export-proof.mjs --slither slither.json"
   }
 }
