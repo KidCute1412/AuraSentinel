@@ -3,6 +3,7 @@ pragma solidity 0.8.24;
 
 import {Test} from "forge-std/Test.sol";
 import {MockUSDC} from "../src/MockUSDC.sol";
+import {MockWAVAX} from "../src/MockWAVAX.sol";
 import {IMockUSDC} from "../src/interfaces/IMockUSDC.sol";
 
 contract MockUSDCTest is Test {
@@ -186,5 +187,20 @@ contract MockUSDCTest is Test {
             usdc.faucet();
             assertEq(usdc.balanceOf(alice), 2 * FAUCET);
         }
+    }
+}
+
+contract MockWAVAXTest is Test {
+    function test_metadataAndFaucet() public {
+        MockWAVAX wavax = new MockWAVAX(100_000e18, 200e18, 1 hours);
+        assertEq(wavax.name(), "Mock WAVAX (AgentShield)");
+        assertEq(wavax.symbol(), "WAVAX");
+        assertEq(wavax.decimals(), 18);
+        assertEq(wavax.balanceOf(address(this)), 100_000e18);
+
+        address alice = makeAddr("alice");
+        vm.prank(alice);
+        wavax.faucet();
+        assertEq(wavax.balanceOf(alice), 200e18);
     }
 }
