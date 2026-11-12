@@ -1,6 +1,7 @@
 # @agentshield/contracts
 
-Foundry project: `AgentPolicyModule` (Safe module, Shield 2). Spec: [`docs/architecture/contracts.md`](../../docs/architecture/contracts.md).
+Foundry project: `AgentPolicyModule` (Safe module, Shield 2), `AgentShieldFactory` (one module per Safe) and
+`MockUSDC` (testnet token with a faucet). Spec: [`docs/architecture/contracts.md`](../../docs/architecture/contracts.md).
 
 ```bash
 git submodule update --init            # lib/forge-std
@@ -10,5 +11,4 @@ pnpm --filter @agentshield/shared gen  # abi/*.json -> packages/shared/src/gener
 ```
 
 Changing a signature, error or event: edit `src/`, run the three commands above, commit `abi/` and the generated
-file together, then fix whatever TypeScript reports. `AgentShieldFactory.json` and `MockUSDC.json` come from the
-interfaces in `src/interfaces/` until L3 adds the implementations.
+file together, then fix whatever TypeScript reports.

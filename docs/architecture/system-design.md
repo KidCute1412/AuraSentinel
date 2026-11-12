@@ -429,12 +429,12 @@ flowchart LR
 | RPC Fuji chết/chậm | viem `fallback([rpcChinh, rpcPublic], { rank: true })` |
 | Wi-Fi yếu → Gemini chậm | Timeout 2s → Template (badge `template` trên UI) |
 | Rebalancer tự swap giữa lúc đang nói | **Demo mode**: pause scheduler, chỉ bấm tay |
-| Thiếu quỹ / policy sai trước giờ thi | `pnpm seed`: mint MockUSDC, addLiquidity, fund Safe, setPolicy, fund gas cho agent |
+| Thiếu quỹ / policy sai trước giờ thi | `pnpm seed`: chuyển MockUSDC từ ví deployer (không có `mint` công khai), addLiquidity, fund Safe, setPolicy, fund gas cho agent |
 | Quên env | Zod env schema → crash lúc boot |
 | Laptop hỏng | Backup cloud: Vercel (web) + Railway/Fly (api, worker, anvil) + Neon/Upstash |
 | Day rollover lúc demo (UTC 00:00 = 7h sáng VN) | Biết trước; `dayId` theo UTC — ghi chú trên slide nếu bị hỏi |
 
-**Thứ tự bring-up:** faucet AVAX → deploy MockUSDC + tạo pool TJ → deploy Safe (Protocol Kit) → deploy module (`forge script`) → owner `enableModule` + `setPolicy` → `docker compose up` → `pnpm seed --verify` → mở `localhost:3000`.
+**Thứ tự bring-up:** faucet AVAX → deploy MockUSDC + tạo pool TJ → deploy Safe (Protocol Kit) → deploy module qua `factory.deployModule` (`forge script`) → owner `enableModule` + `setPolicy` → `docker compose up` → `pnpm seed --verify` → mở `localhost:3000`.
 
 ---
 

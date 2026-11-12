@@ -255,7 +255,7 @@ Bước:  ① Safe ─ ② Module ─ ③ Policy ─ ④ Nạp tiền ─ ✔ Xo
 | Bước | Hành động ví | Điều kiện hoàn thành (đọc chain) |
 |---|---|---|
 | 1. Safe | Tạo Safe mới (Protocol Kit) hoặc chọn Safe đã có mà ví là owner | `Safe.isOwner(ví)` |
-| 2. Module | Factory `createModule` + Safe `enableModule` | `Safe.isModuleEnabled(module)`; sự kiện `ModuleDeployed` |
+| 2. Module | Factory `deployModule(safe)` + Safe `enableModule` | `Safe.isModuleEnabled(module)`; sự kiện `ModuleDeployed` |
 | 3. Policy | Form policy → `setPolicy` | `isActive = true` |
 | 4. Nạp tiền | `faucet` MockUSDC (có cooldown) → transfer vào Safe | balance Safe > 0 |
 

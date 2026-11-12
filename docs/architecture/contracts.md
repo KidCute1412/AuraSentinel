@@ -2,7 +2,7 @@
 
 > Đặc tả Solidity cho `AgentPolicyModule`. Hợp nhất pseudo-code gốc với các bản sửa C1–C9 trong [`system-design.md` §6](./system-design.md#6-sửa-thiết-kế-smart-contract). **Đây là nguồn duy nhất cho chữ ký hàm, error, event.** Đổi chữ ký ⇒ sửa file này, chạy `pnpm --filter shared gen`, rồi sửa mọi nơi TypeScript báo lỗi.
 >
-> Trạng thái: **đã có code** ở `packages/contracts` (L1 + L2, 10/11). Ba mục ❓ đã chốt bên dưới (ghi **Chốt**). Factory và MockUSDC mới có interface (`src/interfaces/`), phần cài đặt là L3.
+> Trạng thái: **đã có code** ở `packages/contracts`: module (L1 + L2, 10/11), factory + MockUSDC (L3, 12/11, xem §9). Ba mục ❓ đã chốt bên dưới (ghi **Chốt**).
 
 ---
 
@@ -123,8 +123,40 @@ Slither + checklist: skill `secure-workflow-guide`, chạy trước khi deploy.
 
 ## 8. Deploy
 
-`forge script` theo thứ tự: `Deploy.s.sol` (MockUSDC + module) → `SetupPool.s.sol` (addLiquidity cặp MockUSDC/WAVAX trên factory TJ Fuji) → owner `safe.enableModule(module)` → `SetPolicy.s.sol`. Chi tiết lệnh: [`../runbook/setup-and-bringup.md`](../runbook/setup-and-bringup.md).
+`forge script` theo thứ tự: `Deploy.s.sol` (MockUSDC + factory; module của 2 vault demo tạo qua `factory.deployModule`, **không** `new` trực tiếp, để indexer thấy `ModuleDeployed`) → `SetupPool.s.sol` (addLiquidity cặp MockUSDC/WAVAX trên factory TJ Fuji) → owner `safe.enableModule(module)` → `SetPolicy.s.sol`. Chi tiết lệnh: [`../runbook/setup-and-bringup.md`](../runbook/setup-and-bringup.md).
 
-## 9. Stretch (chỉ làm nếu dư tuần 3)
+## 9. AgentShieldFactory và MockUSDC (L3)
+
+### AgentShieldFactory
+
+| Hàm | Ai gọi | Mô tả |
+|---|---|---|
+| `deployModule(safe) → module` | owner của Safe | Tạo `AgentPolicyModule(safe, msg.sender)`, lưu `moduleOf[safe]`, emit `ModuleDeployed(safe, module, owner)` |
+| `moduleOf(safe) → module` | view | `0x0` nếu Safe chưa có module. Wizard dùng để resume |
+
+- Kiểm owner bằng `staticcall` tới `ISafe.isOwner(msg.sender)`: EOA, contract không có `isOwner`, hay trả về khác `true` chuẩn ⇒ `NotSafeOwner`. `staticcall` nên Safe giả không re-enter hay đổi state được.
+- Mỗi Safe **một module, vĩnh viễn** (`ModuleExists`). Kill rồi kích hoạt lại dùng `setPolicy` (epoch mới), không cần module mới. Hỏng cấu hình vault demo ⇒ tạo Safe mới.
+- Safe nhiều owner: owner gọi trước thành owner module (D9). Demo dùng Safe 1/1.
+- Factory không có admin, không upgrade, không giữ tiền. Tạo bằng `new` (CREATE), không CREATE2: wizard đọc `moduleOf(safe)` sau tx, không cần đoán trước địa chỉ.
+- Factory **không** `enableModule` hộ: đó là tx của Safe, owner ký trên browser (P2).
+
+### MockUSDC
+
+| Thuộc tính | Giá trị |
+|---|---|
+| `name` / `symbol` / `decimals` | `Mock USDC (AgentShield)` / `USDC` / 6 |
+| Constructor | `(initialSupply, faucetAmount, faucetCooldown)`; mint `initialSupply` cho người deploy đúng 1 lần |
+| Fuji | `initialSupply = 1,000,000 USDC` (thanh khoản pool TJ + nạp 2 vault demo), `faucetAmount = 5,000 USDC`, `faucetCooldown = 1 giờ` |
+| `faucet()` | Lần đầu luôn được; sau đó được từ `lastFaucetAt + faucetCooldown` trở đi, sớm hơn ⇒ `FaucetCooldown(availableAt)` |
+
+- **Không có hàm `mint` nào khác** sau khi deploy. Nguồn tiền duy nhất: số mint lúc deploy và faucet.
+- ERC-20 chuẩn (event `Transfer`/`Approval`), allowance chính xác: `approve(type(uint256).max)` vẫn bị trừ khi `transferFrom` (không có "infinite approval").
+- Lỗi chuyển tiền dùng revert string (`MockUSDC: balance`, `MockUSDC: allowance`, `MockUSDC: to zero`). Trong swap, module bọc mọi lỗi token thành `SwapFailed`, nên pipeline không cần reason code riêng.
+- **Rủi ro:** cooldown tính theo địa chỉ, nhiều ví vẫn faucet được rồi bán vào pool TJ làm lệch giá. Giữ pool sâu hơn nhiều so với `faucetAmount` (vd ≥ 200,000 USDC), `seed --verify` (L10) kiểm reserve; vault sân khấu nạp từ ví deployer, không phụ thuộc faucet.
+- `FaucetCooldown` chưa có mục trong `REASONS` (`errors.ts`, test chỉ quét ABI module + factory). Wizard (L9) cần nó để đếm ngược ⇒ thêm khi làm L9.
+
+Test: `test/AgentShieldFactory.t.sol`, `test/MockUSDC.t.sol` (non-owner/EOA/không phải Safe bị chặn, `ModuleExists`, event, module ra đúng owner; faucet lần đầu, cooldown biên ±1 giây, theo từng địa chỉ; ERC-20 approve/transferFrom/biên số dư).
+
+## 10. Stretch (chỉ làm nếu dư tuần 3)
 
 Chainlink AVAX/USD: module tự tính `minOut ≥ price × amountIn × (1 − maxSlippageBps)`, bỏ phụ thuộc `minOut` do agent gửi. Thêm `maxSlippageBps` vào `Policy`.

@@ -1,7 +1,6 @@
 #!/usr/bin/env node
 // Writes the committed ABIs in ../abi from `forge inspect` (D5). CI re-runs this and fails on `git diff abi/`.
-// Interfaces are the source for contracts that do not exist yet (factory, MockUSDC, L3); the real contract replaces
-// them here once it implements the interface, with no change to the output file name.
+// Each target is the deployed implementation (not its interface), so constructor args show up for scripts and wizard.
 import { execFileSync } from 'node:child_process';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
@@ -13,8 +12,8 @@ const outDir = join(root, 'abi');
 /** output file -> contract name to inspect */
 const TARGETS = {
   AgentPolicyModule: 'AgentPolicyModule',
-  AgentShieldFactory: 'IAgentShieldFactory',
-  MockUSDC: 'IMockUSDC',
+  AgentShieldFactory: 'AgentShieldFactory',
+  MockUSDC: 'MockUSDC',
 };
 
 mkdirSync(outDir, { recursive: true });
