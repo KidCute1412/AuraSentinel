@@ -62,6 +62,17 @@ export class JobsService {
     return { items, nextCursor: rows.length > q.limit ? (items.at(-1)?.id ?? null) : null };
   }
 
+  /** GET /proof: on-chain reverts (Shield 2 evidence). */
+  reverted(limit = 20) {
+    return this.repo.reverted(limit);
+  }
+
+  /** GET /proof: broadcasting -> receipt timings of the agent's own txs, newest first. */
+  async txTimings(limit = 10): Promise<{ sentAt: Date; minedAt: Date }[]> {
+    const rows = await this.repo.minedTimings(limit);
+    return rows.flatMap((r) => (r.sentAt && r.minedAt ? [{ sentAt: r.sentAt, minedAt: r.minedAt }] : []));
+  }
+
   async get(id: string): Promise<JobDto | undefined> {
     const row = await this.repo.get(id);
     return row && toJobDto(row);

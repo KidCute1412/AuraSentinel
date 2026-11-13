@@ -47,6 +47,9 @@ export const envSchema = z.object({
   /** Max Gemini calls per minute; above it the explainer uses the template (free tier is ~10 RPM). */
   GEMINI_RPM: z.coerce.number().int().positive().default(10),
 
+  /** Contract test summary written by the L5 CI job; GET /proof reads it. */
+  PROOF_TESTS_FILE: z.string().default('../../packages/contracts/proof/tests.json'),
+
   REBALANCE_INTERVAL_MS: z.coerce.number().int().positive().default(15_000),
 });
 
