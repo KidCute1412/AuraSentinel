@@ -177,7 +177,7 @@ describe('RedteamController: POST /vaults/{safe}/attacks', () => {
 describe('RedteamProcessor', () => {
   const TX = `0x${'ab'.repeat(32)}` as const;
   const make = (sendRaw: ReturnType<typeof vi.fn>, e: Env = env) => {
-    const jobs = { transition: vi.fn().mockResolvedValue(undefined) };
+    const jobs = { transition: vi.fn().mockResolvedValue(undefined), recordShield: vi.fn().mockResolvedValue(undefined) };
     const sender = { address: AGENT, sendSwap: vi.fn(), sendRaw };
     return { jobs, sendRaw, p: new RedteamProcessor(jobs as never, e, sender as never) };
   };
@@ -192,6 +192,7 @@ describe('RedteamProcessor', () => {
     expect(call?.gas).toBe(ATTACK_GAS);
     expect(jobs.transition).toHaveBeenNthCalledWith(1, JOB_ID, 'broadcasting');
     expect(jobs.transition).toHaveBeenLastCalledWith(JOB_ID, 'reverted', { txHash: TX, reasonCode: 'ExceedsPerTxCap' });
+    expect(jobs.recordShield).toHaveBeenCalledWith(JOB_ID, 'onchain', 'fail', 'ExceedsPerTxCap');
   });
 
   it('flags an attack that was not reverted as confirmed (security alarm), never hides it', async () => {

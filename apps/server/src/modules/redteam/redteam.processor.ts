@@ -53,9 +53,12 @@ export class RedteamProcessor extends WorkerHost {
     }
 
     if (tx.status === 'reverted') {
-      await this.jobs.transition(jobId, 'reverted', { txHash: tx.txHash, reasonCode: tx.revertReason ?? 'UNKNOWN_REVERT' });
+      const reason = tx.revertReason ?? 'UNKNOWN_REVERT';
+      await this.jobs.recordShield(jobId, 'onchain', 'fail', reason);
+      await this.jobs.transition(jobId, 'reverted', { txHash: tx.txHash, reasonCode: reason });
     } else {
       this.log.error(`SECURITY: attack ${scenario} (${jobId}) was NOT reverted on-chain: ${tx.txHash}`);
+      await this.jobs.recordShield(jobId, 'onchain', 'pass');
       await this.jobs.transition(jobId, 'confirmed', { txHash: tx.txHash });
     }
     return tx;
