@@ -1,58 +1,76 @@
-# 🔧 Setup & Bring-up
+# 🔧 Setup & Bring-up (dev local, A1)
 
-> Từ máy trắng đến `localhost:3000` chạy được. Các lệnh dưới là **kế hoạch** dựa trên [`codebase.md`](../architecture/codebase.md); cập nhật khi scaffold xong. Mục tiêu: ai trong team cũng dựng lại được môi trường trong < 30 phút.
+> Từ bản clone sạch đến web + api + worker chạy trên máy mình bằng **1 lệnh**. Đã kiểm 14/11 trên một worktree sạch (không `node_modules`, không `dist`, không `.env`): setup ~5 phút (chủ yếu `pnpm install` lần đầu), API lên sau ~2 phút biên dịch lần đầu.
+>
+> Chạy bản production (1 laptop, nginx, Docker toàn bộ) là file khác: [`production.md`](./production.md). Deploy contract: [`deploy-fuji.md`](./deploy-fuji.md).
 
-## 1. Yêu cầu
+## 1. Cần cài
 
-Node ≥ 20 · pnpm · Docker + Compose · Foundry (`foundryup`) · 2 ví EOA: **owner** (Core/MetaMask) và **agent** (key mới sinh, chỉ để làm session key).
+| Công cụ | Ghi chú |
+|---|---|
+| Git | Clone repo |
+| Node **20+** | Đã kèm `corepack`; **không cần cài pnpm riêng** (script gọi `corepack pnpm`) |
+| Docker Desktop | Chạy postgres, redis, anvil. Script tự mở Docker Desktop nếu chưa chạy (Windows) |
+| Foundry | **Chỉ** khi sửa/deploy contract (`packages/contracts`), không cần cho dev web/server |
 
-## 2. Biến môi trường
+## 2. Chạy
 
-File mẫu: `infra/.env.example`. Server validate bằng Zod lúc boot (`core/config/env.schema.ts`): thiếu biến là **crash ngay**, không đợi tới giữa demo.
+```bat
+start.bat                 :: Windows
+```
+```bash
+./start.sh                # macOS / Linux
+```
 
-| Biến | Dùng bởi | Ghi chú |
-|---|---|---|
-| `FUJI_RPC_URLS` | server, anvil | Danh sách phân tách bằng dấu phẩy; RPC chính (key riêng) đứng đầu, public RPC làm fallback |
-| `CHAIN_ID` | server, web | 43113 |
-| `SAFE_ADDRESS` | server, web | |
-| `POLICY_MODULE_ADDRESS` | server, web | |
-| `TRADERJOE_ROUTER` | server, web | |
-| `USDC_ADDRESS` | server, web | `MockUSDC` đã deploy |
-| `WAVAX_ADDRESS` | server, web | |
-| `AGENT_PRIVATE_KEY` | **chỉ worker** | Session key. **Không bao giờ** là owner key |
-| `GEMINI_API_KEY` | worker | |
-| `REDIS_URL`, `DATABASE_URL` | server | |
-| `ANVIL_RPC_URL` | worker | `http://anvil:8545` |
-| `VITE_API_URL`, `VITE_WALLETCONNECT_PROJECT_ID` | web | Biến `VITE_*` bị lộ ra bundle: **không để secret** |
+Script làm theo thứ tự, dừng ngay ở bước lỗi kèm gợi ý sửa:
 
-Owner private key **không** có trong bất kỳ file env nào (invariant #5).
+1. Tạo `infra/.env`, `apps/server/.env`, `apps/web/.env` từ `*.example` (chỉ lần đầu, **không bao giờ ghi đè**).
+2. `pnpm install --frozen-lockfile`.
+3. Build `packages/shared` (server và web đều import `dist/` của nó).
+4. Docker: postgres `:55432`, redis `:56379`, anvil fork Fuji `:8545`; chờ healthy.
+5. Migration DB (`drizzle-kit migrate`).
+6. Mở terminal chia đôi: web (Vite) | api + worker (Nest watch). Chờ `GET /api/health`, rồi mở trình duyệt.
 
-## 3. Thứ tự bring-up (lần đầu)
+| Địa chỉ | |
+|---|---|
+| http://localhost:5173 | Web (Vite, proxy `/api` sang `:4000`) |
+| http://localhost:4000/api/health | Health: `ok` khi postgres, redis, rpc, worker đều up |
+| http://localhost:4000/api/v1/... | API ([`api.md`](../architecture/api.md)) |
 
-1. **Faucet:** AVAX Fuji cho owner và agent (agent cần AVAX trả gas; attack #4 ký bằng key này).
-2. **Contracts:** `cd packages/contracts && forge build && forge test`.
-3. **Deploy (token, factory, pool, 2 vault, swap thử):** làm theo [`deploy-fuji.md`](./deploy-fuji.md). Safe, `enableModule` và `setPolicy` nằm trong `CreateVault.s.sol`, ký bằng ví owner trên máy owner.
-4. **Env:** điền `SAFE_ADDRESS`, `POLICY_MODULE_ADDRESS`, `TOKEN_A_ADDRESS`, `TOKEN_B_ADDRESS` từ `packages/contracts/deployments/fuji.json`.
-5. **ABI:** `pnpm --filter shared gen` (sinh `packages/shared/src/generated/abis.ts`).
-6. **Chạy stack:** `docker compose -f infra/docker-compose.yml up` (redis, postgres, anvil, api, worker, web).
-7. **Seed + verify:** `pnpm seed --verify` (chỉ đọc: policy, số dư Safe, reserve pool, gas của agent; L10). Phải in toàn `PASS`.
-8. Mở `http://localhost:3000`.
+Chỉ dựng môi trường, không mở cửa sổ: `start.bat --setup-only` / `./start.sh --setup-only`.
 
-Dev hàng ngày: `pnpm dev`.
+## 3. Chưa có contract vẫn dev được
 
-## 4. Kiểm tra nhanh sau khi lên
+Với `.env` mặc định (chưa có địa chỉ contract, chưa có key agent), worker chạy bản **giả** và in cảnh báo:
 
-- `GET :4000/state` trả balances và `isActive: true`.
-- Bull Board `:4000/admin/queues` thấy 3 queue (`swap`, `attack`, `explain`).
-- Bấm "Run Rebalance 200" ⇒ job `confirmed`, thanh budget 200 / 1,500.
+```
+Simulator: FAKE (POLICY_MODULE_ADDRESS not set). Swaps are not simulated.
+TxSender: FAKE (AGENT_PRIVATE_KEY not set). Swaps are not sent on-chain.
+Indexer off: neither FACTORY_ADDRESS nor POLICY_MODULE_ADDRESS is set
+```
+
+Đủ để làm UI và API (`/api/v1/vaults` trả rỗng, `/proof` không có số liệu). Production thì **từ chối** chạy bản giả.
+
+Muốn chạy thật cả pipeline:
+- **Có Fuji:** điền vào `apps/server/.env` các địa chỉ trong `packages/contracts/deployments/fuji.json` (`SAFE_ADDRESS`, `POLICY_MODULE_ADDRESS`, `TOKEN_A_ADDRESS`, `TOKEN_B_ADDRESS`, `FACTORY_ADDRESS`, `INDEXER_START_BLOCK`) và key **session** của agent (`AGENT_PRIVATE_KEY`). Không bao giờ là key owner.
+- **Không cần Fuji:** deploy lên chính Anvil local bằng script L4 (như CI `deploy-dry-run`), xem [`production.md`](./production.md) §6. Khi đó `FUJI_RPC_URLS=http://127.0.0.1:8545` và simulator cần một Anvil thứ hai fork từ Anvil đó (`ANVIL_RPC_URL`).
+
+## 4. Hằng ngày
+
+- Lần sau chỉ cần chạy lại `start.bat` (bước nào đã xong thì chạy rất nhanh).
+- Dừng hạ tầng: `docker compose -f infra/docker-compose.yml down` (giữ dữ liệu); thêm `-v` để xoá DB.
+- Test: `corepack pnpm -r test`; e2e cả pipeline: [`production.md`](./production.md) §7.
+- Đăng nhập SIWE khi dev: `SIWE_DOMAINS=localhost:5173` đã có sẵn trong `apps/server/.env.example`.
 
 ## 5. Sự cố thường gặp
 
-| Triệu chứng | Nguyên nhân hay gặp | Cách xử lý |
-|---|---|---|
-| Server crash lúc boot | Thiếu/sai env | Đọc thông báo Zod, bổ sung `.env` |
-| Sim báo `spentInDay` lệch chain | Anvil fork stale | Kiểm tra `anvil_reset` đầu mỗi job; reset thủ công |
-| Attack #4 không có tx trên Snowtrace | Client tự `estimateGas` revert | Đảm bảo truyền `gas: 300_000n` thủ công |
-| Tx `nonce too low` / nonce gap | 2 nơi ký cùng session key | Mọi tx phải đi qua `TxSender` duy nhất |
-| Gemini timeout | Wi-Fi/quota | Bình thường: fallback template, badge `template` |
-| Swap revert `InsufficientOutput` | Pool mỏng / giá lệch | Seed lại thanh khoản; giảm `amountIn` |
+| Triệu chứng | Cách xử lý |
+|---|---|
+| `Docker did not become ready` | Mở Docker Desktop tay, chờ "Engine running", chạy lại |
+| `docker compose failed` ở anvil | `FORK_URL` trong `infra/.env` không truy cập được: thử lại hoặc dùng RPC Fuji khác |
+| Cổng `55432` / `56379` / `8545` / `4000` / `5173` bị chiếm | Đổi `*_PORT` trong `infra/.env` **và** URL tương ứng trong `apps/server/.env` |
+| API không lên sau 4 phút | Xem cửa sổ Backend: thường là thiếu/sai env (Zod in rõ biến nào) |
+| Web báo lỗi import `@agentshield/shared` | `corepack pnpm --filter @agentshield/shared build` (script đã làm; cần lại sau khi sửa `packages/shared`) |
+| Health `rpc: down` | RPC Fuji public chập chờn: thêm RPC khác vào `FUJI_RPC_URLS` |
+| Tx `nonce too low` | Hai worker cùng một key agent (vd. dev + compose prod cùng chạy): tắt một bên |
+| Đăng nhập báo `Message issued for ...` | `SIWE_DOMAINS` phải là host trình duyệt đang mở (`localhost:5173` khi dev) |

@@ -44,3 +44,6 @@ test-results/
 
 # claude local settings
 .claude/settings.local.json
+
+# start.sh dev server logs
+.dev-logs/
