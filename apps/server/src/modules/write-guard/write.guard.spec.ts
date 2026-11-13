@@ -2,6 +2,8 @@ import { HttpException } from '@nestjs/common';
 import { describe, expect, it, vi } from 'vitest';
 import type { Env } from '../../core/config/env.schema';
 import type { LimitResult, RateLimiter } from '../../core/redis/rate-limiter';
+import type { OwnershipService } from '../auth/ownership.service';
+import type { SessionService } from '../auth/session.service';
 import type { VaultRegistryService } from '../vault/vault-registry.service';
 import { WriteGuard } from './write.guard';
 
@@ -9,6 +11,8 @@ const DEMO = '0x1111111111111111111111111111111111111111';
 const OTHER = '0x2222222222222222222222222222222222222222';
 const MODULE = '0x3333333333333333333333333333333333333333';
 const AGENT = '0x4444444444444444444444444444444444444444';
+const OWNER = '0x5555555555555555555555555555555555555555';
+const STRANGER = '0x6666666666666666666666666666666666666666';
 
 /** In-memory stand-in with the same semantics as the Redis limiter. */
 class FakeLimiter {
@@ -39,11 +43,14 @@ const ENV = {
   AGENT_MIN_GAS_WEI: 20n,
 } as unknown as Env;
 
-function setup(opts: { balance?: bigint; env?: Partial<Env>; rpcDown?: boolean } = {}) {
+function setup(opts: { balance?: bigint; env?: Partial<Env>; rpcDown?: boolean; lookupDown?: boolean } = {}) {
   const limiter = new FakeLimiter();
   const vaults = {
     isDemo: (a: string) => a.toLowerCase() === DEMO,
-    resolve: vi.fn(async (safe: string) => ({ safe, module: MODULE, isDemo: safe.toLowerCase() === DEMO })),
+    resolve: vi.fn(async (safe: string) => {
+      if (opts.lookupDown) throw new Error('rpc down');
+      return safe.toLowerCase() === '0x' + '7'.repeat(40) ? null : { safe, module: MODULE, isDemo: safe.toLowerCase() === DEMO };
+    }),
   };
   const client = {
     readContract: vi.fn(async () => [AGENT, MODULE, 0n, true]),
@@ -52,9 +59,14 @@ function setup(opts: { balance?: bigint; env?: Partial<Env>; rpcDown?: boolean }
       return opts.balance ?? 10n ** 18n;
     }),
   };
+  let signedIn: string | null = OWNER;
+  const sessions = { address: () => signedIn };
+  const ownership = { isOwner: vi.fn(async (a: string) => a === OWNER) };
   const guard = new WriteGuard(
     limiter as unknown as RateLimiter,
     vaults as unknown as VaultRegistryService,
+    sessions as unknown as SessionService,
+    ownership as unknown as OwnershipService,
     client as never,
     { ...ENV, ...opts.env } as Env,
   );
@@ -70,10 +82,48 @@ function setup(opts: { balance?: bigint; env?: Partial<Env>; rpcDown?: boolean }
       return { status: ex.getStatus(), body: ex.getResponse() as { code: string }, res };
     }
   };
-  return { limiter, client, call };
+  return { limiter, client, call, signIn: (a: string | null) => (signedIn = a) };
 }
 
-describe('WriteGuard', () => {
+describe('WriteGuard: access (D12)', () => {
+  it('demo vault: guests need no session', async () => {
+    const t = setup();
+    t.signIn(null);
+    expect((await t.call(DEMO)).status).toBe('ok');
+  });
+
+  it('private vault: 401 signed out, 403 for a non-owner, ok for an owner', async () => {
+    const t = setup({ env: { WRITE_COOLDOWN_MS: 0 } as Partial<Env> });
+    t.signIn(null);
+    expect(await t.call(OTHER)).toMatchObject({ status: 401, body: { code: 'UNAUTHENTICATED' } });
+    t.signIn(STRANGER);
+    expect(await t.call(OTHER)).toMatchObject({ status: 403, body: { code: 'NOT_OWNER' } });
+    t.signIn(OWNER);
+    expect((await t.call(OTHER)).status).toBe('ok');
+  });
+
+  it('a stranger spamming a private vault cannot lock its owner out (auth before cooldown)', async () => {
+    const t = setup();
+    t.signIn(STRANGER);
+    for (let i = 0; i < 3; i++) expect((await t.call(OTHER, '198.51.100.9')).status).toBe(403);
+    t.signIn(OWNER);
+    expect((await t.call(OTHER, '198.51.100.1')).status).toBe('ok');
+  });
+
+  it('fails closed when the vault lookup errors (no owner check skipped)', async () => {
+    const t = setup({ lookupDown: true });
+    t.signIn(null);
+    expect(await t.call(OTHER)).toMatchObject({ status: 503, body: { code: 'CHAIN_UNAVAILABLE' } });
+  });
+
+  it('an unknown vault passes to the controller (404 there)', async () => {
+    const t = setup();
+    t.signIn(null);
+    expect((await t.call('0x' + '7'.repeat(40))).status).toBe('ok');
+  });
+});
+
+describe('WriteGuard: limits', () => {
   it('lets a normal request through', async () => {
     const t = setup();
     expect((await t.call(OTHER)).status).toBe('ok');

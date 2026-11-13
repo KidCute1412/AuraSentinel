@@ -6,3 +6,4 @@ export * from './policy';
 export * from './sim';
 export * from './vault';
 export * from './proof';
+export * from './admin';

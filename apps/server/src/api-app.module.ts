@@ -5,6 +5,8 @@ import { BullModule } from '@nestjs/bullmq';
 import { Module } from '@nestjs/common';
 import { CoreModule } from './core/core.module';
 import { QUEUES } from './core/queue/queue.constants';
+import { AdminModule } from './modules/admin/admin.module';
+import { AuthModule } from './modules/auth/auth.module';
 import { HealthModule } from './modules/health/health.module';
 import { JobsModule } from './modules/jobs/jobs.module';
 import { ProofModule } from './modules/proof/proof.module';
@@ -23,6 +25,8 @@ import { VaultModule } from './modules/vault/vault.module';
       ...Object.values(QUEUES).map((name) => ({ name, adapter: BullMQAdapter })),
     ),
     HealthModule,
+    AuthModule,
+    AdminModule,
     VaultModule,
     JobsModule,
     ProofModule,
