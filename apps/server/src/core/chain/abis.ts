@@ -14,6 +14,7 @@ export const POLICY_MODULE_ABI = parseAbi([
   'function whitelistedTokens() view returns (address[])',
   'function policyEpoch() view returns (uint256)',
   'function safe() view returns (address)',
+  'function owner() view returns (address)',
   // contracts.md §4: one custom error per gate. Names must match REASONS in shared/errors.ts.
   'error UnauthorizedAgent()',
   'error PolicyInactive()',
