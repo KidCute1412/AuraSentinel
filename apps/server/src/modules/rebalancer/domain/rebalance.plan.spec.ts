@@ -13,6 +13,7 @@ const vault = (safe: string, over: Partial<VaultSnapshot> = {}): VaultSnapshot =
   expiry: NOW + 86_400n,
   now: NOW,
   hasPendingSwap: false,
+  pairWhitelisted: true,
   math: {
     balanceA: USDC(1_000n),
     balanceB: WAVAX(10n), // overweight USDC: wants to sell 400 USDC
@@ -50,7 +51,9 @@ describe('skipReason', () => {
     ['a vault after Kill-Switch', { isActive: false }, 'policy-inactive'],
     ['now == expiry is still valid', { now: NOW + 86_400n }, null],
     ['an expired policy', { now: NOW + 86_401n }, 'policy-expired'],
+    ['a vault whose policy does not whitelist both tokens', { pairWhitelisted: false }, 'pair-not-whitelisted'],
     ['a vault with a swap still in the queue', { hasPendingSwap: true }, 'pending-swap'],
+    ['a pool too thin to quote (D8)', { math: { ...vault(SAFE_1).math, priceAInB: 0n } }, 'no-quote'],
   ];
   it.each(cases)('%s', (_name, over, reason) => {
     expect(skipReason(vault(SAFE_1, over))).toBe(reason);
