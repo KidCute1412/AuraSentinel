@@ -9,9 +9,9 @@ import { configureApi } from './core/http/configure-api';
 async function bootstrap() {
   const app = await NestFactory.create(ApiAppModule, { bufferLogs: true });
   app.useLogger(app.get(Logger));
-  configureApi(app);
-  app.enableShutdownHooks();
   const env = app.get<Env>(ENV);
+  configureApi(app, { corsOrigins: env.CORS_ORIGINS });
+  app.enableShutdownHooks();
   await app.listen(env.API_PORT);
 }
 
