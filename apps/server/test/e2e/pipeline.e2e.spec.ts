@@ -139,6 +139,10 @@ describe.skipIf(!DEPLOYMENT)('e2e: rebalance and attacks through the whole pipel
       INDEXER_START_BLOCK: String(forkBlock !== undefined ? forkBlock + 1 : 0),
       INDEXER_POLL_MS: '300',
       GEMINI_API_KEY: '', // template explainer: deterministic and offline
+      // The suite fires writes back to back on purpose; the limits have their own unit tests.
+      WRITE_LIMIT_PER_IP: '0',
+      WRITE_COOLDOWN_MS: '0',
+      DEMO_WRITE_COOLDOWN_MS: '0',
     });
 
     if (!existsSync(join(DIST, 'main.api.js'))) throw new Error('run "pnpm --filter server build" first: e2e boots dist/');

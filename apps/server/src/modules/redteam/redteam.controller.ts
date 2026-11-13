@@ -9,6 +9,7 @@ import {
   Param,
   Post,
   Res,
+  UseGuards,
   ServiceUnavailableException,
 } from '@nestjs/common';
 import type { Queue } from 'bullmq';
@@ -19,6 +20,7 @@ import { QUEUES } from '../../core/queue/queue.constants';
 import { SwapQueueService } from '../auditor/swap-queue.service';
 import { JobsService } from '../jobs/jobs.service';
 import { AttackConfigError, attackContext, planAttack } from './scenarios';
+import { WriteGuard } from '../write-guard/write.guard';
 
 /** Data on the `attack` queue: on-chain attacks only (#3, #4). */
 export interface AttackJobData {
@@ -43,6 +45,7 @@ export class RedteamController {
   ) {}
 
   @Post()
+  @UseGuards(WriteGuard)
   @HttpCode(202)
   async launch(
     @Param('safe') rawSafe: string,

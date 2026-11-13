@@ -24,5 +24,6 @@ RUN pnpm --filter @agentshield/shared build && pnpm --filter web build
 
 FROM nginx:1.27-alpine
 COPY infra/nginx.conf /etc/nginx/conf.d/default.conf
+COPY infra/nginx-security.conf /etc/nginx/snippets/security.conf
 COPY --from=build /repo/apps/web/dist /usr/share/nginx/html
 EXPOSE 80
