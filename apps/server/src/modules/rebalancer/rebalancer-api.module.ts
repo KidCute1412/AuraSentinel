@@ -1,11 +1,14 @@
-import { BullModule } from '@nestjs/bullmq';
 import { Module } from '@nestjs/common';
-import { QUEUES } from '../../core/queue/queue.constants';
+import { SwapQueueModule } from '../auditor/swap-queue.module';
+import { PolicyModule } from '../policy/policy.module';
+import { VaultModule } from '../vault/vault.module';
 import { RebalancerController } from './rebalancer.controller';
+import { RouterQuoteService } from './router-quote.service';
 
-/** API process: controller + queue producer only (no processor, no scheduler). */
+/** API process: POST /vaults/{safe}/jobs builds the intent and enqueues it (no processor, no scheduler). */
 @Module({
-  imports: [BullModule.registerQueue({ name: QUEUES.rebalance })],
+  imports: [SwapQueueModule, PolicyModule, VaultModule],
   controllers: [RebalancerController],
+  providers: [RouterQuoteService],
 })
 export class RebalancerApiModule {}

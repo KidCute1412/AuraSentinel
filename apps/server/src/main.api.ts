@@ -8,6 +8,8 @@ import type { Env } from './core/config/env.schema';
 async function bootstrap() {
   const app = await NestFactory.create(ApiAppModule, { bufferLogs: true });
   app.useLogger(app.get(Logger));
+  // api.md §1: every route under /api/v1 (the SPA owns the bare paths).
+  app.setGlobalPrefix('api/v1');
   app.enableCors();
   app.enableShutdownHooks();
   const env = app.get<Env>(ENV);

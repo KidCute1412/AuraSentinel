@@ -6,6 +6,7 @@ import { ExplainerModule } from '../explainer/explainer.module';
 import { JobsModule } from '../jobs/jobs.module';
 import { PolicyModule } from '../policy/policy.module';
 import { SimulationModule } from '../simulation/simulation.module';
+import { VaultModule } from '../vault/vault.module';
 import { AuditorProcessor } from './auditor.processor';
 import { AuditorService } from './auditor.service';
 
@@ -18,6 +19,7 @@ import { AuditorService } from './auditor.service';
     SimulationModule,
     ExecutionModule,
     ExplainerModule,
+    VaultModule,
   ],
   providers: [AuditorService, AuditorProcessor],
 })

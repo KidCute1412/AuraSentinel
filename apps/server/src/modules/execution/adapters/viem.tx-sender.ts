@@ -1,6 +1,5 @@
 import { Logger } from '@nestjs/common';
 import {
-  encodeFunctionData,
   keccak256,
   zeroAddress,
   type Address,
@@ -9,7 +8,8 @@ import {
   type PublicClient,
   type TransactionReceipt,
 } from 'viem';
-import { POLICY_MODULE_ABI, SWAP_DEADLINE_SECONDS, SWAP_GAS } from '../../../core/chain/abis';
+import { SWAP_GAS } from '../../../core/chain/abis';
+import { encodeGuardedSwap, swapDeadline } from '../../../core/chain/swap-calldata';
 import type { SwapIntent, VaultTarget } from '../../../core/types';
 import type { AgentWallet } from '../agent-wallet';
 import { Mutex } from '../../../core/mutex';
@@ -68,12 +68,7 @@ export class ViemTxSender implements TxSenderPort {
 
   sendSwap(intent: SwapIntent, target: VaultTarget): Promise<TxResult> {
     if (target.module === zeroAddress) throw new Error('ViemTxSender.sendSwap: module address is not configured');
-    const deadline = BigInt(Math.floor(Date.now() / 1000)) + SWAP_DEADLINE_SECONDS;
-    const data = encodeFunctionData({
-      abi: POLICY_MODULE_ABI,
-      functionName: 'executeGuardedSwap',
-      args: [intent.tokenIn, intent.tokenOut, intent.amountIn, intent.minAmountOut, deadline],
-    });
+    const data = encodeGuardedSwap(intent, swapDeadline(BigInt(Math.floor(Date.now() / 1000))));
     return this.sendRaw({ to: target.module, data, gas: SWAP_GAS });
   }
 
