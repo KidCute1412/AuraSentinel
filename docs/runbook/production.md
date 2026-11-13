@@ -66,6 +66,19 @@ Service `watchdog` (profile `monitoring`) gọi `/api/health` mỗi 30s và đ�
 
 Không có token thì watchdog chỉ ghi log (`docker compose ... logs watchdog`).
 
+## 4b. Chống lạm dụng (A9)
+
+Vault demo công khai không cần đăng nhập (D12), nên hai endpoint ghi `POST /vaults/{safe}/jobs` và `/attacks` bị giới hạn (đếm trong Redis):
+
+| Giới hạn | Mặc định | Vượt → |
+|---|---|---|
+| Mỗi IP | `WRITE_LIMIT_PER_IP=10` lần / `WRITE_IP_WINDOW_MS=60000` | `429 RATE_LIMITED` |
+| Vault demo, mọi người cộng lại | 1 lần / `DEMO_WRITE_COOLDOWN_MS=5000` | `429 COOLDOWN` |
+| Vault khác, theo (vault, endpoint) | 1 lần / `WRITE_COOLDOWN_MS=2000` | `429 COOLDOWN` |
+| Gas của agent | < `AGENT_MIN_GAS_WEI` (0.02 AVAX) | `503 AGENT_LOW_GAS` |
+
+429 kèm `Retry-After` (giây). Đặt `0` để tắt một giới hạn. **Trước giờ diễn** trên vault sân khấu có thể giảm cooldown để bấm liên tục. IP lấy từ nginx (ghi đè `X-Forwarded-For`, client không giả được). Bull Board (`/admin/queues`) không ra ngoài được: nginx chỉ proxy `/api/` và cổng api không mở; AdminGuard làm cùng SIWE.
+
 ## 5. Sự cố
 
 | Triệu chứng | Nguyên nhân / cách xử lý |
@@ -74,6 +87,8 @@ Không có token thì watchdog chỉ ghi log (`docker compose ... logs watchdog`
 | Health `rpc: down` | RPC Fuji lỗi: thêm RPC dự phòng vào `FUJI_RPC_URLS` |
 | Job `rejected` `UnauthorizedAgent` | Key trong env không phải agent của policy (`AGENT_ADDRESS` lúc deploy) |
 | Indexer log `block range too large` | Giảm `INDEXER_MAX_SPAN` (RPC public Fuji cho tối đa 100) |
+| `429 COOLDOWN` khi demo | Chờ vài giây, hoặc giảm `DEMO_WRITE_COOLDOWN_MS` / `WRITE_COOLDOWN_MS` |
+| `503 AGENT_LOW_GAS` | Nạp AVAX Fuji cho ví agent (faucet), chờ ~15s cache |
 | Cổng 8080 bị chiếm | Đặt `WEB_PORT=8090` trong `.env.prod` |
 
 ## 6. Diễn tập không cần Fuji

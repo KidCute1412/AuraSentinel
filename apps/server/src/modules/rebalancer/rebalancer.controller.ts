@@ -10,6 +10,7 @@ import {
   Param,
   Post,
   Res,
+  UseGuards,
   ServiceUnavailableException,
   UnauthorizedException,
 } from '@nestjs/common';
@@ -22,6 +23,7 @@ import { PolicyService } from '../policy/policy.service';
 import { VaultRegistryService } from '../vault/vault-registry.service';
 import { manualAmount, minOutFromQuote } from './domain/manual-rebalance';
 import { RouterQuoteService } from './router-quote.service';
+import { WriteGuard } from '../write-guard/write.guard';
 
 const chainDown = (detail: string) =>
   new ServiceUnavailableException(problem('CHAIN_UNAVAILABLE', 'Chain unavailable', detail));
@@ -42,6 +44,7 @@ export class RebalancerController {
   ) {}
 
   @Post()
+  @UseGuards(WriteGuard)
   @HttpCode(202)
   async create(
     @Param('safe') rawSafe: string,

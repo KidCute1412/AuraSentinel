@@ -12,11 +12,20 @@ export interface VaultSnapshot {
   now: bigint;
   /** A swap job for this vault is still waiting or running in the queue. */
   hasPendingSwap: boolean;
+  /** Both tokens of the pair are whitelisted with limits in this vault's policy. */
+  pairWhitelisted: boolean;
   /** Math input for this vault (balances, price, per-token budgets). */
   math: Omit<RebalanceInput, 'recipient'>;
 }
 
-export type SkipReason = 'demo-vault' | 'policy-inactive' | 'policy-expired' | 'pending-swap' | 'balanced';
+export type SkipReason =
+  | 'demo-vault'
+  | 'policy-inactive'
+  | 'policy-expired'
+  | 'pair-not-whitelisted'
+  | 'pending-swap'
+  | 'no-quote'
+  | 'balanced';
 
 export type VaultDecision =
   | { safe: string; action: 'skip'; reason: SkipReason }
@@ -38,7 +47,10 @@ export function skipReason(v: VaultSnapshot): SkipReason | null {
   if (v.isDemo) return 'demo-vault';
   if (!v.isActive) return 'policy-inactive';
   if (v.now > v.expiry) return 'policy-expired';
+  if (!v.pairWhitelisted) return 'pair-not-whitelisted';
   if (v.hasPendingSwap) return 'pending-swap';
+  // Pool missing or too thin for the sample (D8): never trade blind.
+  if (v.math.priceAInB <= 0n) return 'no-quote';
   return null;
 }
 

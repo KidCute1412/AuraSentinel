@@ -50,6 +50,22 @@ export const envSchema = z.object({
   /** Contract test summary written by the L5 CI job; GET /proof reads it. */
   PROOF_TESTS_FILE: z.string().default('../../packages/contracts/proof/tests.json'),
 
+  // Abuse protection on write endpoints (A9). 0 disables a limit (e2e tests).
+  /** Writes allowed per client IP per WRITE_IP_WINDOW_MS. */
+  WRITE_LIMIT_PER_IP: z.coerce.number().int().nonnegative().default(10),
+  WRITE_IP_WINDOW_MS: z.coerce.number().int().positive().default(60_000),
+  /** Minimum gap between two writes to the same (vault, endpoint). */
+  WRITE_COOLDOWN_MS: z.coerce.number().int().nonnegative().default(2_000),
+  /** Minimum gap between two writes from anyone to the public demo vault (D12: guests share it). */
+  DEMO_WRITE_COOLDOWN_MS: z.coerce.number().int().nonnegative().default(5_000),
+  /** Refuse new jobs (503 AGENT_LOW_GAS) below this agent balance, in wei. Default 0.02 AVAX (~1 swap at 700k gas). */
+  AGENT_MIN_GAS_WEI: z.coerce.bigint().nonnegative().default(20_000_000_000_000_000n),
+  /** Browser origins allowed by CORS, comma separated. Unset: no CORS (prod is same-origin behind nginx). */
+  CORS_ORIGINS: z
+    .string()
+    .optional()
+    .transform((v) => (v ? v.split(',').map((s) => s.trim()).filter(Boolean) : [])),
+
   REBALANCE_INTERVAL_MS: z.coerce.number().int().positive().default(15_000),
 });
 
