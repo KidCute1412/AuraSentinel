@@ -186,7 +186,10 @@ describe('RedteamProcessor', () => {
     const { p, jobs, sendRaw } = make(
       vi.fn().mockResolvedValue({ txHash: TX, status: 'reverted', blockNumber: 1n, revertReason: 'ExceedsPerTxCap' }),
     );
-    await p.process({ data: { jobId: JOB_ID, vault: SAFE, scenario: 'bypass' } } as never);
+    const out = await p.process({ data: { jobId: JOB_ID, vault: SAFE, scenario: 'bypass' } } as never);
+    // BullMQ stores the return value with JSON.stringify: a bigint in it would throw.
+    expect(() => JSON.stringify(out)).not.toThrow();
+    expect(out).toEqual({ txHash: TX, status: 'reverted', revertReason: 'ExceedsPerTxCap' });
     const call = sendRaw.mock.calls[0]?.[0];
     expect(call?.to).toBe(MODULE);
     expect(call?.gas).toBe(ATTACK_GAS);

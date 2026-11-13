@@ -31,7 +31,8 @@ export class RedteamProcessor extends WorkerHost {
     super();
   }
 
-  async process(job: Job<AttackJobData>): Promise<TxResult | null> {
+  /** Returns a JSON-safe summary: BullMQ stores the return value with JSON.stringify (no bigint). */
+  async process(job: Job<AttackJobData>): Promise<{ txHash: string; status: TxResult['status']; revertReason?: string } | null> {
     const { jobId, vault, scenario } = job.data;
     const plan = SCENARIOS[scenario].plan(attackContext(this.env, vault));
     const module = this.env.POLICY_MODULE_ADDRESS;
@@ -61,6 +62,6 @@ export class RedteamProcessor extends WorkerHost {
       await this.jobs.recordShield(jobId, 'onchain', 'pass');
       await this.jobs.transition(jobId, 'confirmed', { txHash: tx.txHash });
     }
-    return tx;
+    return { txHash: tx.txHash, status: tx.status, ...(tx.revertReason ? { revertReason: tx.revertReason } : {}) };
   }
 }

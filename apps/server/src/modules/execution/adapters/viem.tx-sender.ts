@@ -68,8 +68,11 @@ export class ViemTxSender implements TxSenderPort {
 
   sendSwap(intent: SwapIntent, target: VaultTarget): Promise<TxResult> {
     if (target.module === zeroAddress) throw new Error('ViemTxSender.sendSwap: module address is not configured');
-    const data = encodeGuardedSwap(intent, swapDeadline(BigInt(Math.floor(Date.now() / 1000))));
-    return this.sendRaw({ to: target.module, data, gas: SWAP_GAS });
+    // Deadline from the chain clock, like the simulator: a host clock off by > 5 min would make
+    // the router revert (deadline passed) or the module revert (DeadlineTooFar).
+    return this.publicClient.getBlock({ blockTag: 'latest' }).then((block) =>
+      this.sendRaw({ to: target.module, data: encodeGuardedSwap(intent, swapDeadline(block.timestamp)), gas: SWAP_GAS }),
+    );
   }
 
   sendRaw(call: RawCall): Promise<TxResult> {

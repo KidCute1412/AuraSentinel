@@ -9,6 +9,8 @@ const SAFE = '0x1111111111111111111111111111111111111111';
 const MODULE = '0x5555555555555555555555555555555555555555';
 const USDC = '0x3333333333333333333333333333333333333333';
 const WAVAX = '0x4444444444444444444444444444444444444444';
+/** Chain clock deliberately far from the host clock: the deadline must follow the chain. */
+const CHAIN_NOW = 1_000_000n;
 const ATTACKER = '0x9999999999999999999999999999999999999999';
 
 const intent = (amountIn: bigint): SwapIntent => ({
@@ -47,6 +49,7 @@ function setup(o: Opts = {}) {
   };
   const publicClient = {
     getTransactionCount: vi.fn(async () => o.pending ?? 7),
+    getBlock: vi.fn(async () => ({ timestamp: CHAIN_NOW })),
     estimateFeesPerGas: vi.fn(async () => ({ maxFeePerGas: 30n, maxPriorityFeePerGas: 1n })),
     sendRawTransaction: vi.fn(async ({ serializedTransaction }: { serializedTransaction: Hex }) => {
       attempts++;
@@ -89,7 +92,6 @@ describe('ViemTxSender', () => {
 
   it('encodes executeGuardedSwap with manual gas, the module as `to`, and no recipient', async () => {
     const { sender, signed } = setup();
-    const before = BigInt(Math.floor(Date.now() / 1000));
     await sender.sendSwap({ ...intent(500n), recipient: ATTACKER }, { safe: SAFE, module: MODULE });
     const [tx] = signed;
     expect(tx?.to).toBe(MODULE);
@@ -98,8 +100,8 @@ describe('ViemTxSender', () => {
     expect(functionName).toBe('executeGuardedSwap');
     const [tokenIn, tokenOut, amountIn, minOut, deadline] = args as readonly [string, string, bigint, bigint, bigint];
     expect([tokenIn, tokenOut, amountIn, minOut]).toEqual([USDC, WAVAX, 500n, 1n]);
-    expect(deadline).toBeGreaterThan(before);
-    expect(deadline).toBeLessThanOrEqual(before + 600n);
+    // Chain clock + 5 min, never the host clock (a skewed laptop would revert every swap).
+    expect(deadline).toBe(CHAIN_NOW + 300n);
     expect(tx!.data.toLowerCase()).not.toContain(ATTACKER.slice(2));
   });
 

@@ -1,23 +1,17 @@
 /**
  * One-shot migration runner for production (compose service `migrate`), so the runtime image
- * needs drizzle-orm only, not drizzle-kit. Applies src/core/database/migrations in order and exits.
+ * needs drizzle-orm only, not drizzle-kit. Applies the migrations in order and exits.
  */
 import { join } from 'node:path';
-import { drizzle } from 'drizzle-orm/postgres-js';
-import { migrate } from 'drizzle-orm/postgres-js/migrator';
-import postgres from 'postgres';
+import { runMigrations } from './core/database/run-migrations';
 
 async function main() {
   const url = process.env.DATABASE_URL;
   if (!url) throw new Error('DATABASE_URL is required');
-  const migrationsFolder = process.env.MIGRATIONS_DIR ?? join(__dirname, '..', 'src', 'core', 'database', 'migrations');
-  const client = postgres(url, { max: 1, onnotice: () => undefined });
-  try {
-    await migrate(drizzle(client), { migrationsFolder });
-    console.log(`migrations applied from ${migrationsFolder}`);
-  } finally {
-    await client.end({ timeout: 5 });
-  }
+  // dist/migrate.js runs next to dist/core/...; the SQL files live in src/ (or MIGRATIONS_DIR in the image).
+  const folder = process.env.MIGRATIONS_DIR ?? join(__dirname, '..', 'src', 'core', 'database', 'migrations');
+  await runMigrations(url, folder);
+  console.log(`migrations applied from ${folder}`);
 }
 
 main().catch((e: unknown) => {
