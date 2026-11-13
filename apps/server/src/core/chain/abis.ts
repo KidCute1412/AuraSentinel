@@ -39,6 +39,7 @@ export const POLICY_MODULE_ABI = parseAbi([
 export const SAFE_MODULE_ABI = parseAbi([
   'function execTransactionFromModule(address to, uint256 value, bytes data, uint8 operation) returns (bool success)',
   'function getModulesPaginated(address start, uint256 pageSize) view returns (address[] array, address next)',
+  'function getOwners() view returns (address[])',
 ]);
 
 export const ERC20_ABI = parseAbi([

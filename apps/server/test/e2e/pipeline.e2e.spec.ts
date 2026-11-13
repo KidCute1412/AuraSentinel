@@ -18,6 +18,8 @@ import { join } from 'node:path';
 import type { INestApplication, INestApplicationContext } from '@nestjs/common';
 import { createPublicClient, http, parseAbi, type Address, type PublicClient } from 'viem';
 import { avalancheFuji } from 'viem/chains';
+import { privateKeyToAccount } from 'viem/accounts';
+import { createSiweMessage } from 'viem/siwe';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 const DEPLOYMENT = process.env.E2E_DEPLOYMENT;
@@ -25,6 +27,9 @@ const CHAIN_URL = process.env.E2E_CHAIN_URL ?? 'http://127.0.0.1:8545';
 const SIM_URL = process.env.E2E_SIM_URL ?? 'http://127.0.0.1:8546';
 /** Anvil dev account #1 (public, test only): the agent session key in the L4 dry run. */
 const AGENT_KEY = '0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d';
+/** Anvil #0 owns the Safes created by the L4 scripts; #2 is the admin in this test. */
+const OWNER = privateKeyToAccount('0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80');
+const ADMIN = privateKeyToAccount('0x5de4111afa1a4b94908f83103eb1f1706367c2e68ca870fc3fb9a804cdab365a');
 const ERC20 = parseAbi(['function allowance(address owner, address spender) view returns (uint256)']);
 const TERMINAL = ['confirmed', 'rejected', 'reverted', 'failed'];
 /**
@@ -63,6 +68,31 @@ describe.skipIf(!DEPLOYMENT)('e2e: rebalance and attacks through the whole pipel
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ jsonrpc: '2.0', id: 1, method, params }),
     }).then((r) => r.json() as Promise<{ result?: unknown; error?: { message: string } }>);
+
+  /** Full SIWE round trip; returns the session cookie. */
+  async function signIn(account: typeof OWNER): Promise<{ cookie: string; body: Json }> {
+    const { body: n } = await post('/api/v1/auth/nonce', {});
+    const message = createSiweMessage({
+      address: account.address,
+      chainId: 43113,
+      domain: new URL(base).host,
+      nonce: n.nonce as string,
+      uri: base,
+      version: '1',
+      statement: 'Sign in to AgentShield',
+    });
+    const res = await fetch(`${base}/api/v1/auth/session`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ message, signature: await account.signMessage({ message }) }),
+    });
+    expect(res.status).toBe(201);
+    const setCookie = res.headers.get('set-cookie') ?? '';
+    expect(setCookie).toMatch(/HttpOnly/);
+    return { cookie: setCookie.split(';')[0]!, body: (await res.json()) as Json };
+  }
+  const withCookie = (cookie: string, path: string, init: RequestInit = {}) =>
+    fetch(`${base}${path}`, { ...init, headers: { ...(init.headers ?? {}), cookie } });
 
   const get = (path: string) => fetch(`${base}${path}`).then(async (r) => ({ status: r.status, body: (await r.json()) as Json }));
   const post = (path: string, body: unknown) =>
@@ -143,6 +173,8 @@ describe.skipIf(!DEPLOYMENT)('e2e: rebalance and attacks through the whole pipel
       WRITE_LIMIT_PER_IP: '0',
       WRITE_COOLDOWN_MS: '0',
       DEMO_WRITE_COOLDOWN_MS: '0',
+      ADMIN_ADDRESSES: ADMIN.address,
+      SESSION_SECRET: 'e2e-'.padEnd(40, 'x'),
     });
 
     if (!existsSync(join(DIST, 'main.api.js'))) throw new Error('run "pnpm --filter server build" first: e2e boots dist/');
@@ -151,7 +183,7 @@ describe.skipIf(!DEPLOYMENT)('e2e: rebalance and attacks through the whole pipel
 
     const { ApiAppModule } = fromDist<typeof import('../../src/api-app.module')>('api-app.module');
     const { WorkerAppModule } = fromDist<typeof import('../../src/worker-app.module')>('worker-app.module');
-    const { configureApi } = fromDist<typeof import('../../src/core/http/configure-api')>('core/http/configure-api');
+    const { configureApi } = fromDist<typeof import('../../src/configure-api')>('configure-api');
     const { NestFactory } = fromDist<{ NestFactory: typeof import('@nestjs/core').NestFactory }>('../node_modules/@nestjs/core');
     api = configureApi(await NestFactory.create(ApiAppModule, { logger: ['error', 'warn'] }));
     await api.listen(0, '127.0.0.1');
@@ -241,4 +273,44 @@ describe.skipIf(!DEPLOYMENT)('e2e: rebalance and attacks through the whole pipel
     expect(new Set(swapEvents).size).toBe(swapEvents.length); // no duplicates
     expect(sse.some((e) => e.type === 'job.explained')).toBe(true);
   }, 60_000);
+
+  it('SIWE: the Safe owner signs in and gets role owner from the chain; sign-out clears it', async () => {
+    const { cookie, body } = await signIn(OWNER);
+    expect(body).toMatchObject({ address: OWNER.address, role: 'owner' });
+    expect((body.ownedVaults as string[]).map((v) => v.toLowerCase())).toContain(d.publicSafe.toLowerCase());
+    const me = (await (await withCookie(cookie, '/api/v1/auth/session')).json()) as Json;
+    expect(me).toMatchObject({ address: OWNER.address, role: 'owner' });
+
+    const out = await withCookie(cookie, '/api/v1/auth/session', { method: 'DELETE' });
+    expect(out.status).toBe(204);
+    expect(out.headers.get('set-cookie')).toMatch(/Max-Age=0/);
+    expect((await get('/api/v1/auth/session')).body).toEqual({ address: null, role: null });
+  });
+
+  it('admin endpoints: 401 signed out, 403 for an owner, 200 for an admin; Demo mode pauses the rebalancer', async () => {
+    expect((await get('/api/v1/admin/rebalancer')).status).toBe(401);
+    const owner = await signIn(OWNER);
+    expect((await withCookie(owner.cookie, '/api/v1/admin/rebalancer')).status).toBe(403);
+
+    const admin = await signIn(ADMIN);
+    expect(admin.body).toMatchObject({ role: 'admin' });
+    const patch = (paused: boolean) =>
+      withCookie(admin.cookie, '/api/v1/admin/rebalancer', {
+        method: 'PATCH',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ paused }),
+      }).then((r) => r.json() as Promise<Json>);
+    expect(await patch(true)).toMatchObject({ paused: true, agent: { lowGas: false } });
+    expect(await patch(false)).toMatchObject({ paused: false });
+  });
+
+  it('Bull Board (queue retry/delete) is admin-only on every path it answers', async () => {
+    for (const path of ['/admin/queues', '/api/v1/admin/queues', '/api/v1/admin/queues/api/queues']) {
+      expect((await fetch(`${base}${path}`)).status).toBe(401);
+    }
+    const owner = await signIn(OWNER);
+    expect((await withCookie(owner.cookie, '/api/v1/admin/queues')).status).toBe(403);
+    const admin = await signIn(ADMIN);
+    expect((await withCookie(admin.cookie, '/api/v1/admin/queues')).status).toBe(200);
+  });
 });

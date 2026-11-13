@@ -77,7 +77,20 @@ Vault demo công khai không cần đăng nhập (D12), nên hai endpoint ghi `P
 | Vault khác, theo (vault, endpoint) | 1 lần / `WRITE_COOLDOWN_MS=2000` | `429 COOLDOWN` |
 | Gas của agent | < `AGENT_MIN_GAS_WEI` (0.02 AVAX) | `503 AGENT_LOW_GAS` |
 
-429 kèm `Retry-After` (giây). Đặt `0` để tắt một giới hạn. **Trước giờ diễn** trên vault sân khấu có thể giảm cooldown để bấm liên tục. IP lấy từ nginx (ghi đè `X-Forwarded-For`, client không giả được). Bull Board (`/admin/queues`) không ra ngoài được: nginx chỉ proxy `/api/` và cổng api không mở; AdminGuard làm cùng SIWE.
+429 kèm `Retry-After` (giây). Đặt `0` để tắt một giới hạn. **Trước giờ diễn** trên vault sân khấu có thể giảm cooldown để bấm liên tục. IP lấy từ nginx (ghi đè `X-Forwarded-For`, client không giả được). 
+## 4c. Đăng nhập (SIWE) và quyền (A9)
+
+Khách dùng vault demo không cần đăng nhập (D12). Owner và admin ký một message EIP-4361 bằng ví → cookie `session` (httpOnly, SameSite=Lax, hết hạn sau `SESSION_TTL_S`, mặc định 12h).
+
+| Ai | Được làm |
+|---|---|
+| Khách | Đọc mọi thứ; `POST /jobs`, `/attacks` **chỉ trên vault demo** (có throttle, §4b) |
+| Owner (có trong `Safe.getOwners()` trên chain, cache 30s) | Thêm `POST /jobs`, `/attacks` trên vault của mình. Không phải owner → `403 NOT_OWNER` |
+| Admin (`ADMIN_ADDRESSES`) | Drawer Admin (`/api/v1/admin/rebalancer`: tạm dừng rebalancer = Demo mode) và Bull Board (`/api/v1/admin/queues`) |
+
+- `SESSION_SECRET` bắt buộc ở production (`openssl rand -hex 32`); đổi nó là đăng xuất tất cả.
+- Phiên chỉ chứng minh **địa chỉ ví**. Role tính lại từ chain và allowlist mỗi request; setPolicy/Kill-Switch vẫn ký trong browser (P2).
+- `SIWE_DOMAINS` để trống khi chạy sau nginx (Host được giữ cả cổng). Dev qua Vite: `localhost:5173`.
 
 ## 5. Sự cố
 
@@ -89,6 +102,8 @@ Vault demo công khai không cần đăng nhập (D12), nên hai endpoint ghi `P
 | Indexer log `block range too large` | Giảm `INDEXER_MAX_SPAN` (RPC public Fuji cho tối đa 100) |
 | `429 COOLDOWN` khi demo | Chờ vài giây, hoặc giảm `DEMO_WRITE_COOLDOWN_MS` / `WRITE_COOLDOWN_MS` |
 | `503 AGENT_LOW_GAS` | Nạp AVAX Fuji cho ví agent (faucet), chờ ~15s cache |
+| Đăng nhập báo `Message issued for ...` | Domain trong message khác host của API: đặt `SIWE_DOMAINS` đúng host[:port] trình duyệt đang mở |
+| `api` không khởi động: `SESSION_SECRET: required` | Điền `SESSION_SECRET` (32+ ký tự) trong `.env.prod` |
 | Cổng 8080 bị chiếm | Đặt `WEB_PORT=8090` trong `.env.prod` |
 
 ## 6. Diễn tập không cần Fuji

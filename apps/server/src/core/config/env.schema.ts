@@ -66,6 +66,21 @@ export const envSchema = z.object({
     .optional()
     .transform((v) => (v ? v.split(',').map((s) => s.trim()).filter(Boolean) : [])),
 
+  // SIWE sessions (A9, D12): only owners and admins sign in; guests use the demo vault without one.
+  /** HMAC key for session JWTs (>= 32 chars). Required in production; dev falls back to a per-process random key. */
+  SESSION_SECRET: z.string().min(32).optional(),
+  SESSION_TTL_S: z.coerce.number().int().positive().default(12 * 3600),
+  /** Domains a SIWE message may be issued for (host[:port]). Unset: the request Host. Dev behind Vite: localhost:5173. */
+  SIWE_DOMAINS: z
+    .string()
+    .optional()
+    .transform((v) => (v ? v.split(',').map((s) => s.trim().toLowerCase()).filter(Boolean) : [])),
+  /** Wallets with the admin role (Demo mode drawer, Bull Board). Comma separated. */
+  ADMIN_ADDRESSES: z
+    .string()
+    .optional()
+    .transform((v) => (v ? v.split(',').map((s) => s.trim().toLowerCase()).filter(Boolean) : [])),
+
   REBALANCE_INTERVAL_MS: z.coerce.number().int().positive().default(15_000),
 });
 
@@ -80,6 +95,9 @@ export function parseEnv(raw: NodeJS.ProcessEnv = process.env): Env {
   if (!result.success) {
     const issues = result.error.issues.map((i) => `  - ${i.path.join('.')}: ${i.message}`).join('\n');
     throw new Error(`Invalid environment:\n${issues}`);
+  }
+  if (result.data.NODE_ENV === 'production' && !result.data.SESSION_SECRET) {
+    throw new Error('Invalid environment:\n  - SESSION_SECRET: required in production (32+ chars)');
   }
   return result.data;
 }

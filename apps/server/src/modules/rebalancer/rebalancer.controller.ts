@@ -12,7 +12,6 @@ import {
   Res,
   UseGuards,
   ServiceUnavailableException,
-  UnauthorizedException,
 } from '@nestjs/common';
 import type { Response } from 'express';
 import { ENV } from '../../core/config/config.module';
@@ -63,10 +62,7 @@ export class RebalancerController {
       throw chainDown('Could not look up the vault');
     });
     if (!vault) throw new NotFoundException(problem('VAULT_NOT_FOUND', 'Vault not found', safe.data));
-    // TODO(A9): SIWE session + OwnerGuard for the owner's own vaults, throttle + cooldown for the demo vault.
-    if (!vault.isDemo) {
-      throw new UnauthorizedException(problem('UNAUTHENTICATED', 'Sign in as the vault owner', safe.data));
-    }
+    // Access (demo vault open, others owner-only), throttle and gas are enforced by WriteGuard.
 
     // Single token pair until the registry serves tokens per vault (A3): sell USDC for WAVAX.
     const { TOKEN_A_ADDRESS: tokenIn, TOKEN_B_ADDRESS: tokenOut } = this.env;
