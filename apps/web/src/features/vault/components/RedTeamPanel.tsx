@@ -1,10 +1,13 @@
 import { Bug, Lock, Play } from "lucide-react";
 import { useState } from "react";
 import type { AttackScenario as Scenario } from "@agentshield/shared";
-import { startJob } from "@/shared/api/mockChain";
-import type { AttackScenario } from "@/shared/api/mockEngine";
+import { ApiError } from "@/shared/api/client";
+import { describeApiError } from "@/shared/api/errorCopy";
+import type { AttackScenario, JobSpec } from "@/shared/api/mockEngine";
+import { useJobLauncher } from "@/shared/api/vaultFeed";
 import type { VaultView } from "@/shared/api/vaultSource";
 import { cn } from "@/shared/lib/cn";
+import { useCountdown } from "@/shared/lib/useCountdown";
 import { Panel } from "@/shared/ui/Panel";
 import { expectationLine } from "../lib/attacks";
 import { parseLimit } from "../lib/policyForm";
@@ -35,18 +38,30 @@ const btn = "min-h-11 border border-line-strong px-4 text-left text-sm font-bold
 
 /** Run a rebalance, fire one of the four attacks, or paste a prompt injection. Every result is decided by rules, not by the text. */
 export function RedTeamPanel({ view, canAct, onStarted }: Props) {
+  const { launch } = useJobLauncher(view);
   const [amount, setAmount] = useState("200");
   const [text, setText] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [cooldownUntil, setCooldownUntil] = useState<number | null>(null);
+  const cooldown = useCountdown(cooldownUntil);
   const lowGas = view.agentGas === "low";
-  const off = !canAct || lowGas;
+  const off = !canAct || lowGas || busy || cooldown > 0;
 
-  const run = (fn: () => string, scenario: Scenario | null = null) => {
+  const run = async (spec: JobSpec, scenario: Scenario | null = null) => {
+    if (busy) return;
+    setBusy(true);
+    setError(null);
     try {
-      onStarted(fn(), scenario);
-      setError(null);
+      onStarted(await launch(spec), scenario);
+      setCooldownUntil(null);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Could not start the job");
+      // Server refusals (429 cooldown, 409 busy, 401 ...) get their English copy; a 429 also starts the countdown.
+      const copy = e instanceof ApiError ? describeApiError(e) : { message: e instanceof Error ? e.message : "Could not start the job", retryAfterSec: null };
+      setError(copy.message);
+      setCooldownUntil(copy.retryAfterSec ? Date.now() + copy.retryAfterSec * 1000 : null);
+    } finally {
+      setBusy(false);
     }
   };
 
@@ -76,7 +91,7 @@ export function RedTeamPanel({ view, canAct, onStarted }: Props) {
         <form
           onSubmit={(e) => {
             e.preventDefault();
-            if (!amountError) run(() => startJob(view, { type: "rebalance", amountIn: (parsed as { value: bigint }).value }));
+            if (!amountError) void run({ type: "rebalance", amountIn: (parsed as { value: bigint }).value });
           }}
         >
           <label htmlFor="rebalance-amount" className="mono-label">USDC to swap into WAVAX</label>
@@ -117,7 +132,7 @@ export function RedTeamPanel({ view, canAct, onStarted }: Props) {
         <ul className="grid gap-2">
           {ATTACKS.map((a, i) => (
             <li key={a.id}>
-              <button type="button" disabled={off} onClick={() => run(() => startJob(view, { type: "attack", scenario: a.id }), a.id)} className={cn(btn, "w-full py-2")}>
+              <button type="button" disabled={off} onClick={() => void run({ type: "attack", scenario: a.id }, a.id)} className={cn(btn, "w-full py-2")}>
                 <span className="mono-label mr-2">0{i + 1}</span>
                 {a.title}
                 <span className="block text-xs font-medium text-muted">{a.hint}</span>
@@ -150,14 +165,19 @@ export function RedTeamPanel({ view, canAct, onStarted }: Props) {
             </button>
           ))}
         </div>
-        <button type="button" disabled={off || text.trim() === ""} onClick={() => run(() => startJob(view, { type: "injection", text }), "prompt-injection")} className={cn(btn, "mt-3 inline-flex items-center gap-2")}>
+        <button type="button" disabled={off || text.trim() === ""} onClick={() => void run({ type: "injection", text }, "prompt-injection")} className={cn(btn, "mt-3 inline-flex items-center gap-2")}>
           <Bug aria-hidden className="size-4" />
           Send as agent input
         </button>
         <p className="mt-2 font-mono text-[11px] text-soft">{expectationLine("prompt-injection")}</p>
       </Panel>
 
-      {error && <p role="alert" className="border-l-4 border-danger bg-tint-pink px-3 py-2 text-sm">{error}</p>}
+      {error && (
+        <p role="alert" className="border-l-4 border-danger bg-tint-pink px-3 py-2 text-sm">
+          {error}
+          {cooldown > 0 && <span className="tabular ml-1 font-mono font-bold">Try again in {cooldown}s.</span>}
+        </p>
+      )}
     </div>
   );
 }

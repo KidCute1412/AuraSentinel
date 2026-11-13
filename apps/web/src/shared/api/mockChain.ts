@@ -1,4 +1,5 @@
 import { useEffect } from "react";
+import { zeroAddress } from "viem";
 import { create } from "zustand";
 import type { Address, JobDetailDto, JobStatus, StateDto } from "@agentshield/shared";
 import { toAmount, fromAmount } from "@agentshield/shared";
@@ -55,7 +56,7 @@ function baseState(view: VaultView, nowSec: number): StateDto {
     blockNumber: "49234500",
     isActive: true,
     policyEpoch: 1,
-    policy: policyFor(view.agent, nowSec),
+    policy: policyFor(view.agent ?? zeroAddress, nowSec),
     spentToday: [{ token: USDC, dayId: Math.floor(nowSec / DAY), amount: "0" }],
     balances: [
       { token: USDC, symbol: "USDC", decimals: 6, amount: toAmount(3_000_000_000n) },

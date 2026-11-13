@@ -1,8 +1,9 @@
 import { Link, Navigate, Outlet, useLocation, useParams } from "react-router-dom";
 import { Footer } from "@/shared/shell/Footer";
 import { Header } from "@/shared/shell/Header";
-import { useVaultSim } from "@/shared/api/mockChain";
+import { isLive } from "@/shared/api/dataSource";
 import { useVaultView } from "@/shared/api/useVaultView";
+import { LiveVaultEvents, useVaultFeed } from "@/shared/api/vaultFeed";
 import type { VaultView } from "@/shared/api/vaultSource";
 import { parseAddressParam, shortAddress } from "@/shared/lib/address";
 import { useSession } from "@/shared/session/sessionStore";
@@ -39,10 +40,10 @@ function Problem({ title, children }: { title: string; children: React.ReactNode
   );
 }
 
-/** Phone-only Kill-Switch dock, shown to the owner while the vault is still active. */
+/** Phone-only Kill-Switch dock, shown to the owner while the vault is still active. Simulated data only for now. */
 function OwnerDock({ view, role }: { view: VaultView; role: VaultRole }) {
-  const sim = useVaultSim(view);
-  if (role !== "owner" || sim?.state.isActive !== true) return null;
+  const feed = useVaultFeed(view);
+  if (role !== "owner" || feed.source === "live" || feed.state?.isActive !== true) return null;
   return <KillDock safe={view.safe} />;
 }
 
@@ -118,6 +119,7 @@ export function VaultLayout() {
 
   return (
     <Frame>
+      {isLive && <LiveVaultEvents safe={safe} />}
       <Breadcrumb items={crumbs} />
       <RouteNotice />
       <VaultHeader view={view} role={role} compactKill={section !== "overview"} />

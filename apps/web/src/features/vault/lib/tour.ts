@@ -1,4 +1,4 @@
-import type { Address, JobDetailDto } from "@agentshield/shared";
+import type { Address, JobDto } from "@agentshield/shared";
 import { sameAddress } from "@/shared/lib/address";
 
 export interface TourStep {
@@ -12,7 +12,7 @@ export interface TourStep {
  * Progress of the 4-step guided tour on /demo. Derived from what the visitor actually did in this visit
  * (jobs created since `sinceMs`), so it is always honest and survives re-renders.
  */
-export function tourProgress(jobs: readonly JobDetailDto[], safe: Address, sinceMs: number, killedThisVisit: boolean): TourStep[] {
+export function tourProgress(jobs: readonly JobDto[], safe: Address, sinceMs: number, killedThisVisit: boolean): TourStep[] {
   const mine = jobs.filter((j) => Date.parse(j.createdAt) >= sinceMs);
   const rebalance = mine.some((j) => j.kind === "swap" && j.status === "confirmed");
   const overWithdraw = mine.some(

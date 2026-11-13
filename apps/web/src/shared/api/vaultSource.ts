@@ -1,6 +1,9 @@
 import { getAddress } from "viem";
-import type { Address } from "@agentshield/shared";
+import type { Address, VaultDto } from "@agentshield/shared";
 import { sameAddress } from "@/shared/lib/address";
+import { ApiError } from "./client";
+import { isLive, LIVE_DEMO_SAFE } from "./dataSource";
+import { getVault, getVaults } from "./endpoints";
 
 /** How a fixture vault's simulated history is seeded (see mockChain.seedSim). */
 export type SeedScenario = "none" | "healthy" | "killed" | "demo" | "exhausted";
@@ -9,11 +12,13 @@ export type SeedScenario = "none" | "healthy" | "killed" | "demo" | "exhausted";
  * Static facts about one vault, in the shape the real API + chain reads will return
  * (api.md GET /vaults/{safe} + Safe.getOwners + admin gas check). Fixture-backed until the backend is wired:
  * replace the bodies below, keep the signatures. Live numbers (balances, spend, jobs) are in mockChain.
+ * In live mode (shared/api/dataSource.ts) views come from GET /vaults/{safe} and GET /vaults instead (liveViewFromDto).
  */
 export interface VaultView {
   safe: Address;
-  module: Address;
-  agent: Address;
+  /** null when unknown: a GET /vaults row has no agent, and a vault without a policy has none. */
+  module: Address | null;
+  agent: Address | null;
   isDemo: boolean;
   /** Safe.getOwners(). The role is derived from this on the client, backend only double-checks. */
   owners: Address[];
@@ -71,19 +76,60 @@ export const FIXTURE_SAFES = {
   lowGas: ALL[7].safe,
 } as const;
 
-/** The public sandbox vault behind /demo. */
-export const DEMO_SAFE = FIXTURE_SAFES.demo;
+const ZERO = "0x0000000000000000000000000000000000000000";
+
+/**
+ * Live mode: a vault as the server describes it (GET /vaults/{safe} or a GET /vaults row). The server answers 404
+ * until the module is enabled, so any vault it returns has one; a policy is set once the module names an agent.
+ * The list rows carry no agent: shown as unknown rather than guessed.
+ */
+export function liveViewFromDto(v: Pick<VaultDto, "safe" | "module" | "owner" | "isDemo"> & { agent?: Address | null }): VaultView {
+  const agent = v.agent && !sameAddress(v.agent, ZERO) ? v.agent : null;
+  return {
+    safe: v.safe,
+    module: v.module,
+    agent,
+    isDemo: v.isDemo,
+    owners: [v.owner],
+    chain: { moduleEnabled: true, policyActive: v.agent === undefined ? true : agent !== null, funded: true },
+    agentGas: "ok", // the server answers AGENT_LOW_GAS on a button press when it is not
+    scenario: "none",
+  };
+}
+
+/** The public sandbox vault behind /demo, when known without a request (mock fixture, or VITE_DEMO_SAFE in live). */
+export const DEMO_SAFE: Address | null = isLive ? LIVE_DEMO_SAFE : FIXTURE_SAFES.demo;
+
+/** /demo: VITE_DEMO_SAFE when set, otherwise the vault the server flags isDemo. null = no demo vault deployed. */
+export async function fetchDemoSafe(): Promise<Address | null> {
+  if (DEMO_SAFE) return DEMO_SAFE;
+  if (!isLive) return null;
+  const { vaults } = await getVaults();
+  return vaults.find((v) => v.isDemo)?.safe ?? null;
+}
 
 const LATENCY_MS = 350;
 const wait = () => new Promise((r) => setTimeout(r, LATENCY_MS));
 
 export async function fetchVaultView(safe: Address): Promise<VaultView | null> {
+  if (isLive) {
+    try {
+      return liveViewFromDto(await getVault(safe));
+    } catch (e) {
+      if (e instanceof ApiError && e.status === 404) return null; // not a vault, or its module is not enabled yet
+      throw e;
+    }
+  }
   await wait();
   return FIXTURES[safe.toLowerCase()] ?? null;
 }
 
 /** GET /vaults returns the whole registry; "mine" is filtered by owner on the client (api.md §12 point 5). */
 export async function fetchMyVaults(owner: Address): Promise<VaultView[]> {
+  if (isLive) {
+    const { vaults } = await getVaults();
+    return vaults.filter((v) => sameAddress(v.owner, owner)).map(liveViewFromDto);
+  }
   await wait();
   return Object.values(FIXTURES).filter((v) => v.owners.some((o) => sameAddress(o, owner)));
 }

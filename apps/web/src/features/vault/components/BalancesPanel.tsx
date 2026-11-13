@@ -9,9 +9,9 @@ import { TokenAmount } from "@/shared/ui/TokenAmount";
 type Row = StateDto["balances"][number];
 
 /** Vault balances, with the before/after of the latest confirmed swap so the effect of a trade is visible at a glance. */
-export function BalancesPanel({ sim }: { sim: VaultSim }) {
-  const change = sim.lastChange;
-  const rows: Row[] = sim.state.balances;
+export function BalancesPanel({ state, lastChange }: { state: StateDto; lastChange: VaultSim["lastChange"] }) {
+  const change = lastChange;
+  const rows: Row[] = state.balances;
   const before = (symbol: string) => change?.before.find((b) => b.symbol === symbol);
   const after = (symbol: string) => change?.after.find((b) => b.symbol === symbol);
 

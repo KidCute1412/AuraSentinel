@@ -1,19 +1,19 @@
 import { Link } from "react-router-dom";
-import { fromAmount, type JobDetailDto } from "@agentshield/shared";
+import { fromAmount, type JobDto } from "@agentshield/shared";
 import { cn } from "@/shared/lib/cn";
 import { formatTokenAmount } from "@/shared/lib/format";
 import { timeAgo } from "@/shared/lib/time";
 import { Panel } from "@/shared/ui/Panel";
 import { StatusBadge } from "@/shared/ui/StatusBadge";
 
-export function jobLabel(j: JobDetailDto): string {
+export function jobLabel(j: Pick<JobDto, "intent" | "origin">): string {
   const amount = j.intent && j.intent.amountIn !== "0" ? ` · ${formatTokenAmount(fromAmount(j.intent.amountIn), 6)} USDC` : "";
   if (j.origin === "redteam") return `Attack${amount}`;
   return `Rebalance${amount}`;
 }
 
 interface Props {
-  jobs: JobDetailDto[];
+  jobs: JobDto[];
   selectedId: string | undefined;
   onSelect: (id: string) => void;
   /** Where "View all" goes; omitted on /demo, which has no sub-pages. */

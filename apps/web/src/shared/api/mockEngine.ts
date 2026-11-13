@@ -54,13 +54,22 @@ export interface VaultSim {
 
 export const pctOf = (spent: bigint, cap: bigint): number => (cap === 0n ? 0 : Math.min(100, Number((spent * 1000n) / cap) / 10));
 
+/**
+ * Address of a token in this state, found by symbol in the chain-sourced balances, so the same helpers read a live
+ * StateDto (real token addresses) and a simulated one. Falls back to the simulated address.
+ */
+export const tokenAddressIn = (state: StateDto, symbol: TokenSymbol): string =>
+  state.balances.find((b) => b.symbol === symbol)?.token ?? TOKENS[symbol].address;
+
 export function spentUsdc(state: StateDto): bigint {
-  const row = state.spentToday.find((s) => s.token.toLowerCase() === USDC.toLowerCase());
+  const usdc = tokenAddressIn(state, "USDC").toLowerCase();
+  const row = state.spentToday.find((s) => s.token.toLowerCase() === usdc);
   return row ? fromAmount(row.amount) : 0n;
 }
 
 export function usdcLimit(state: StateDto): { maxPerTx: bigint; dailyCap: bigint } {
-  const l = state.policy.limits.find((x) => x.token.toLowerCase() === USDC.toLowerCase());
+  const usdc = tokenAddressIn(state, "USDC").toLowerCase();
+  const l = state.policy.limits.find((x) => x.token.toLowerCase() === usdc);
   return { maxPerTx: l ? fromAmount(l.maxPerTx) : 0n, dailyCap: l ? fromAmount(l.dailyCap) : 0n };
 }
 

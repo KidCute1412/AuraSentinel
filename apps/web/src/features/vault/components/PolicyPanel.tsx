@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { fromAmount, type StateDto } from "@agentshield/shared";
 import { setPolicyTx } from "@/shared/api/mockChain";
-import { TOKENS, USDC, WAVAX } from "@/shared/api/mockEngine";
+import { TOKENS, tokenAddressIn } from "@/shared/api/mockEngine";
 import { cn } from "@/shared/lib/cn";
 import { formatTokenAmount } from "@/shared/lib/format";
 import { timeLeft } from "@/shared/lib/time";
@@ -50,8 +50,9 @@ function Field({ id, label, unit, value, error, onChange }: { id: string; label:
  */
 export function PolicyPanel({ safe, state, canEdit }: { safe: string; state: StateDto; canEdit: boolean }) {
   const nowSec = Math.floor(Date.now() / 1000);
-  const usdc = limitOf(state, USDC);
-  const wavax = limitOf(state, WAVAX);
+  // By symbol from the state's balances, so a live StateDto (real token addresses) reads the same way.
+  const usdc = limitOf(state, tokenAddressIn(state, "USDC"));
+  const wavax = limitOf(state, tokenAddressIn(state, "WAVAX"));
   const [open, setOpen] = useState(false);
   const [values, setValues] = useState<PolicyFormValues>(() => valuesFromState(state));
   const [errors, setErrors] = useState<PolicyErrors>({});
