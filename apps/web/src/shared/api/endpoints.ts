@@ -7,12 +7,20 @@ import {
   JobDetailDto,
   JobListDto,
   StateDto,
+  VaultDto,
+  VaultListDto,
   type JobStatus,
 } from "@agentshield/shared";
 import { RebalancerStatusDto } from "./adminSchemas";
 import { apiRequest, apiUrl } from "./client";
 
 /** Endpoints from api.md §2. Owner actions (setPolicy, Kill-Switch) never go through the API (P2). */
+
+/** #5: every registered vault (public; the registry holds no policy state). "Mine" is filtered on the client. */
+export const getVaults = (signal?: AbortSignal) => apiRequest("/vaults", VaultListDto, { signal });
+
+/** #6: who owns and runs one vault. 404 VAULT_NOT_FOUND until its module is enabled on the Safe. */
+export const getVault = (safe: string, signal?: AbortSignal) => apiRequest(`/vaults/${safe}`, VaultDto, { signal });
 
 /** #7: balances, policy, spentToday, isActive, read from the chain by the server (P1). */
 export const getVaultState = (safe: string, signal?: AbortSignal) => apiRequest(`/vaults/${safe}/state`, StateDto, { signal });

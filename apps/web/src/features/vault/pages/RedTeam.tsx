@@ -1,12 +1,15 @@
 import { useEffect, useRef, useState } from "react";
+import { Link } from "react-router-dom";
 import { AttackScenario, type JobDetailDto } from "@agentshield/shared";
-import { useVaultSim } from "@/shared/api/mockChain";
+import { DATA_SOURCE } from "@/shared/api/dataSource";
+import { useJobDetail } from "@/shared/api/vaultFeed";
 import type { VaultView } from "@/shared/api/vaultSource";
+import { Skeleton } from "@/shared/ui/Skeleton";
 import { Panel } from "@/shared/ui/Panel";
 import { Stamp, type StampTone } from "@/shared/ui/Stamp";
 import { RedTeamPanel } from "../components/RedTeamPanel";
 import { VerdictCard } from "../components/VerdictCard";
-import { sectionPath, type VaultRole } from "../guards/access";
+import { canRunJobs, sectionPath, type VaultRole } from "../guards/access";
 import { ATTACK_TITLES, checkOutcome, expectationSentence, type OutcomeCheck } from "../lib/attacks";
 
 const TONE: Record<Exclude<OutcomeCheck["kind"], "pending">, StampTone> = { expected: "ok", "blocked-other": "warn", unexpected: "danger" };
@@ -55,8 +58,8 @@ function WhatEachTestProves() {
  * right with a link to its job page. Who may press the buttons follows the Overview (owner only on /vaults/*).
  */
 export function RedTeam({ view, role }: { view: VaultView; role: VaultRole }) {
-  const sim = useVaultSim(view);
   const [last, setLast] = useState<{ id: string; scenario: AttackScenario | null } | null>(null);
+  const { job, status } = useJobDetail(view, last?.id);
   const resultRef = useRef<HTMLDivElement>(null);
   // On phones the result sits below the buttons: bring its top (the expected/actual stamp) into view. On desktop it is
   // already beside the buttons, so nothing moves unless the visitor scrolled past it.
@@ -77,17 +80,26 @@ export function RedTeam({ view, role }: { view: VaultView; role: VaultRole }) {
     );
   }
 
-  const job = last ? sim?.jobs.find((j) => j.id === last.id) : undefined;
-
   return (
     <div className="grid grid-cols-[minmax(0,1fr)] gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)]">
-      <RedTeamPanel view={view} canAct={role === "owner"} onStarted={(id, scenario) => setLast({ id, scenario })} />
+      <RedTeamPanel view={view} canAct={canRunJobs(role, view.isDemo, DATA_SOURCE)} onStarted={(id, scenario) => setLast({ id, scenario })} />
       <div ref={resultRef} className="scroll-mt-20 space-y-6">
         {job && last ? (
           <>
             {last.scenario && <OutcomeCard job={job} scenario={last.scenario} />}
             <VerdictCard job={job} detailsTo={`${sectionPath(view.safe, "activity")}/${job.id}`} />
           </>
+        ) : last && status === "loading" ? (
+          <Skeleton className="h-72 w-full" />
+        ) : last && status === "unavailable" ? (
+          <Panel title="Job started">
+            <p role="status" className="text-sm text-soft">
+              The job is running, but its verdict could not be loaded just now. It will be in the activity log.
+            </p>
+            <Link to={`${sectionPath(view.safe, "activity")}/${last.id}`} className="mt-3 inline-block font-mono text-xs font-bold uppercase tracking-wider text-accent-text underline-offset-4 hover:underline">
+              Open job page
+            </Link>
+          </Panel>
         ) : (
           <WhatEachTestProves />
         )}

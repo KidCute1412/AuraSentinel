@@ -9,6 +9,15 @@ export function vaultRole(wallet: Address | null, owners: readonly Address[]): V
   return owners.some((o) => sameAddress(o, wallet)) ? "owner" : "viewer";
 }
 
+/**
+ * Who may press Run / attack on a /vaults/:safe page. The owner always; on the live API also anyone on the public demo
+ * vault, because the server already accepts guests there (api.md #10, #12: public when isDemo, throttled). The
+ * simulation keeps its owner-only rule. /demo itself lets everyone act (VaultDashboard mode "demo").
+ */
+export function canRunJobs(role: VaultRole, isDemo: boolean, source: "mock" | "live"): boolean {
+  return role === "owner" || (source === "live" && isDemo);
+}
+
 export type VaultSection = "overview" | "activity" | "policy" | "funds" | "red-team" | "settings";
 
 export const SECTION_LABEL: Record<VaultSection, string> = {

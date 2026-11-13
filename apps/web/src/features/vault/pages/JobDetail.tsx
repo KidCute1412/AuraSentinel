@@ -1,9 +1,8 @@
 import { ArrowLeft, Check, Link2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { fromAmount, type JobDetailDto } from "@agentshield/shared";
-import { useVaultSim } from "@/shared/api/mockChain";
-import { tokenByAddress, type VaultSim } from "@/shared/api/mockEngine";
+import { fromAmount, type JobDetailDto, type StateDto } from "@agentshield/shared";
+import { tokenMeta, useJobDetail, useVaultFeed, type VaultFeed } from "@/shared/api/vaultFeed";
 import type { VaultView } from "@/shared/api/vaultSource";
 import { formatPct, formatTokenAmount } from "@/shared/lib/format";
 import { timeAgo } from "@/shared/lib/time";
@@ -50,9 +49,9 @@ const signed = (v: bigint, decimals: number) => `${v > 0n ? "+" : ""}${formatTok
  * Balance rows for this job. The exact before/after is known for the latest confirmed swap; for older swaps the
  * simulation deltas still say what moved. A blocked job moved nothing, which is the point.
  */
-function balanceRows(job: JobDetailDto, sim: VaultSim): Row[] {
-  if (sim.lastChange?.jobId === job.id) {
-    const { before, after } = sim.lastChange;
+function balanceRows(job: JobDetailDto, state: StateDto | null, lastChange: VaultFeed["lastChange"]): Row[] {
+  if (lastChange?.jobId === job.id) {
+    const { before, after } = lastChange;
     return before.map((b) => {
       const a = after.find((x) => x.token === b.token) ?? b;
       const from = fromAmount(b.amount);
@@ -61,8 +60,9 @@ function balanceRows(job: JobDetailDto, sim: VaultSim): Row[] {
     });
   }
   if (!job.sim || !job.intent) return [];
-  const tIn = tokenByAddress(job.intent.tokenIn);
-  const tOut = tokenByAddress(job.intent.tokenOut);
+  // Symbols and decimals come from the chain-sourced state; without it the deltas cannot be shown honestly.
+  const tIn = tokenMeta(state, job.intent.tokenIn);
+  const tOut = tokenMeta(state, job.intent.tokenOut);
   if (!tIn || !tOut) return [];
   // Signed base units from the simulator; BigInt keeps them exact (display only).
   return [
@@ -71,13 +71,20 @@ function balanceRows(job: JobDetailDto, sim: VaultSim): Row[] {
   ];
 }
 
-function BalancePanel({ job, sim }: { job: JobDetailDto; sim: VaultSim }) {
-  const rows = balanceRows(job, sim);
+function BalancePanel({ job, feed }: { job: JobDetailDto; feed: VaultFeed }) {
+  const rows = balanceRows(job, feed.state, feed.lastChange);
   const exact = rows.some((r) => r.before !== null);
+  const noTokens = feed.state === null && job.status === "confirmed";
   return (
     <Panel title="Before / after">
       {rows.length === 0 ? (
-        <p className="text-sm text-soft">{job.status === "confirmed" ? "No balance data for this job." : "No funds moved. The vault balances are exactly as they were."}</p>
+        <p className="text-sm text-soft">
+          {noTokens
+            ? "Balance details need the vault's on-chain state, which is not available yet."
+            : job.status === "confirmed"
+              ? "No balance data for this job."
+              : "No funds moved. The vault balances are exactly as they were."}
+        </p>
       ) : (
         <table className="w-full text-sm">
           <caption className="sr-only">Vault balances around this job</caption>
@@ -112,14 +119,22 @@ function BalancePanel({ job, sim }: { job: JobDetailDto; sim: VaultSim }) {
 
 /** Shareable page for one job (ui-pages §10.2): the verdict with step times, what moved, then the raw facts. */
 export function JobDetail({ view, jobId }: { view: VaultView; jobId: string | undefined }) {
-  const sim = useVaultSim(view);
+  const feed = useVaultFeed(view);
+  const { job, status } = useJobDetail(view, jobId);
   const back = (
     <Link to={sectionPath(view.safe, "activity")} className="inline-flex min-h-10 items-center gap-2 font-bold text-accent-text underline-offset-4 hover:underline">
       <ArrowLeft aria-hidden className="size-4" /> All activity
     </Link>
   );
-  if (!sim) return <Skeleton className="h-96 w-full" />;
-  const job = sim.jobs.find((j) => j.id === jobId);
+  if (status === "loading") return <Skeleton className="h-96 w-full" />;
+  if (status === "unavailable") {
+    return (
+      <Panel title="Could not load this job">
+        <p role="alert" className="text-soft">The server did not answer. The job itself is not affected; reload the page in a moment.</p>
+        <div className="mt-4">{back}</div>
+      </Panel>
+    );
+  }
   if (!job) {
     return (
       <Panel title="Job not found">
@@ -128,8 +143,8 @@ export function JobDetail({ view, jobId }: { view: VaultView; jobId: string | un
       </Panel>
     );
   }
-  const tokenIn = job.intent ? tokenByAddress(job.intent.tokenIn) : undefined;
-  const tokenOut = job.intent ? tokenByAddress(job.intent.tokenOut) : undefined;
+  const tokenIn = job.intent ? tokenMeta(feed.state, job.intent.tokenIn) : undefined;
+  const tokenOut = job.intent ? tokenMeta(feed.state, job.intent.tokenOut) : undefined;
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -139,7 +154,7 @@ export function JobDetail({ view, jobId }: { view: VaultView; jobId: string | un
       <div className="grid grid-cols-[minmax(0,1fr)] gap-6 lg:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)]">
         <VerdictCard job={job} showTimes />
         <div className="space-y-6">
-          <BalancePanel job={job} sim={sim} />
+          <BalancePanel job={job} feed={feed} />
           <Panel title="Job facts">
             <dl className="space-y-3 text-sm">
               <div><dt className="mono-label">Id</dt><dd className="mt-1 break-all font-mono text-xs">{job.id}</dd></div>

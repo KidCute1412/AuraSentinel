@@ -1,4 +1,4 @@
-import { useVaultSim } from "@/shared/api/mockChain";
+import { useVaultFeed } from "@/shared/api/vaultFeed";
 import type { VaultView } from "@/shared/api/vaultSource";
 import { AddressChip } from "@/shared/ui/AddressChip";
 import { SnowtraceLink } from "@/shared/ui/SnowtraceLink";
@@ -29,8 +29,9 @@ interface Props {
 
 /** Identity + state of the vault, shown on every page of it. */
 export function VaultHeader({ view, role, compactKill, sandbox }: Props) {
-  const sim = useVaultSim(view);
-  const status = vaultStatus(view, sim?.state.isActive);
+  const feed = useVaultFeed(view);
+  // Live data without a readable state: say "unknown" rather than claim the vault is protected.
+  const status = feed.source === "live" && !feed.state ? "unknown" : vaultStatus(view, feed.state?.isActive);
   return (
     <header className="flex flex-col gap-4 border border-line bg-surface p-4 shadow-hard sm:flex-row sm:items-center sm:justify-between sm:p-5">
       <div className="min-w-0 space-y-3">
@@ -41,10 +42,12 @@ export function VaultHeader({ view, role, compactKill, sandbox }: Props) {
           {view.isDemo && <span className="border border-line-strong px-2 py-0.5 font-mono text-[11px] font-bold uppercase tracking-widest text-soft">Demo</span>}
         </div>
         <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-soft">
-          <span className="inline-flex items-center gap-2">
-            <span className="mono-label">Agent</span>
-            <AddressChip address={view.agent} />
-          </span>
+          {view.agent && (
+            <span className="inline-flex items-center gap-2">
+              <span className="mono-label">Agent</span>
+              <AddressChip address={view.agent} />
+            </span>
+          )}
           <SnowtraceLink kind="address" value={view.safe} />
           <span className="font-mono text-xs uppercase tracking-widest text-muted">{sandbox ? "Public sandbox" : ROLE_TEXT[role]}</span>
         </div>

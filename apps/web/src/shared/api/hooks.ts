@@ -1,4 +1,4 @@
-import type { CreateAttackRequest } from "@agentshield/shared";
+import { JOB_TERMINAL_STATUSES, type CreateAttackRequest } from "@agentshield/shared";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { applyServerEvent } from "./cache";
@@ -25,21 +25,36 @@ export function useVaultState(safe: string | null | undefined) {
   });
 }
 
+/** Jobs per page: the server's maximum (api.md #9), so the activity page rarely needs a second page. */
+export const JOBS_PAGE_SIZE = 100;
+
 /** First page of jobs (newest first). `job.updated` events upsert into it. */
 export function useJobs(safe: string | null | undefined) {
   return useQuery({
     queryKey: queryKeys.vaultJobs(safe ?? ""),
-    queryFn: ({ signal }) => getJobs(safe as string, {}, signal),
+    queryFn: ({ signal }) => getJobs(safe as string, { limit: JOBS_PAGE_SIZE }, signal),
     enabled: Boolean(safe),
   });
 }
 
-/** One job with its audit trail. */
-export function useJob(id: string | null | undefined) {
+/** While a job runs, poll this often as a safety net in case the SSE stream is down. */
+export const JOB_POLL_MS = 2_000;
+
+/**
+ * One job with its audit trail. With `pollWhileRunning` it also refetches every JOB_POLL_MS until the job reaches a
+ * terminal status, so a verdict still shows up when the SSE stream is down (the demo must never hang on "Auditing").
+ */
+export function useJob(id: string | null | undefined, options: { pollWhileRunning?: boolean } = {}) {
+  const { pollWhileRunning = false } = options;
   return useQuery({
     queryKey: queryKeys.job(id ?? ""),
     queryFn: ({ signal }) => getJob(id as string, signal),
     enabled: Boolean(id),
+    refetchInterval: (query) => {
+      if (!pollWhileRunning || query.state.error) return false;
+      const status = query.state.data?.status;
+      return status && JOB_TERMINAL_STATUSES.includes(status) ? false : JOB_POLL_MS;
+    },
   });
 }
 

@@ -1,8 +1,9 @@
 import { Check, ChevronLeft, ChevronRight, ChevronRightSquare } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
-import { useVaultSim } from "@/shared/api/mockChain";
 import { reasonTitle } from "@/shared/api/mockEngine";
+import { JOBS_PAGE_SIZE } from "@/shared/api/hooks";
+import { useVaultFeed } from "@/shared/api/vaultFeed";
 import type { VaultView } from "@/shared/api/vaultSource";
 import { cn } from "@/shared/lib/cn";
 import { timeAgo } from "@/shared/lib/time";
@@ -10,7 +11,7 @@ import { Panel } from "@/shared/ui/Panel";
 import { Skeleton } from "@/shared/ui/Skeleton";
 import { StatusBadge } from "@/shared/ui/StatusBadge";
 import { jobLabel } from "../components/JobHistory";
-import { sectionPath, type VaultRole } from "../guards/access";
+import { canRunJobs, sectionPath, type VaultRole } from "../guards/access";
 import { activityParams, filterJobs, hasFilter, parseActivityFilter, type ActivityFilter, type ActivityStatus, type ActivityType } from "../lib/activity";
 
 const STATUS_OPTIONS: { value: ActivityStatus | null; label: string }[] = [
@@ -51,14 +52,16 @@ function FilterGroup<T extends string>({ label, options, value, onPick }: { labe
  * view can be shared. Rows open the job page. New jobs slide in at the top without moving what is already on screen.
  */
 export function Activity({ view, role }: { view: VaultView; role: VaultRole }) {
-  const sim = useVaultSim(view);
+  const feed = useVaultFeed(view);
+  const ready = feed.jobsStatus === "ready";
+  const canAct = canRunJobs(role, view.isDemo, feed.source);
   const [params, setParams] = useSearchParams();
   const filter = parseActivityFilter(params);
   // Ids on screen at first paint: only jobs that arrive later get the slide-in.
   const [known, setKnown] = useState<ReadonlySet<string> | null>(null);
   useEffect(() => {
-    if (sim && known === null) setKnown(new Set(sim.jobs.map((j) => j.id)));
-  }, [sim, known]);
+    if (ready && known === null) setKnown(new Set(feed.jobs.map((j) => j.id)));
+  }, [ready, feed.jobs, known]);
 
   if (!(view.chain.moduleEnabled && view.chain.policyActive)) {
     return (
@@ -67,11 +70,20 @@ export function Activity({ view, role }: { view: VaultView; role: VaultRole }) {
       </Panel>
     );
   }
-  if (!sim) return <Skeleton className="h-96 w-full" />;
+  if (feed.jobsStatus === "unavailable") {
+    return (
+      <Panel title="Activity">
+        <p role="alert" className="text-soft">Could not load the activity from the server. Nothing is wrong with the vault itself; this is a display problem only.</p>
+        <button type="button" onClick={feed.refetch} className="mt-4 min-h-10 border border-line-strong px-4 font-bold hover:bg-hover">Try again</button>
+      </Panel>
+    );
+  }
+  if (!ready) return <Skeleton className="h-96 w-full" />;
+  const jobs = feed.jobs;
 
   const go = (next: ActivityFilter) => setParams(activityParams(next));
   const pick = (patch: Partial<ActivityFilter>) => go({ ...filter, ...patch, page: 1 });
-  const page = filterJobs(sim.jobs, filter);
+  const page = filterJobs(jobs, filter);
   const jobHref = (id: string) => `${sectionPath(view.safe, "activity")}/${id}`;
 
   return (
@@ -86,12 +98,12 @@ export function Activity({ view, role }: { view: VaultView; role: VaultRole }) {
         )}
       </div>
 
-      {sim.jobs.length === 0 ? (
+      {jobs.length === 0 ? (
         <div className="py-10 text-center">
           <p className="font-bold">No activity yet</p>
           <p className="mt-1 text-sm text-soft">Jobs show up here as soon as the agent or a red-team test starts one.</p>
-          <Link to={sectionPath(view.safe, role === "owner" ? "red-team" : "overview")} className="mt-4 inline-block font-bold text-accent-text underline underline-offset-4">
-            {role === "owner" ? "Run a rebalance or an attack" : "Back to the overview"}
+          <Link to={sectionPath(view.safe, canAct ? "red-team" : "overview")} className="mt-4 inline-block font-bold text-accent-text underline underline-offset-4">
+            {canAct ? "Run a rebalance or an attack" : "Back to the overview"}
           </Link>
         </div>
       ) : page.total === 0 ? (
@@ -141,6 +153,9 @@ export function Activity({ view, role }: { view: VaultView; role: VaultRole }) {
             Older <ChevronRight aria-hidden className="size-4" />
           </button>
         </nav>
+      )}
+      {feed.hasMoreJobs && (
+        <p className="mt-4 border-t border-line pt-3 font-mono text-xs text-muted">Showing the latest {JOBS_PAGE_SIZE} jobs. Older jobs are kept on the server.</p>
       )}
     </Panel>
   );

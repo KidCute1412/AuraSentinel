@@ -8,6 +8,8 @@ export {
   getJobs,
   getRebalancerStatus,
   getSession,
+  getVault,
+  getVaults,
   getVaultState,
   setRebalancerPaused,
   vaultEventsUrl,
