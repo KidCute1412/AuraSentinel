@@ -15,6 +15,13 @@
       "when": 1794581231479,
       "tag": "0001_a6_jobs_vault",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1794584333194,
+      "tag": "0002_a8_vaults",
+      "breakpoints": true
     }
   ]
 }

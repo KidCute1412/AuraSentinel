@@ -1,4 +1,4 @@
-import type { StateDto, VaultDto } from '@agentshield/shared';
+import type { StateDto, VaultDto, VaultListDto } from '@agentshield/shared';
 import { Inject, Injectable, Logger } from '@nestjs/common';
 import { getAddress, type Address, type PublicClient } from 'viem';
 import { ERC20_ABI, POLICY_MODULE_ABI } from '../../core/chain/abis';
@@ -33,6 +33,20 @@ export class VaultService {
     private readonly registry: VaultRegistryService,
     private readonly policy: PolicyService,
   ) {}
+
+  /** GET /vaults (api.md #5): the registry. Policy/spend are never here (P1). */
+  async listVaults(): Promise<VaultListDto> {
+    const rows = await this.registry.list();
+    const vaults = await Promise.all(
+      rows.map(async (r) => {
+        // The env demo vault before the indexer saw it: owner comes from the module itself.
+        const owner = r.owner ? getAddress(r.owner) : await this.getVault(r.safe as Address).then((v) => v.owner, () => null);
+        if (!owner) return null;
+        return { safe: getAddress(r.safe), module: getAddress(r.module), owner, isDemo: r.isDemo, createdAtBlock: r.createdAtBlock.toString() };
+      }),
+    );
+    return { vaults: vaults.filter((v): v is NonNullable<typeof v> => v !== null) };
+  }
 
   /** GET /vaults/{safe} (api.md #6): who owns and runs the vault, read from the module. */
   async getVault(safe: Address): Promise<VaultDto> {

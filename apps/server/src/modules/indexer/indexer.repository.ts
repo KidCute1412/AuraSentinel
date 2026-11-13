@@ -20,7 +20,9 @@ export class IndexerRepository {
       .onConflictDoUpdate({ target: chainCursor.id, set: { lastBlock } });
   }
 
-  insertEvent(e: typeof chainEvents.$inferInsert) {
-    return this.db.insert(chainEvents).values(e).onConflictDoNothing();
+  /** Idempotent on (txHash, logIndex): true only the first time, so a re-read range publishes nothing twice. */
+  async insertEvent(e: typeof chainEvents.$inferInsert): Promise<boolean> {
+    const rows = await this.db.insert(chainEvents).values(e).onConflictDoNothing().returning({ id: chainEvents.id });
+    return rows.length > 0;
   }
 }
