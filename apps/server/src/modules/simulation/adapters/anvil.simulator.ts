@@ -2,7 +2,6 @@ import { toAmount, toSignedAmount, type ReasonCode } from '@agentshield/shared';
 import { Logger, type OnModuleDestroy } from '@nestjs/common';
 import {
   createTestClient,
-  encodeFunctionData,
   http,
   isAddressEqual,
   parseEther,
@@ -13,7 +12,8 @@ import {
   type Hex,
 } from 'viem';
 import { avalancheFuji } from 'viem/chains';
-import { ERC20_ABI, POLICY_MODULE_ABI, SWAP_DEADLINE_SECONDS, SWAP_GAS } from '../../../core/chain/abis';
+import { ERC20_ABI, POLICY_MODULE_ABI, SWAP_GAS } from '../../../core/chain/abis';
+import { encodeGuardedSwap, swapDeadline } from '../../../core/chain/swap-calldata';
 import { decodeRevert } from '../../../core/chain/revert-decoder';
 import { Mutex } from '../../../core/mutex';
 import type { SimResult, SwapIntent } from '../../../core/types';
@@ -180,11 +180,7 @@ export class AnvilSimulator implements SimulatorPort, OnModuleDestroy {
     });
     const agent = target.agent ?? agentSigner;
     const block = await c.getBlock();
-    const data = encodeFunctionData({
-      abi: POLICY_MODULE_ABI,
-      functionName: 'executeGuardedSwap',
-      args: [intent.tokenIn, intent.tokenOut, intent.amountIn, intent.minAmountOut, block.timestamp + SWAP_DEADLINE_SECONDS],
-    });
+    const data = encodeGuardedSwap(intent, swapDeadline(block.timestamp));
     const watched = this.watchList(intent, target);
     const before = await this.balances(intent, target.safe, watched);
 

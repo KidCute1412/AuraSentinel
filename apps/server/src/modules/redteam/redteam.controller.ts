@@ -31,7 +31,7 @@ export interface AttackJobData {
  * POST /vaults/{safe}/attacks (api.md #12). The client only picks the scenario; amounts and
  * recipients are fixed in the scenario files. Shield 1 attacks go through the normal swap queue
  * so the Auditor must stop them; on-chain attacks go to the attack queue for the worker.
- * TODO(A3/A9): /api/v1 prefix, problem+json filter, throttle + cooldown for the demo vault.
+ * TODO(A9): problem+json filter, throttle + cooldown for the demo vault.
  */
 @Controller('vaults/:safe/attacks')
 export class RedteamController {
@@ -74,10 +74,10 @@ export class RedteamController {
     const kind = `attack:${req.data.scenario}`;
     let jobId: string;
     if (plan.mode === 'shield1') {
-      jobId = await this.swapQueue.enqueue(kind, plan.intent, { untrustedText: plan.untrustedText });
+      jobId = await this.swapQueue.enqueue(safe.data, kind, plan.intent, { untrustedText: plan.untrustedText });
     } else {
       const scenario = req.data.scenario as AttackJobData['scenario'];
-      const row = await this.jobs.create(kind);
+      const row = await this.jobs.create(safe.data, kind);
       jobId = row.id;
       await this.attacks.add(scenario, { jobId, vault: safe.data, scenario }, { jobId });
     }

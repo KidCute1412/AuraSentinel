@@ -16,9 +16,13 @@ export const jobs = pgTable(
   'jobs',
   {
     id: uuid('id').primaryKey().defaultRandom(),
+    /** Safe address (lowercase). Default only covers rows created before multi-vault (A6). */
+    vault: text('vault').notNull().default('0x0000000000000000000000000000000000000000'),
     kind: text('kind').notNull(), // 'rebalance' | 'attack:<scenario>'
     status: jobStatus('status').notNull().default('queued'),
     intent: jsonb('intent'),
+    /** Shield 1 step (a): { ok, reasons }. Null until precheck ran. */
+    precheck: jsonb('precheck'),
     simResult: jsonb('sim_result'),
     explanation: jsonb('explanation'),
     reasonCode: text('reason_code'),
@@ -26,5 +30,5 @@ export const jobs = pgTable(
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
   },
-  (t) => [index('jobs_created_at_idx').on(t.createdAt)],
+  (t) => [index('jobs_created_at_idx').on(t.createdAt), index('jobs_vault_created_at_idx').on(t.vault, t.createdAt)],
 );
