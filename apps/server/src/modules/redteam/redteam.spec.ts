@@ -177,7 +177,7 @@ describe('RedteamController: POST /vaults/{safe}/attacks', () => {
 describe('RedteamProcessor', () => {
   const TX = `0x${'ab'.repeat(32)}` as const;
   const make = (sendRaw: ReturnType<typeof vi.fn>, e: Env = env) => {
-    const jobs = { transition: vi.fn().mockResolvedValue(undefined) };
+    const jobs = { transition: vi.fn().mockResolvedValue(undefined), recordShield: vi.fn().mockResolvedValue(undefined) };
     const sender = { address: AGENT, sendSwap: vi.fn(), sendRaw };
     return { jobs, sendRaw, p: new RedteamProcessor(jobs as never, e, sender as never) };
   };
@@ -186,12 +186,16 @@ describe('RedteamProcessor', () => {
     const { p, jobs, sendRaw } = make(
       vi.fn().mockResolvedValue({ txHash: TX, status: 'reverted', blockNumber: 1n, revertReason: 'ExceedsPerTxCap' }),
     );
-    await p.process({ data: { jobId: JOB_ID, vault: SAFE, scenario: 'bypass' } } as never);
+    const out = await p.process({ data: { jobId: JOB_ID, vault: SAFE, scenario: 'bypass' } } as never);
+    // BullMQ stores the return value with JSON.stringify: a bigint in it would throw.
+    expect(() => JSON.stringify(out)).not.toThrow();
+    expect(out).toEqual({ txHash: TX, status: 'reverted', revertReason: 'ExceedsPerTxCap' });
     const call = sendRaw.mock.calls[0]?.[0];
     expect(call?.to).toBe(MODULE);
     expect(call?.gas).toBe(ATTACK_GAS);
     expect(jobs.transition).toHaveBeenNthCalledWith(1, JOB_ID, 'broadcasting');
     expect(jobs.transition).toHaveBeenLastCalledWith(JOB_ID, 'reverted', { txHash: TX, reasonCode: 'ExceedsPerTxCap' });
+    expect(jobs.recordShield).toHaveBeenCalledWith(JOB_ID, 'onchain', 'fail', 'ExceedsPerTxCap');
   });
 
   it('flags an attack that was not reverted as confirmed (security alarm), never hides it', async () => {

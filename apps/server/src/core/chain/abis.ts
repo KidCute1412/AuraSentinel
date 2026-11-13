@@ -14,6 +14,12 @@ export const POLICY_MODULE_ABI = parseAbi([
   'function whitelistedTokens() view returns (address[])',
   'function policyEpoch() view returns (uint256)',
   'function safe() view returns (address)',
+  'function owner() view returns (address)',
+  // contracts.md §5: events the indexer reads.
+  'event GuardedSwap(address indexed tokenIn, address indexed tokenOut, uint256 amountIn, uint256 amountOut, uint256 dayId, uint256 spentToday)',
+  'event PolicyRevoked(address indexed by, uint64 at)',
+  'struct Limits { uint128 maxPerTx; uint128 dailyCap; }',
+  'event PolicySet(address indexed agentSigner, uint256 epoch, address router, uint64 expiry, bool isActive, address[] tokens, Limits[] limits)',
   // contracts.md §4: one custom error per gate. Names must match REASONS in shared/errors.ts.
   'error UnauthorizedAgent()',
   'error PolicyInactive()',
@@ -58,3 +64,7 @@ export const SWAP_DEADLINE_SECONDS = 300n;
  * swap fails in the sim first.
  */
 export const SWAP_GAS = 700_000n;
+
+export const FACTORY_ABI = parseAbi([
+  'event ModuleDeployed(address indexed safe, address indexed module, address indexed owner)',
+]);

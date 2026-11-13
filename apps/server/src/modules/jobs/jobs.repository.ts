@@ -1,5 +1,5 @@
 import { Inject, Injectable } from '@nestjs/common';
-import { and, asc, desc, eq, lt, or, type SQL } from 'drizzle-orm';
+import { and, asc, desc, eq, inArray, isNotNull, lt, or, type SQL } from 'drizzle-orm';
 import { DRIZZLE, type Database } from '../../core/database/database.module';
 import { auditLog, jobs } from '../../core/database/schema';
 import type { JobStatus } from '../../core/types';
@@ -52,6 +52,35 @@ export class JobsRepository {
       .where(and(...where))
       .orderBy(desc(jobs.createdAt), desc(jobs.id))
       .limit(limit + 1);
+  }
+
+  /** Mined transactions Shield 2 reverted, newest first (GET /proof blockedTxs). */
+  reverted(limit: number) {
+    return this.db
+      .select({ txHash: jobs.txHash, reasonCode: jobs.reasonCode, at: jobs.updatedAt })
+      .from(jobs)
+      .where(and(eq(jobs.status, 'reverted'), isNotNull(jobs.txHash)))
+      .orderBy(desc(jobs.updatedAt))
+      .limit(limit);
+  }
+
+  /** Latest jobs that reached the chain, with their broadcasting and terminal audit rows. */
+  async minedTimings(limit: number) {
+    const mined = await this.db
+      .select({ id: jobs.id })
+      .from(jobs)
+      .where(and(inArray(jobs.status, ['confirmed', 'reverted']), isNotNull(jobs.txHash)))
+      .orderBy(desc(jobs.updatedAt))
+      .limit(limit);
+    if (mined.length === 0) return [];
+    const rows = await this.db
+      .select({ jobId: auditLog.jobId, step: auditLog.step, at: auditLog.at })
+      .from(auditLog)
+      .where(and(inArray(auditLog.jobId, mined.map((m) => m.id)), inArray(auditLog.step, ['broadcasting', 'confirmed', 'reverted'])));
+    return mined.map((m) => ({
+      sentAt: rows.find((r) => r.jobId === m.id && r.step === 'broadcasting')?.at,
+      minedAt: rows.find((r) => r.jobId === m.id && r.step !== 'broadcasting')?.at,
+    }));
   }
 
   async get(id: string) {

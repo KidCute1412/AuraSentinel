@@ -33,12 +33,22 @@ export const envSchema = z.object({
   POLICY_MODULE_ADDRESS: address.optional(),
   TOKEN_A_ADDRESS: address.optional(),
   TOKEN_B_ADDRESS: address.optional(),
+  /** AgentShieldFactory: the indexer reads ModuleDeployed from it to fill the vault registry. */
+  FACTORY_ADDRESS: address.optional(),
+  /** First block to index when there is no cursor yet (factory deploy block). Unset: start at the head. */
+  INDEXER_START_BLOCK: z.coerce.bigint().nonnegative().optional(),
+  INDEXER_POLL_MS: z.coerce.number().int().positive().default(1_000),
+  /** Blocks per eth_getLogs call. The public Fuji RPC allows 100; a dedicated RPC allows more. */
+  INDEXER_MAX_SPAN: z.coerce.bigint().positive().default(100n),
 
   GEMINI_API_KEY: z.string().optional(),
   GEMINI_MODEL: z.string().default('gemini-2.5-flash'),
   EXPLAINER_TIMEOUT_MS: z.coerce.number().int().positive().default(2000),
   /** Max Gemini calls per minute; above it the explainer uses the template (free tier is ~10 RPM). */
   GEMINI_RPM: z.coerce.number().int().positive().default(10),
+
+  /** Contract test summary written by the L5 CI job; GET /proof reads it. */
+  PROOF_TESTS_FILE: z.string().default('../../packages/contracts/proof/tests.json'),
 
   REBALANCE_INTERVAL_MS: z.coerce.number().int().positive().default(15_000),
 });

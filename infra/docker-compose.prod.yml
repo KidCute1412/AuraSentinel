@@ -1,0 +1,163 @@
+name: agentshield-prod
+
+# Whole demo on one laptop (D14): no VPS, no TLS, no domain.
+#   cp infra/.env.prod.example infra/.env.prod   # fill it in (never the owner key)
+#   docker compose -f infra/docker-compose.prod.yml --env-file infra/.env.prod up -d --build --wait
+# Open http://localhost:${WEB_PORT:-8080}. Only the web port is published; everything else stays
+# on the compose network.
+
+x-server-env: &server-env
+  NODE_ENV: production
+  LOG_LEVEL: ${LOG_LEVEL:-info}
+  DATABASE_URL: postgres://${POSTGRES_USER:-agentshield}:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-agentshield}
+  REDIS_URL: redis://redis:6379
+  FUJI_RPC_URLS: ${FUJI_RPC_URLS:?set FUJI_RPC_URLS}
+  ANVIL_RPC_URL: http://anvil:8545
+  SAFE_ADDRESS: ${SAFE_ADDRESS:-}
+  POLICY_MODULE_ADDRESS: ${POLICY_MODULE_ADDRESS:-}
+  TOKEN_A_ADDRESS: ${TOKEN_A_ADDRESS:-}
+  TOKEN_B_ADDRESS: ${TOKEN_B_ADDRESS:-}
+  FACTORY_ADDRESS: ${FACTORY_ADDRESS:-}
+  INDEXER_START_BLOCK: ${INDEXER_START_BLOCK:-}
+  INDEXER_MAX_SPAN: ${INDEXER_MAX_SPAN:-100}
+  GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+  GEMINI_RPM: ${GEMINI_RPM:-10}
+  REBALANCE_INTERVAL_MS: ${REBALANCE_INTERVAL_MS:-15000}
+
+x-server-build: &server-build
+  context: ..
+  dockerfile: infra/server.Dockerfile
+
+services:
+  postgres:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-agentshield}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB:-agentshield}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    # BullMQ requires noeviction; AOF so queued jobs survive a restart.
+    command: ["redis-server", "--appendonly", "yes", "--maxmemory-policy", "noeviction"]
+    volumes:
+      - redisdata:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  # Fork of Fuji used by Shield 1 simulation only; real transactions go to FUJI_RPC_URLS.
+  anvil:
+    build:
+      context: .
+      dockerfile: anvil.Dockerfile
+    restart: unless-stopped
+    environment:
+      FORK_URL: ${FORK_URL:?set FORK_URL (a Fuji RPC URL)}
+    healthcheck:
+      test: ["CMD", "cast", "block-number", "--rpc-url", "http://127.0.0.1:8545"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 10s
+
+  migrate:
+    build: *server-build
+    image: agentshield-server:prod
+    command: ["node", "dist/migrate.js"]
+    environment:
+      DATABASE_URL: postgres://${POSTGRES_USER:-agentshield}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-agentshield}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: "no"
+
+  api:
+    image: agentshield-server:prod
+    restart: unless-stopped
+    command: ["node", "dist/main.api.js"]
+    # No AGENT_PRIVATE_KEY: the HTTP process never holds a key (P4, invariant 5).
+    environment:
+      <<: *server-env
+      API_PORT: "4000"
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:4000/api/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 10s
+
+  worker:
+    image: agentshield-server:prod
+    restart: unless-stopped
+    command: ["node", "dist/main.worker.js"]
+    # The only service with the agent SESSION key. The owner key never appears anywhere.
+    environment:
+      <<: *server-env
+      AGENT_PRIVATE_KEY: ${AGENT_PRIVATE_KEY:-}
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+      anvil:
+        condition: service_healthy
+
+  web:
+    build:
+      context: ..
+      dockerfile: infra/web.Dockerfile
+      args:
+        VITE_FUJI_RPC_URL: ${VITE_FUJI_RPC_URL:-https://api.avax-test.network/ext/bc/C/rpc}
+        VITE_WALLETCONNECT_PROJECT_ID: ${VITE_WALLETCONNECT_PROJECT_ID:-}
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:${WEB_PORT:-8080}:80"
+    depends_on:
+      api:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1/"]
+      interval: 10s
+      timeout: 3s
+      retries: 6
+
+  # Uptime + Telegram alerts (A10). Opt-in: add --profile monitoring to the up command.
+  watchdog:
+    image: node:22-alpine
+    profiles: ["monitoring"]
+    restart: unless-stopped
+    command: ["node", "/watchdog/watchdog.mjs"]
+    volumes:
+      - ./watchdog:/watchdog:ro
+    # Public data only: the health JSON and the agent ADDRESS. No key.
+    environment:
+      HEALTH_URL: http://api:4000/api/health
+      FUJI_RPC_URLS: ${FUJI_RPC_URLS}
+      AGENT_ADDRESS: ${AGENT_ADDRESS:-}
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-}
+      TELEGRAM_CHAT_ID: ${TELEGRAM_CHAT_ID:-}
+      WATCH_INTERVAL_MS: ${WATCH_INTERVAL_MS:-30000}
+    depends_on:
+      api:
+        condition: service_started
+
+volumes:
+  pgdata:
+  redisdata:

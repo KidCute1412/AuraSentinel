@@ -5,7 +5,9 @@ import { BullModule } from '@nestjs/bullmq';
 import { Module } from '@nestjs/common';
 import { CoreModule } from './core/core.module';
 import { QUEUES } from './core/queue/queue.constants';
+import { HealthModule } from './modules/health/health.module';
 import { JobsModule } from './modules/jobs/jobs.module';
+import { ProofModule } from './modules/proof/proof.module';
 import { RealtimeModule } from './modules/realtime/realtime.module';
 import { RebalancerApiModule } from './modules/rebalancer/rebalancer-api.module';
 import { RedteamApiModule } from './modules/redteam/redteam-api.module';
@@ -20,8 +22,10 @@ import { VaultModule } from './modules/vault/vault.module';
     BullBoardModule.forFeature(
       ...Object.values(QUEUES).map((name) => ({ name, adapter: BullMQAdapter })),
     ),
+    HealthModule,
     VaultModule,
     JobsModule,
+    ProofModule,
     RealtimeModule,
     RebalancerApiModule,
     RedteamApiModule,

@@ -33,6 +33,8 @@ jobs:
           fetch-depth: 0 # gitleaks scans full history
       - run: bash scripts/check-invariants.sh
       - run: node scripts/sync-skills.mjs --check
+      - name: Watchdog alert logic
+        run: node --test infra/watchdog/watchdog.test.mjs
       - uses: gitleaks/gitleaks-action@v2
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -158,16 +160,46 @@ jobs:
           cache: pnpm
       - if: steps.has.outputs.present == 'true'
         run: pnpm install --frozen-lockfile
-      - name: Start Anvil fork of Fuji
+      # Three nodes: 8545 = "Fuji" (fork, real contracts deployed below), 8546 = the simulator's
+      # fork of 8545 (the server resets it), 18545 = a plain node for the mock-module spec.
+      - name: Start Anvil nodes
         if: steps.has.outputs.present == 'true'
         run: |
           anvil --fork-url https://api.avax-test.network/ext/bc/C/rpc --chain-id 43113 --port 8545 > anvil.log 2>&1 &
-          for i in $(seq 1 30); do cast block-number --rpc-url "$RPC_URL" && exit 0; sleep 2; done
-          cat anvil.log; exit 1
+          for i in $(seq 1 30); do cast block-number --rpc-url "$RPC_URL" && break; sleep 2; done
+          cast block-number --rpc-url "$RPC_URL" || { cat anvil.log; exit 1; }
+          anvil --fork-url "$RPC_URL" --chain-id 43113 --port 8546 > anvil-sim.log 2>&1 &
+          anvil --chain-id 43113 --port 18545 > anvil-plain.log 2>&1 &
+          for p in 8546 18545; do
+            for i in $(seq 1 30); do cast block-number --rpc-url "http://127.0.0.1:$p" && break; sleep 1; done
+          done
+      # Same L4 scripts and Anvil dev keys as deploy-dry-run: #0 owner, #1 agent.
+      - name: Deploy contracts with the L4 scripts
+        if: steps.has.outputs.present == 'true'
+        working-directory: packages/contracts
+        env:
+          DEPLOYMENT: fork
+          OWNER_KEY: "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80"
+          AGENT_ADDRESS: "0x70997970C51812dc3A010C7d01b50e0d17dc79C8"
+        run: |
+          forge script script/Deploy.s.sol --rpc-url "$RPC_URL" --private-key "$OWNER_KEY" --broadcast
+          forge script script/SetupPool.s.sol --rpc-url "$RPC_URL" --private-key "$OWNER_KEY" --broadcast
+          VAULT=public forge script script/CreateVault.s.sol --rpc-url "$RPC_URL" --private-key "$OWNER_KEY" --broadcast
+          cat deployments/fork.json
       - if: steps.has.outputs.present == 'true'
         run: pnpm turbo run build --filter=server...
-      - if: steps.has.outputs.present == 'true'
+      # e2e boots the compiled server (dist/) against the deployed contracts; see test/e2e/pipeline.e2e.spec.ts.
+      - name: Integration + e2e
+        if: steps.has.outputs.present == 'true'
         run: pnpm --filter server test:integration
+        env:
+          E2E_DEPLOYMENT: ${{ github.workspace }}/packages/contracts/deployments/fork.json
+          E2E_CHAIN_URL: http://127.0.0.1:8545
+          E2E_SIM_URL: http://127.0.0.1:8546
+          ANVIL_TEST_URL: http://127.0.0.1:18545
+      - name: Anvil logs on failure
+        if: failure() && steps.has.outputs.present == 'true'
+        run: tail -n 50 anvil.log anvil-sim.log anvil-plain.log
 
   # Demo runs from compose, so the images must keep building.
   docker:
@@ -179,15 +211,32 @@ jobs:
         run: docker compose -f infra/docker-compose.yml build
         env:
           FORK_URL: https://api.avax-test.network/ext/bc/C/rpc
-      - name: Build prod compose (once it exists)
-        run: |
-          if [ -f infra/docker-compose.prod.yml ]; then
-            docker compose -f infra/docker-compose.prod.yml build
-          else
-            echo "infra/docker-compose.prod.yml not present yet, skipping"
-          fi
+      - name: Build prod compose
+        run: docker compose -f infra/docker-compose.prod.yml build
         env:
           FORK_URL: https://api.avax-test.network/ext/bc/C/rpc
+          FUJI_RPC_URLS: https://api.avax-test.network/ext/bc/C/rpc
+          POSTGRES_PASSWORD: ci-only
+      # Smoke: migrations apply, the API answers health, nginx serves the SPA and proxies /api.
+      # Only api + web: the worker refuses to start in production without a session key (by design).
+      - name: Smoke prod compose (api + web)
+        run: |
+          docker compose -f infra/docker-compose.prod.yml up -d --wait api web
+          curl -fsS http://localhost:8080/api/health
+          curl -fsS -o /dev/null http://localhost:8080/
+          curl -fsS -o /dev/null http://localhost:8080/demo
+          test "$(curl -s -o /dev/null -w '%{http_code}' http://localhost:8080/api/v1/jobs/00000000-0000-4000-8000-000000000000)" = 404
+        env:
+          FORK_URL: https://api.avax-test.network/ext/bc/C/rpc
+          FUJI_RPC_URLS: https://api.avax-test.network/ext/bc/C/rpc
+          POSTGRES_PASSWORD: ci-only
+      - name: Logs on failure
+        if: failure()
+        run: docker compose -f infra/docker-compose.prod.yml logs --no-color --tail 100
+        env:
+          FORK_URL: https://api.avax-test.network/ext/bc/C/rpc
+          FUJI_RPC_URLS: https://api.avax-test.network/ext/bc/C/rpc
+          POSTGRES_PASSWORD: ci-only
 
   # L4: the exact Fuji deploy sequence (scripts in packages/contracts/script) on an Anvil fork of Fuji, so the real
   # deploy only runs scripts that already worked against the real Trader Joe router and Safe v1.4.1 contracts.
