@@ -33,6 +33,8 @@ jobs:
           fetch-depth: 0 # gitleaks scans full history
       - run: bash scripts/check-invariants.sh
       - run: node scripts/sync-skills.mjs --check
+      - name: Watchdog alert logic
+        run: node --test infra/watchdog/watchdog.test.mjs
       - uses: gitleaks/gitleaks-action@v2
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

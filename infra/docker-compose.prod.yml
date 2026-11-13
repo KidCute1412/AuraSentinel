@@ -138,6 +138,26 @@ services:
       timeout: 3s
       retries: 6
 
+  # Uptime + Telegram alerts (A10). Opt-in: add --profile monitoring to the up command.
+  watchdog:
+    image: node:22-alpine
+    profiles: ["monitoring"]
+    restart: unless-stopped
+    command: ["node", "/watchdog/watchdog.mjs"]
+    volumes:
+      - ./watchdog:/watchdog:ro
+    # Public data only: the health JSON and the agent ADDRESS. No key.
+    environment:
+      HEALTH_URL: http://api:4000/api/health
+      FUJI_RPC_URLS: ${FUJI_RPC_URLS}
+      AGENT_ADDRESS: ${AGENT_ADDRESS:-}
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-}
+      TELEGRAM_CHAT_ID: ${TELEGRAM_CHAT_ID:-}
+      WATCH_INTERVAL_MS: ${WATCH_INTERVAL_MS:-30000}
+    depends_on:
+      api:
+        condition: service_started
+
 volumes:
   pgdata:
   redisdata:
