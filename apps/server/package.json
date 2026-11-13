@@ -9,6 +9,7 @@
     "build": "nest build",
     "start:api": "node dist/main.api.js",
     "start:worker": "node dist/main.worker.js",
+    "start:migrate": "node dist/migrate.js",
     "typecheck": "tsc --noEmit",
     "lint": "eslint src",
     "test": "vitest run",

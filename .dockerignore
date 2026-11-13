@@ -1,0 +1,19 @@
+**/node_modules
+**/dist
+**/.turbo
+**/*.tsbuildinfo
+**/coverage
+.git
+.github
+.claude
+.agents
+docs
+# secrets: env files never enter an image (the owner key must never exist anywhere near here)
+**/.env
+**/.env.*
+!**/.env.example
+# contracts are not part of the runtime images
+packages/contracts/lib
+packages/contracts/out
+packages/contracts/cache
+packages/contracts/broadcast

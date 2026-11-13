@@ -179,15 +179,32 @@ jobs:
         run: docker compose -f infra/docker-compose.yml build
         env:
           FORK_URL: https://api.avax-test.network/ext/bc/C/rpc
-      - name: Build prod compose (once it exists)
-        run: |
-          if [ -f infra/docker-compose.prod.yml ]; then
-            docker compose -f infra/docker-compose.prod.yml build
-          else
-            echo "infra/docker-compose.prod.yml not present yet, skipping"
-          fi
+      - name: Build prod compose
+        run: docker compose -f infra/docker-compose.prod.yml build
         env:
           FORK_URL: https://api.avax-test.network/ext/bc/C/rpc
+          FUJI_RPC_URLS: https://api.avax-test.network/ext/bc/C/rpc
+          POSTGRES_PASSWORD: ci-only
+      # Smoke: migrations apply, the API answers health, nginx serves the SPA and proxies /api.
+      # Only api + web: the worker refuses to start in production without a session key (by design).
+      - name: Smoke prod compose (api + web)
+        run: |
+          docker compose -f infra/docker-compose.prod.yml up -d --wait api web
+          curl -fsS http://localhost:8080/api/health
+          curl -fsS -o /dev/null http://localhost:8080/
+          curl -fsS -o /dev/null http://localhost:8080/demo
+          test "$(curl -s -o /dev/null -w '%{http_code}' http://localhost:8080/api/v1/jobs/00000000-0000-4000-8000-000000000000)" = 404
+        env:
+          FORK_URL: https://api.avax-test.network/ext/bc/C/rpc
+          FUJI_RPC_URLS: https://api.avax-test.network/ext/bc/C/rpc
+          POSTGRES_PASSWORD: ci-only
+      - name: Logs on failure
+        if: failure()
+        run: docker compose -f infra/docker-compose.prod.yml logs --no-color --tail 100
+        env:
+          FORK_URL: https://api.avax-test.network/ext/bc/C/rpc
+          FUJI_RPC_URLS: https://api.avax-test.network/ext/bc/C/rpc
+          POSTGRES_PASSWORD: ci-only
 
   # L4: the exact Fuji deploy sequence (scripts in packages/contracts/script) on an Anvil fork of Fuji, so the real
   # deploy only runs scripts that already worked against the real Trader Joe router and Safe v1.4.1 contracts.

@@ -19,6 +19,7 @@ Docs viết bằng tiếng Việt; định danh kỹ thuật giữ tiếng Anh.
 | 3b | [`product/ui-pages.md`](./product/ui-pages.md) | Các trang UI (`/`, `/demo`, `/vaults/new`, `/vaults/:safe`, `/proof`), component, trạng thái, ma trận trang↔API | Viết `apps/web` |
 | 3c | [`product/design-system.md`](./product/design-system.md) | **Bắt buộc cho mọi UI.** Phong cách "Sentinel Terminal": token màu/chữ/bóng, component, pattern AgentShield, cấm | Mọi thay đổi trong `apps/web` |
 | 5 | [`runbook/setup-and-bringup.md`](./runbook/setup-and-bringup.md) | Env, thứ tự deploy, lệnh chạy, lỗi thường gặp | Dựng môi trường |
+| 5a | [`runbook/production.md`](./runbook/production.md) | Chạy cả hệ bằng `docker-compose.prod.yml` (1 lệnh), env, sự cố | Trước demo, khi dựng máy chạy thật |
 | 7 | [`research/poc-results.md`](./research/poc-results.md) | Kết quả các POC (danh sách ở [`../poc/`](../poc/README.md)) | Trước khi chốt thiết kế một phần rủi ro |
 | 6 | [`runbook/demo.md`](./runbook/demo.md) | Checklist trước giờ thi, kịch bản 3 phút, xử lý sự cố | Tuần 3, rehearsal |
 

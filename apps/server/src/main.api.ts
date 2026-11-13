@@ -10,7 +10,7 @@ async function bootstrap() {
   const app = await NestFactory.create(ApiAppModule, { bufferLogs: true });
   app.useLogger(app.get(Logger));
   // api.md §1: every route under /api/v1 (the SPA owns the bare paths).
-  app.setGlobalPrefix('api/v1');
+  app.setGlobalPrefix('api/v1', { exclude: ['api/health'] });
   app.useGlobalFilters(new ProblemFilter());
   app.enableCors();
   app.enableShutdownHooks();
