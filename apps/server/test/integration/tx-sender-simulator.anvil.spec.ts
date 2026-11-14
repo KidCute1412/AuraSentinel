@@ -90,8 +90,11 @@ describe.skipIf(!URL)('ViemTxSender + AnvilSimulator on Anvil', () => {
       ]);
       expect([a.status, b.status]).toEqual(['success', 'success']);
       const [ta, tb] = await Promise.all([pub.getTransaction({ hash: a.txHash }), pub.getTransaction({ hash: b.txHash })]);
-      expect(tb.nonce).toBe(ta.nonce + 1);
-      expect(b.blockNumber).toBeGreaterThan(a.blockNumber);
+      // The mutex serializes the sends, but which call enters first depends on RPC timing (sendSwap awaits
+      // getBlock before the mutex), so only assert the order the chain saw: consecutive nonces, later nonce, later block.
+      const [first, second] = ta.nonce < tb.nonce ? [{ tx: ta, res: a }, { tx: tb, res: b }] : [{ tx: tb, res: b }, { tx: ta, res: a }];
+      expect(second.tx.nonce).toBe(first.tx.nonce + 1);
+      expect(second.res.blockNumber).toBeGreaterThan(first.res.blockNumber);
     });
 
     it('mines a Shield 2 revert: hash on chain, status reverted, reason ExceedsPerTxCap', async () => {
