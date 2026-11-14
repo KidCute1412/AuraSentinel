@@ -4,6 +4,8 @@ export { applyServerEvent } from "./cache";
 export {
   createAttack,
   createRebalanceJob,
+  createSession,
+  deleteSession,
   getJob,
   getJobs,
   getRebalancerStatus,
@@ -11,6 +13,7 @@ export {
   getVault,
   getVaults,
   getVaultState,
+  requestNonce,
   setRebalancerPaused,
   vaultEventsUrl,
   type JobsParams,

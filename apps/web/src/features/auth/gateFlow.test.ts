@@ -26,6 +26,14 @@ describe("gate flow", () => {
     expect(reduce(p, { type: "pick", wallet: "core" }).kind).toBe("connecting");
   });
 
+  it("a failed verification denies, and only while verifying", () => {
+    let p = reduce(initialPhase, { type: "pick", wallet: "core" });
+    p = reduce(p, { type: "connected" });
+    expect(reduce(p, { type: "fail" })).toBe(p);
+    p = reduce(p, { type: "sign" });
+    expect(reduce(p, { type: "fail" }).kind).toBe("denied");
+  });
+
   it("identicon is deterministic and mirrored", () => {
     const a = identicon(MOCK_ADDRESS);
     expect(identicon(MOCK_ADDRESS)).toEqual(a);

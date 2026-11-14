@@ -19,6 +19,8 @@ export type Action =
   | { type: "sign" }
   | { type: "reject" }
   | { type: "verified" }
+  /** Live only: the wallet refused to sign, or the server refused the signature. */
+  | { type: "fail" }
   | { type: "reset" };
 
 export const initialPhase: Phase = { kind: "idle" };
@@ -37,6 +39,8 @@ export function reduce(state: Phase, action: Action): Phase {
       return state.kind === "connected" ? { kind: "denied", wallet: state.wallet } : state;
     case "verified":
       return state.kind === "verifying" ? { kind: "done", wallet: state.wallet } : state;
+    case "fail":
+      return state.kind === "verifying" ? { kind: "denied", wallet: state.wallet } : state;
     case "reset":
       return initialPhase;
   }
