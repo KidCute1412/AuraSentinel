@@ -29,6 +29,8 @@ export default defineConfig({
   },
   test: {
     environment: "jsdom",
+    // Tests run against the in-browser simulation whatever a developer's local .env says (live needs a backend).
+    env: { VITE_DATA_SOURCE: "mock" },
     setupFiles: ["./src/test/setup.ts"],
     globals: true,
   },

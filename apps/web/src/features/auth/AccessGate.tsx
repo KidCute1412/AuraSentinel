@@ -1,5 +1,14 @@
-import { useEffect, useReducer, useRef } from "react";
+import { useEffect, useReducer, useRef, useState } from "react";
 import { Link, useLocation } from "react-router-dom";
+import { useConnectModal } from "@rainbow-me/rainbowkit";
+import { useQueryClient } from "@tanstack/react-query";
+import { useAccount, useConnect, useDisconnect } from "wagmi";
+import { useDisconnectAll } from "@/shared/web3/useDisconnectAll";
+import type { SessionDto } from "@agentshield/shared";
+import { deleteSession, queryKeys } from "@/shared/api";
+import { isLive } from "@/shared/api/dataSource";
+import { connectFresh, findConnector } from "./connectors";
+import { needsReconnect, signInFailure, useSiweSignIn } from "./siwe";
 import { ArrowRight, Globe, KeyRound, ShieldCheck } from "lucide-react";
 import { Header } from "@/shared/shell/Header";
 import { Footer } from "@/shared/shell/Footer";
@@ -44,11 +53,74 @@ export function AccessGate() {
   const connect = useSession((s) => s.connect);
   const disconnect = useSession((s) => s.disconnect);
 
-  // UI-only simulation of the wallet round-trips. Replace with wagmi + SIWE later.
+  // Live mode (VITE_DATA_SOURCE=live): real wallet via RainbowKit/wagmi, real SIWE session on the server.
+  // Mock mode keeps the timed simulation below so the demo works with no backend.
+  const { address: walletAddress, isConnected } = useAccount();
+  const { openConnectModal, connectModalOpen } = useConnectModal();
+  const disconnectWallet = useDisconnectAll();
+  const { disconnectAsync } = useDisconnect();
+  const { connectAsync, connectors } = useConnect();
+  const signIn = useSiweSignIn();
+  const qc = useQueryClient();
+  const [session, setSession] = useState<SessionDto | null>(null);
+  const [failure, setFailure] = useState<{ refused: boolean; message: string } | null>(null);
+  const signing = useRef(false);
+
+  // Live: connect the wallet that was picked. If that wallet is not detected, fall back to RainbowKit's picker
+  // (it also offers WalletConnect). Already connected: skip straight on.
+  useEffect(() => {
+    if (!isLive || phase.kind !== "connecting") return;
+    setFailure(null);
+    if (isConnected) return;
+    const connector = findConnector(connectors, phase.wallet);
+    console.info("[siwe] connect", phase.wallet, "->", connector?.id ?? "no match, opening picker", connectors.map((c) => `${c.id}|${c.name}`));
+    if (!connector) {
+      openConnectModal?.();
+      return;
+    }
+    connectFresh((c) => connectAsync({ connector: c }), (c) => disconnectAsync({ connector: c }), connector).catch((e: unknown) => {
+      setFailure(signInFailure(e, "connect"));
+      dispatch({ type: "reset" });
+    });
+  }, [phase.kind]);
+
+  useEffect(() => {
+    if (isLive && phase.kind === "connecting" && isConnected && walletAddress) dispatch({ type: "connected" });
+  }, [phase.kind, isConnected, walletAddress]);
+
+  // Live: the picker was dismissed without connecting.
+  const wasModalOpen = useRef(false);
+  useEffect(() => {
+    const closed = wasModalOpen.current && !connectModalOpen;
+    wasModalOpen.current = connectModalOpen;
+    if (isLive && closed && phase.kind === "connecting" && !isConnected) dispatch({ type: "reset" });
+  }, [connectModalOpen]);
+
+  // Live: nonce -> signature -> POST /auth/session. The ref keeps StrictMode's double effect from asking twice.
+  useEffect(() => {
+    if (!isLive || phase.kind !== "verifying" || signing.current || !walletAddress) return;
+    signing.current = true;
+    signIn(walletAddress)
+      .then((s) => {
+        setSession(s);
+        connect(s.address);
+        dispatch({ type: "verified" });
+      })
+      .catch((e: unknown) => {
+        // Stale connection: drop it so the next pick opens the wallet picker and asks for permission again.
+        if (needsReconnect(e)) disconnectWallet();
+        setFailure(signInFailure(e));
+        dispatch({ type: "fail" });
+      })
+      .finally(() => {
+        signing.current = false;
+      });
+  }, [phase.kind]);
+
   useEffect(() => {
     if (phase.kind === "connecting") {
       react("guard", { text: LINES.gate.connect, hold: 1800, passive: true });
-      const t = setTimeout(() => dispatch({ type: "connected" }), 900);
+      const t = isLive ? undefined : setTimeout(() => dispatch({ type: "connected" }), 900);
       const stop = watchPending();
       return () => {
         clearTimeout(t);
@@ -63,7 +135,7 @@ export function AccessGate() {
     if (phase.kind === "verifying") {
       announce("wallet:signed");
       const hint = setTimeout(() => react("guard", { text: LINES.gate.verify, hold: 1400, passive: true }), 1050);
-      const t = setTimeout(() => dispatch({ type: "verified" }), 1500);
+      const t = isLive ? undefined : setTimeout(() => dispatch({ type: "verified" }), 1500);
       const stop = watchPending();
       return () => {
         clearTimeout(hint);
@@ -72,8 +144,7 @@ export function AccessGate() {
       };
     }
     if (phase.kind === "done") {
-      // TODO(wagmi): the real wallet address replaces the mock; the rest of the app already reads it from the session.
-      connect(mockAddressFor(phase.wallet) as `0x${string}`);
+      if (!isLive) connect(mockAddressFor(phase.wallet) as `0x${string}`);
       react("happy", { text: LINES.gate.ok, hold: 2500, passive: true });
     }
     if (phase.kind === "denied") react("annoyed", { text: LINES.gate.refused, hold: 2500 });
@@ -86,6 +157,12 @@ export function AccessGate() {
     prevKind.current = phase.kind;
     if (phase.kind === "idle" && (was === "connected" || was === "done")) {
       disconnect();
+      if (isLive) {
+        setSession(null);
+        disconnectWallet();
+        void deleteSession().catch(() => undefined);
+        qc.setQueryData(queryKeys.session, { address: null, role: null });
+      }
       announce("wallet:disconnected");
     }
   }, [phase.kind]);
@@ -112,7 +189,13 @@ export function AccessGate() {
               </h1>
               <p className="mt-4 text-lg text-soft">{LEAD[phase.kind]}</p>
               <div className="mt-6">
-                <WalletPanel phase={phase} dispatch={dispatch} returnTo={returnTo} />
+                <WalletPanel
+                  phase={phase}
+                  dispatch={dispatch}
+                  returnTo={returnTo}
+                  failure={failure}
+                  identity={isLive ? { address: session?.address ?? walletAddress ?? null, isNew: session ? session.ownedVaults.length === 0 : false } : undefined}
+                />
               </div>
               <div className="mt-6 border-t border-line pt-4 text-sm text-soft">
                 <Link to="/demo" className="inline-flex items-center gap-2 font-bold hover:text-accent-text">

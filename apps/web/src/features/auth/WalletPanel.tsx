@@ -21,8 +21,8 @@ const STEPS: { id: Step; label: string }[] = [
 ];
 const ORDER: Step[] = ["connect", "sign", "verify", "done"];
 
-const SIWE = (address: string) =>
-  `agentshield.app wants you to sign in with your Avalanche account:\n${address}\n\nSign in to AgentShield. This does not move funds.\n\nChain ID: 43113 (Fuji)\nNonce: 8f3a91c2`;
+const SIWE = (address: string, domain = "agentshield.app") =>
+  `${domain} wants you to sign in with your Avalanche account:\n${address}\n\nSign in to AgentShield. This does not move funds.\n\nChain ID: 43113 (Fuji)\nNonce: 8f3a91c2`;
 
 /** Mock rule until Safe.getOwners is wired: MetaMask plays a brand-new wallet, Core a returning owner. */
 export const isNewWallet = (w: WalletId): boolean => w === "metamask";
@@ -32,10 +32,16 @@ interface Props {
   dispatch: (a: Action) => void;
   /** Page the user was trying to reach before being sent to sign in. */
   returnTo?: string | null;
+  /** Live mode: why the last attempt failed (a refused wallet popup is not a failure worth a red banner). */
+  failure?: { refused: boolean; message: string } | null;
+  /** Live mode: the real wallet and whether it owns any vault. Omitted in mock mode. */
+  identity?: { address: string | null; isNew: boolean };
 }
 
-export function WalletPanel({ phase, dispatch, returnTo }: Props) {
+export function WalletPanel({ phase, dispatch, returnTo, failure, identity }: Props) {
   const current = ORDER.indexOf(activeStep(phase));
+  const addressOf = (w: WalletId): string => identity?.address ?? mockAddressFor(w);
+  const isNew = (w: WalletId): boolean => (identity ? identity.isNew : isNewWallet(w));
   return (
     <div>
       <ol className="grid grid-cols-3 gap-2">
@@ -54,10 +60,10 @@ export function WalletPanel({ phase, dispatch, returnTo }: Props) {
       <div className="mt-6 min-h-[13rem]" aria-live="polite">
         {(phase.kind === "idle" || phase.kind === "denied") && (
           <div className="animate-feed-in">
-            {phase.kind === "denied" && (
+            {(phase.kind === "denied" || failure) && (
               <div className="mb-4 flex flex-wrap items-center gap-3 border border-danger bg-tint-pink p-3">
-                <Stamp tone="danger" animate>Signature refused</Stamp>
-                <span className="text-sm text-soft">Nothing was signed. No funds moved.</span>
+                <Stamp tone="danger" animate>{failure && !failure.refused ? "Sign-in failed" : phase.kind === "denied" ? "Signature refused" : "Not connected"}</Stamp>
+                <span className="text-sm text-soft">{failure?.message ?? "Nothing was signed. No funds moved."}</span>
               </div>
             )}
             <div className="grid gap-4 sm:grid-cols-2">
@@ -99,16 +105,16 @@ export function WalletPanel({ phase, dispatch, returnTo }: Props) {
         {phase.kind === "connected" && (
           <div className="animate-feed-in">
             <div className="flex items-center gap-4">
-              <Identicon address={mockAddressFor(phase.wallet)} />
+              <Identicon address={addressOf(phase.wallet)} />
               <div className="min-w-0">
-                <div className="font-mono text-base font-bold">{shortAddress(mockAddressFor(phase.wallet))}</div>
+                <div className="font-mono text-base font-bold">{shortAddress(addressOf(phase.wallet))}</div>
                 <div className="mono-label">Avalanche Fuji · connected</div>
               </div>
             </div>
             <p className="mt-4 text-soft">One signature. Free, no gas, no transfer.</p>
             <details className="mt-2 text-sm">
               <summary className="cursor-pointer font-bold text-accent-text">What am I signing?</summary>
-              <pre className="mt-2 overflow-x-auto whitespace-pre-wrap break-words border border-line-strong bg-bg p-3 font-mono text-xs leading-relaxed text-soft">{SIWE(shortAddress(mockAddressFor(phase.wallet)))}</pre>
+              <pre className="mt-2 overflow-x-auto whitespace-pre-wrap break-words border border-line-strong bg-bg p-3 font-mono text-xs leading-relaxed text-soft">{identity ? SIWE(addressOf(phase.wallet), window.location.host) : SIWE(shortAddress(addressOf(phase.wallet)))}</pre>
             </details>
             <div className="mt-5 flex flex-wrap items-center gap-4">
               <HoldButton onStart={() => react("guard", { text: LINES.gate.hold, hold: 900 })} onComplete={() => dispatch({ type: "sign" })}>Hold to sign</HoldButton>
@@ -127,21 +133,21 @@ export function WalletPanel({ phase, dispatch, returnTo }: Props) {
         {phase.kind === "done" && (
           <div className="animate-feed-in">
             <div className="flex items-center gap-4">
-              <Identicon address={mockAddressFor(phase.wallet)} />
+              <Identicon address={addressOf(phase.wallet)} />
               <div className="min-w-0">
-                <div className="font-mono text-base font-bold">{shortAddress(mockAddressFor(phase.wallet))}</div>
-                <div className="mt-1"><Stamp tone="ok" animate>{isNewWallet(phase.wallet) ? "New wallet" : "Owner verified"}</Stamp></div>
+                <div className="font-mono text-base font-bold">{shortAddress(addressOf(phase.wallet))}</div>
+                <div className="mt-1"><Stamp tone="ok" animate>{isNew(phase.wallet) ? "New wallet" : "Owner verified"}</Stamp></div>
               </div>
             </div>
-            <h2 className="mt-5 text-2xl">{isNewWallet(phase.wallet) ? "Badge issued." : "Welcome back."}</h2>
+            <h2 className="mt-5 text-2xl">{isNew(phase.wallet) ? "Badge issued." : "Welcome back."}</h2>
             <p className="mt-1 text-soft">
-              {isNewWallet(phase.wallet) ? "No vault yet. The agent gets a leash, you keep the key." : "Your vault is where you left it."}
+              {isNew(phase.wallet) ? "No vault yet. The agent gets a leash, you keep the key." : "Your vault is where you left it."}
             </p>
             {/* TODO(auth): branch on Safe.getOwners(address) instead of the mock rule. */}
             <div className="mt-5 flex flex-wrap items-center gap-3">
               <span className="drop-hard">
-                <Link to={returnTo ?? (isNewWallet(phase.wallet) ? "/vaults/new" : "/vaults")} className={primaryCta}>
-                  {returnTo ? "Continue where you were" : isNewWallet(phase.wallet) ? "Create your first vault" : "Open dashboard"}
+                <Link to={returnTo ?? (isNew(phase.wallet) ? "/vaults/new" : "/vaults")} className={primaryCta}>
+                  {returnTo ? "Continue where you were" : isNew(phase.wallet) ? "Create your first vault" : "Open dashboard"}
                 </Link>
               </span>
               <button type="button" onClick={() => dispatch({ type: "reset" })} className="h-12 px-2 font-mono text-xs uppercase tracking-widest text-muted hover:text-fg">

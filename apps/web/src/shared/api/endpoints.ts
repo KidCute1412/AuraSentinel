@@ -3,14 +3,18 @@ import {
   CreateAttackResponse,
   CreateJobRequest,
   CreateJobResponse,
+  CreateSessionRequest,
   GetSessionResponse,
   JobDetailDto,
   JobListDto,
+  NonceResponse,
+  SessionDto,
   StateDto,
   VaultDto,
   VaultListDto,
   type JobStatus,
 } from "@agentshield/shared";
+import { z } from "zod";
 import { RebalancerStatusDto } from "./adminSchemas";
 import { apiRequest, apiUrl } from "./client";
 
@@ -46,6 +50,16 @@ export const getJob = (id: string, signal?: AbortSignal) => apiRequest(`/jobs/${
 
 /** #3: `{ address: null, role: null }` when signed out. */
 export const getSession = (signal?: AbortSignal) => apiRequest("/auth/session", GetSessionResponse, { signal });
+
+/** #1: single-use SIWE nonce (POST because issuing one has a side effect). */
+export const requestNonce = () => apiRequest("/auth/nonce", NonceResponse, { method: "POST" });
+
+/** #2: verify the signed EIP-4361 message; the server answers with the session and sets the httpOnly cookie. */
+export const createSession = (body: CreateSessionRequest) =>
+  apiRequest("/auth/session", SessionDto, { method: "POST", json: CreateSessionRequest.parse(body) });
+
+/** #4: sign out. Idempotent. */
+export const deleteSession = () => apiRequest("/auth/session", z.undefined(), { method: "DELETE" });
 
 /** #13: SSE stream for one vault. */
 export const vaultEventsUrl = (safe: string) => apiUrl(`/vaults/${safe}/events`);

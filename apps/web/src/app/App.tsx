@@ -15,6 +15,8 @@ import { NotFoundPage } from "@/features/not-found/NotFoundPage";
 import { DemoPage } from "@/features/vault/demo/DemoPage";
 import { VaultRoutes } from "@/features/vault/routes";
 import { DevSessionBar } from "@/shared/session/DevSessionBar";
+import { LiveSessionSync } from "@/shared/session/LiveSessionSync";
+import { isLive } from "@/shared/api/dataSource";
 
 const queryClient = new QueryClient({
   defaultOptions: { queries: { retry: false, refetchOnWindowFocus: false } },
@@ -47,7 +49,8 @@ export function App() {
         <GridSpotlight />
         <EmergencyDrill />
         <ClickPulse />
-        {import.meta.env.DEV && <DevSessionBar />}
+        {isLive && <LiveSessionSync />}
+        {import.meta.env.DEV && !isLive && <DevSessionBar />}
       </BrowserRouter>
     </Web3Provider>
   );
