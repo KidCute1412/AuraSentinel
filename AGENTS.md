@@ -4,6 +4,8 @@ Safe vault + on-chain policy module that lets an AI agent trade 24/7 without bei
 
 Docs index: `docs/README.md`. Source of truth: `docs/architecture/system-design.md` (system), `docs/architecture/codebase.md` (code layout), `docs/architecture/contracts.md` (Solidity spec). Ops: `docs/runbook/`. Pitch/judging: `docs/product/pitch.md`.
 
+Competition (Team1 Vietnam UniHack 2026, "Build on Avalanche"): official site and source of truth for rules, tracks, judging criteria and deadlines is https://team1vn.xyz/ (submissions close 23:59 on 2026-11-21 VN time; Final Demo Day 2026-11-30). If a doc here disagrees with the site, the site wins. Our track: "AI agents and security" (`#track-agent`).
+
 ## Stack
 pnpm workspaces + Turborepo · `apps/server` NestJS 11 (entrypoints: api, worker) · `apps/web` Vite + React 19 + wagmi/viem · `packages/contracts` Foundry · `packages/shared` Zod schemas + generated ABIs · BullMQ/Redis · Postgres + Drizzle · Anvil fork · Gemini 2.5 Flash.
 

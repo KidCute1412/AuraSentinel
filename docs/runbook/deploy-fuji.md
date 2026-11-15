@@ -4,6 +4,25 @@
 >
 > Kết quả: `packages/contracts/deployments/fuji.json` (commit file này) chứa mọi địa chỉ.
 
+## Chạy nhanh (khuyên dùng)
+
+Một công cụ lo preflight, thứ tự bước, bỏ qua bước đã xong, verify và ghi `.env`. Key vẫn nằm trong keystore Foundry của bạn, công cụ không đọc hay lưu key.
+
+```bash
+# 1 lần: cài Foundry, import 2 ví, xin AVAX Fuji (xem mục 0 bên dưới)
+node scripts/deploy/deploy.mjs doctor --network fork     # thử khô trên Anvil fork (key dev công khai)
+node scripts/deploy/deploy.mjs run    --network fork --fresh
+node scripts/deploy/deploy.mjs doctor                    # Fuji thật, chỉ đọc, phải toàn PASS
+node scripts/deploy/deploy.mjs run    --remember-password  # ký thật; hỏi mật khẩu keystore 1 lần
+node scripts/deploy/deploy.mjs verify                    # 5 contract lên Snowtrace
+node scripts/deploy/deploy.mjs wire                      # ghi địa chỉ vào apps/server/.env
+node scripts/deploy/deploy.mjs status                    # bảng địa chỉ + link Snowtrace
+```
+
+- Chạy lại `run` an toàn: bước nào đã có địa chỉ trong `fuji.json` thì bỏ qua. Làm tiếp từ bước lỗi: `--from N` (1 token+factory, 2 pool, 3 vault, 4 swap của agent).
+- `--remember-password` ghi mật khẩu vào file tạm (xoá khi thoát) để Foundry không hỏi 6 lần. Bỏ cờ này nếu muốn Foundry tự hỏi mỗi lần.
+- Các bước tay ở dưới là bản tham khảo, cùng một chuỗi lệnh.
+
 ## 0. Chuẩn bị (1 lần)
 
 | Cần | Cách lấy |
