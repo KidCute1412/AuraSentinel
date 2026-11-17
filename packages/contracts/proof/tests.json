@@ -22,7 +22,8 @@
     "testFuzz_faucetNeverMintsTwiceWithinCooldown(uint256)"
   ],
   "tests": {
-    "total": 81,
+    "total": 82,
+    "skipped": 1,
     "failed": []
   },
   "slitherFindings": {
@@ -32,6 +33,6 @@
     "informational": 2
   },
   "srcSha256": "f4fa9800eec10b100078f390bf83c1da681e5069bda806c8ca127bdc2957688f",
-  "commit": "2675063",
-  "generatedAt": "2026-11-17T06:57:52.217Z"
+  "commit": "adf05b4",
+  "generatedAt": "2026-11-17T07:31:58.990Z"
 }

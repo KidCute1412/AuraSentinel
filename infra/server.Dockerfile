@@ -11,6 +11,7 @@ COPY apps/server/package.json apps/server/
 COPY apps/web/package.json apps/web/
 COPY packages/shared/package.json packages/shared/
 COPY packages/contracts/package.json packages/contracts/
+COPY scripts/package.json scripts/
 RUN pnpm install --frozen-lockfile --filter "server..."
 COPY packages/shared packages/shared
 COPY apps/server apps/server

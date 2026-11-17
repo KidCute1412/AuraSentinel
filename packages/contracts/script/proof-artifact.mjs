@@ -65,7 +65,9 @@ if (jsonStart < 0) {
 }
 const suites = JSON.parse(forge.stdout.slice(jsonStart));
 const results = Object.values(suites).flatMap((s) => Object.entries(s.test_results));
-const failed = results.filter(([, r]) => r.status !== "Success").map(([name]) => name);
+// Opt-in suites (the Fuji fork test) report "Skipped"; only a "Failure" counts against the run.
+const failed = results.filter(([, r]) => r.status === "Failure").map(([name]) => name);
+const skipped = results.filter(([, r]) => r.status === "Skipped").length;
 const fuzzTests = results.filter(([, r]) => "Fuzz" in r.kind).map(([name]) => name);
 const invariantCalls = results.reduce((n, [, r]) => n + ("Invariant" in r.kind ? r.kind.Invariant.calls : 0), 0);
 
@@ -108,7 +110,7 @@ const artifact = {
   invariantDepth: INVARIANT_DEPTH,
   invariantCalls,
   fuzzTests,
-  tests: { total: results.length, failed },
+  tests: { total: results.length, skipped, failed },
   slitherFindings,
   srcSha256: srcSha256(),
   commit: run("git", ["rev-parse", "--short", "HEAD"]) || null,
