@@ -124,11 +124,15 @@ export async function fetchVaultView(safe: Address): Promise<VaultView | null> {
   return FIXTURES[safe.toLowerCase()] ?? null;
 }
 
-/** GET /vaults returns the whole registry; "mine" is filtered by owner on the client (api.md §12 point 5). */
+/** GET /vaults returns the whole registry; "mine" is filtered by owner on the client (api.md §12 point 5), newest first. */
 export async function fetchMyVaults(owner: Address): Promise<VaultView[]> {
   if (isLive) {
     const { vaults } = await getVaults();
-    return vaults.filter((v) => sameAddress(v.owner, owner)).map(liveViewFromDto);
+    // Newest first: the vault just made in the wizard leads the list.
+    return vaults
+      .filter((v) => sameAddress(v.owner, owner))
+      .sort((x, y) => (BigInt(y.createdAtBlock) > BigInt(x.createdAtBlock) ? 1 : BigInt(y.createdAtBlock) < BigInt(x.createdAtBlock) ? -1 : 0))
+      .map(liveViewFromDto);
   }
   await wait();
   return Object.values(FIXTURES).filter((v) => v.owners.some((o) => sameAddress(o, owner)));

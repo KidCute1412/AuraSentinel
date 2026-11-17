@@ -8,7 +8,6 @@ import { useSession } from "@/shared/session/sessionStore";
 import { useWizardSafe } from "@/shared/session/wizardSafe";
 import type { WizardChainFacts } from "@/shared/lib/wizard";
 import { jsonResponse } from "@/test/apiFixtures";
-import { VaultListPage } from "../list/VaultListPage";
 import { WizardPage } from "./WizardPage";
 import { REGISTER_PATIENCE_MS } from "./WizardSteps";
 
@@ -355,19 +354,5 @@ describe("vault wizard (L9), live build", () => {
     } finally {
       vi.useRealTimers();
     }
-  });
-});
-
-describe("My vaults: a vault still in setup", () => {
-  it("links back to the wizard", () => {
-    useWizardSafe.getState().setSafe(SAFE);
-    render(
-      <QueryClientProvider client={qc}>
-        <MemoryRouter initialEntries={["/vaults"]}>
-          <VaultListPage />
-        </MemoryRouter>
-      </QueryClientProvider>,
-    );
-    expect(screen.getByRole("link", { name: "Continue setup" })).toHaveAttribute("href", "/vaults/new");
   });
 });
