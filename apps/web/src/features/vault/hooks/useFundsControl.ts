@@ -7,7 +7,7 @@ import { balanceOf, TOKENS, type TokenSymbol } from "@/shared/api/mockEngine";
 import { queryKeys } from "@/shared/api/queryKeys";
 import type { VaultView } from "@/shared/api/vaultSource";
 import { faucetAvailableAt, fundsBlocker } from "@/shared/lib/funds";
-import { policyTokensIn } from "@/shared/lib/policy";
+import { policyTokensIn, type PolicyTokens } from "@/shared/lib/policy";
 import type { SentTx } from "@/shared/ui/TxButton";
 import { sendDeposit, sendFaucet, sendWithdraw, useFundsChain } from "@/shared/web3/fundsChain";
 import { useSigner } from "@/shared/web3/moduleChain";
@@ -67,13 +67,20 @@ export function useMockFundsControl(view: VaultView, state: StateDto | null, { r
   );
 }
 
-/** Live: Safe owners and wallet balances read from Fuji; every move is a wallet-signed transaction. */
-export function useLiveFundsControl(view: VaultView, state: StateDto | null): FundsControl {
-  const qc = useQueryClient();
+/**
+ * Fund moves on any Safe straight against Fuji: owners and wallet balances read from the chain, every move signed in
+ * the wallet. `vaultBalance` says what the Safe holds (from /state on the dashboard, from the chain in the wizard);
+ * `onSettled` runs after each receipt so the caller can re-read it. null addresses = not known yet.
+ */
+export function useChainFundsControl(
+  safe: Address,
+  addresses: PolicyTokens | null,
+  vaultBalance: (symbol: TokenSymbol) => bigint,
+  onSettled: () => void,
+): FundsControl {
   const signer = useSigner();
-  const addresses = useMemo(() => (state ? policyTokensIn(state) : null), [state]);
   const tokenList = useMemo(() => (addresses ? [addresses.usdc, addresses.wavax] : []), [addresses]);
-  const read = useFundsChain(addresses ? view.safe : null, signer, tokenList);
+  const read = useFundsChain(addresses ? safe : null, signer, tokenList);
   const { refetch } = read;
 
   const blocker = fundsBlocker(signer, read.owners, read.threshold);
@@ -84,17 +91,17 @@ export function useLiveFundsControl(view: VaultView, state: StateDto | null): Fu
       ? "Could not read this vault's owners from the chain. Check your connection and reload."
       : blocker;
 
-  /** After a receipt: re-read the wallet and the vault (the server mirrors the chain, SSE does the same). */
+  /** After a receipt: re-read the wallet and let the caller re-read the vault. */
   const settle = useCallback(
     (tx: SentTx): SentTx => ({
       hash: tx.hash,
       wait: async () => {
         await tx.wait();
-        void qc.invalidateQueries({ queryKey: queryKeys.vaultState(view.safe) });
+        onSettled();
         void refetch();
       },
     }),
-    [qc, view.safe, refetch],
+    [onSettled, refetch],
   );
 
   return useMemo<FundsControl>(() => {
@@ -112,17 +119,27 @@ export function useLiveFundsControl(view: VaultView, state: StateDto | null): Fu
           symbol,
           address: addresses ? addressOf(symbol) : TOKENS[symbol].address,
           decimals: TOKENS[symbol].decimals,
-          vault: state ? balanceOf(state, symbol) : 0n,
+          vault: vaultBalance(symbol),
           wallet: t && signer ? t.wallet : null,
           faucetAmount: t ? t.faucetAmount : null,
           faucetAvailableAt: t ? faucetAvailableAt(t.lastFaucetAt, t.faucetCooldown, nowSec) : 0,
         };
       }),
-      deposit: (symbol, amount) => async () => settle(await sendDeposit(addressOf(symbol), view.safe, amount)),
-      withdraw: (symbol, amount) => async () => settle(await sendWithdraw(view.safe, addressOf(symbol), amount)),
+      deposit: (symbol, amount) => async () => settle(await sendDeposit(addressOf(symbol), safe, amount)),
+      withdraw: (symbol, amount) => async () => settle(await sendWithdraw(safe, addressOf(symbol), amount)),
       faucet: (symbol) => async () => settle(await sendFaucet(addressOf(symbol))),
     };
-  }, [canAct, notice, read.tokens, addresses, state, signer, settle, view.safe]);
+  }, [canAct, notice, read.tokens, addresses, vaultBalance, signer, settle, safe]);
+}
+
+/** Live dashboard: token addresses and vault balances from the chain-sourced /state. */
+export function useLiveFundsControl(view: VaultView, state: StateDto | null): FundsControl {
+  const qc = useQueryClient();
+  const addresses = useMemo(() => (state ? policyTokensIn(state) : null), [state]);
+  const vaultBalance = useCallback((symbol: TokenSymbol) => (state ? balanceOf(state, symbol) : 0n), [state]);
+  // The server mirrors the chain and SSE does the same; re-reading /state makes it show at once.
+  const onSettled = useCallback(() => void qc.invalidateQueries({ queryKey: queryKeys.vaultState(view.safe) }), [qc, view.safe]);
+  return useChainFundsControl(view.safe, addresses, vaultBalance, onSettled);
 }
 
 export const useFundsControl: (view: VaultView, state: StateDto | null, opts: { role: VaultRole }) => FundsControl = isLive

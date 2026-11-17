@@ -1,11 +1,12 @@
 import { Check, Lock } from "lucide-react";
-import { Link, Navigate, useLocation, useParams } from "react-router-dom";
+import { useEffect, useRef, useState } from "react";
+import { Link, Navigate, useLocation, useNavigate, useParams } from "react-router-dom";
 import { Footer } from "@/shared/shell/Footer";
 import { Header } from "@/shared/shell/Header";
-import { useVaultView } from "@/shared/api/useVaultView";
 import { cn } from "@/shared/lib/cn";
+import { sameAddress, shortAddress } from "@/shared/lib/address";
+import { confirmationsLeft } from "@/shared/lib/wizard";
 import { useSession } from "@/shared/session/sessionStore";
-import { useWizardSafe } from "@/shared/session/wizardSafe";
 import { NetworkGuard } from "@/shared/ui/NetworkGuard";
 import { Skeleton } from "@/shared/ui/Skeleton";
 import {
@@ -19,15 +20,22 @@ import {
   type WizardStep,
 } from "../guards/wizard";
 import { Breadcrumb } from "../layout/Breadcrumb";
+import { useWizardControl, type WizardControl } from "../hooks/useWizardControl";
 import { RouteNotice } from "../layout/RouteNotice";
-import { Placeholder } from "../pages/Placeholder";
+import { BlockedStep, DoneStep, FundStep, ModuleStep, PolicyStep, SafeStep } from "./WizardSteps";
 
-const BLURB: Record<WizardStep, string> = {
-  safe: "Pick a Safe you own or create a new one. Done when your wallet is an owner of that Safe.",
-  module: "Deploy the AgentPolicyModule and enable it on the Safe. Done when the Safe reports the module as enabled.",
-  policy: "Set the agent limits (per transaction, per day, expiry) and sign with your wallet. Done when the policy is active.",
-  fund: "Get test tokens from the faucet and move them into the Safe. Done when the Safe balance is above zero.",
-};
+function StepBody({ step, control, readOnly }: { step: WizardStep; control: WizardControl; readOnly: boolean }) {
+  switch (step) {
+    case "safe":
+      return <SafeStep control={control} readOnly={readOnly} />;
+    case "module":
+      return <ModuleStep control={control} readOnly={readOnly} />;
+    case "policy":
+      return <PolicyStep control={control} readOnly={readOnly} />;
+    case "fund":
+      return <FundStep control={control} />;
+  }
+}
 
 function Stepper({ done, current }: { done: Record<WizardStep, boolean>; current: WizardStep | null }) {
   return (
@@ -61,29 +69,60 @@ function Stepper({ done, current }: { done: Record<WizardStep, boolean>; current
 }
 
 /**
- * /vaults/new and /vaults/new/:step. Progress is recomputed from chain facts on every render; the URL only
- * says which step the user is LOOKING at, and the guard sends them back if that step is not open yet.
+ * /vaults/new and /vaults/new/:step. Progress is recomputed from the chain on every visit (P1); the URL only says
+ * which step the user is LOOKING at, and the guard sends them back if that step is not open yet. Each step is a
+ * transaction signed in the owner's wallet (P2).
  */
 export function WizardPage() {
   const { step: stepParam } = useParams();
   const location = useLocation();
+  const navigate = useNavigate();
   const wallet = useSession((s) => s.wallet);
-  const safe = useWizardSafe((s) => s.safe);
-  const { data: view, isPending } = useVaultView(safe);
+  const control = useWizardControl(wallet?.address ?? null);
+
+  // Leaving the wizard (open the vault, start over) forgets the Safe; until the new URL renders, show nothing rather
+  // than let the guard react to the now-empty wizard and redirect somewhere else.
+  const [leavingFrom, setLeavingFrom] = useState<string | null>(null);
+  const leave = (to: string, state?: { notice: string }) => {
+    setLeavingFrom(location.key);
+    control.forget();
+    navigate(to, { replace: true, state });
+  };
+
+  const owner = control.owner ?? wallet?.address ?? null;
+  const done = completedSteps(owner, control.guard);
+  const first = firstIncompleteStep(done);
+
+  // When the step being worked on is confirmed on-chain, move on to the next one by itself.
+  const lastFirst = useRef(first);
+  useEffect(() => {
+    const before = lastFirst.current;
+    lastFirst.current = first;
+    if (control.status !== "ready" || before === first || before !== stepParam) return;
+    if (first && WIZARD_STEPS.indexOf(first) > WIZARD_STEPS.indexOf(before)) navigate(wizardPath(first), { replace: true });
+  }, [first, stepParam, control.status, navigate]);
 
   // Not signed in: go through the gate, then come back to exactly this URL.
   if (!wallet) return <Navigate to="/signin" replace state={{ from: `${location.pathname}${location.search}${location.hash}` }} />;
 
-  const loading = !!safe && isPending;
-  const facts = view ? { owners: view.owners, moduleEnabled: view.chain.moduleEnabled, policyActive: view.chain.policyActive, funded: view.chain.funded } : null;
-  const done = completedSteps(wallet.address, facts);
-  const first = firstIncompleteStep(done);
-
   const body = () => {
-    if (loading) return <Skeleton className="h-64 w-full" />;
+    if (leavingFrom === location.key) return null;
+    if (control.status === "loading") return <Skeleton className="h-64 w-full" />;
+    if (control.status === "unavailable") {
+      return (
+        <div role="alert" className="border-l-4 border-danger bg-tint-pink px-4 py-3 text-sm">
+          Could not read this Safe from the Fuji chain. Check your connection; the page retries by itself.
+        </div>
+      );
+    }
+    const startOver = () => leave(wizardPath("safe"));
+    if (control.blocker) return <BlockedStep control={control} onStartOver={startOver} />;
 
-    // Wizard finished: nothing left to do here, open the vault.
-    if (first === null && view) return <Navigate to={`/vaults/${view.safe}`} replace state={{ notice: "Your vault is ready." }} />;
+    // Everything confirmed on-chain: hand over to the vault page once the server serves it.
+    if (first === null && control.safe) {
+      const safe = control.safe;
+      return <DoneStep control={control} onOpen={() => leave(`/vaults/${safe}`, { notice: "Your vault is ready." })} onStartOver={startOver} />;
+    }
 
     // /vaults/new or an unknown step name -> the first step that still needs doing.
     if (!isWizardStep(stepParam)) return <Navigate to={wizardPath(first ?? "safe")} replace />;
@@ -94,11 +133,7 @@ export function WizardPage() {
     return (
       <>
         <RouteNotice />
-        <Placeholder
-          code={`STEP 0${WIZARD_STEPS.indexOf(stepParam) + 1}${decision.readOnly ? " / DONE" : " / OPEN"}`}
-          title={`Step ${WIZARD_STEPS.indexOf(stepParam) + 1}: ${STEP_LABEL[stepParam]}${decision.readOnly ? " (done, view only)" : ""}`}
-          blurb={BLURB[stepParam]}
-        />
+        <StepBody step={stepParam} control={control} readOnly={decision.readOnly} />
       </>
     );
   };
@@ -109,8 +144,21 @@ export function WizardPage() {
       <NetworkGuard />
       <main className="mx-auto max-w-6xl space-y-6 px-4 py-8 sm:px-6">
         <Breadcrumb items={[{ label: "Vaults", to: "/vaults" }, { label: "Create vault" }]} />
-        <h1 className="text-3xl">Create vault</h1>
+        <div>
+          <h1 className="text-3xl">Create vault</h1>
+          {control.status !== "loading" && first !== null && (
+            <p className="mt-1 text-sm text-muted">
+              About {confirmationsLeft(control.facts, Math.floor(Date.now() / 1000))} wallet confirmations left. Each one is a Fuji testnet transaction.
+            </p>
+          )}
+        </div>
         <Stepper done={done} current={first} />
+        {control.owner && !sameAddress(control.owner, wallet.address) && (
+          <div role="status" className="border-l-4 border-warn bg-tint-amber px-4 py-3 text-sm">
+            Your wallet is set to {shortAddress(control.owner)}, not the signed-in account {shortAddress(wallet.address)}. The vault will belong to{" "}
+            {shortAddress(control.owner)}; switch accounts in your wallet if that is not what you want.
+          </div>
+        )}
         {body()}
       </main>
       <Footer />

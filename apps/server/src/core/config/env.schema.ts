@@ -82,6 +82,8 @@ export const envSchema = z.object({
     .transform((v) => (v ? v.split(',').map((s) => s.trim().toLowerCase()).filter(Boolean) : [])),
 
   REBALANCE_INTERVAL_MS: z.coerce.number().int().positive().default(15_000),
+  /** Most vaults (non-demo, active) the shared agent rebalances, oldest first; its gas pays for every swap. 0 = no cap. */
+  REBALANCE_MAX_VAULTS: z.coerce.number().int().nonnegative().default(5),
 });
 
 export type Env = z.infer<typeof envSchema>;

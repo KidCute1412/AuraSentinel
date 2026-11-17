@@ -201,7 +201,7 @@ export function startJob(view: VaultView, spec: JobSpec): string {
 }
 
 /** A wallet-signed action: sign (wallet popup), then wait to be mined. `onMined` applies the effect. */
-function mockTx(onMined: () => void, mineMs = delays.mine) {
+export function mockTx(onMined: () => void, mineMs = delays.mine) {
   return async (): Promise<SentTx> => {
     await sleep(delays.sign);
     return {

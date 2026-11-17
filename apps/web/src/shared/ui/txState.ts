@@ -48,11 +48,25 @@ export function isUserRejection(err: unknown): boolean {
   return /user\s*(rejected|denied)|rejected the request|UserRejectedRequestError/i.test(text);
 }
 
-/** English copy for the reverts an owner call can hit (AgentPolicyModule custom errors). */
+/** English copy for the reverts an owner call can hit (module, factory, Safe, test-token faucet). */
 const OWNER_REVERT_COPY: Record<string, string> = {
   NotOwner: "Only the vault owner can do this. Switch your wallet to the owner account.",
   InvalidPolicy: "The chain rejected this policy. Check that every limit is above zero, per-transaction is at most the daily limit, and the expiry is in the future.",
+  NotSafeOwner: "Only an owner of this Safe can create its guard module. Switch your wallet to the Safe's owner.",
+  ModuleExists: "This Safe already has a guard module. Reload the page to continue with it.",
+  GS013: "The Safe could not complete this transaction. Check the amount against what the vault holds.",
+  GS025: "The Safe did not accept this wallet's signature. Only its owner can do this.",
+  GS026: "The Safe did not accept this wallet's signature. Only its owner can do this.",
+  FaucetCooldown: "You already got test tokens recently. Try again when the faucet timer runs out.",
 };
+
+/** An error whose message is written for the user (English) and can be shown as is. */
+export class UserFacingError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "UserFacingError";
+  }
+}
 
 /**
  * English message for a failed tx. A revert arrives with its custom error name in `reason`: known owner errors get a
@@ -62,6 +76,7 @@ export function describeTxError(err: unknown): string {
   const code = typeof err === "object" && err !== null && "reason" in err ? String((err as { reason?: unknown }).reason ?? "") : "";
   if (code && OWNER_REVERT_COPY[code]) return OWNER_REVERT_COPY[code];
   if (code) return `Transaction reverted on-chain (${code}).`;
+  if (err instanceof UserFacingError) return err.message;
   const message = err instanceof Error ? err.message : "";
   if (/connect your wallet/i.test(message)) return "Connect your wallet first.";
   if (/insufficient funds/i.test(message)) return "Your wallet does not have enough AVAX for gas on Fuji.";

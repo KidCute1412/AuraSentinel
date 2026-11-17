@@ -50,14 +50,14 @@ function Faucet({ tokens, control }: { tokens: FundsToken[]; control: FundsContr
  * Move tokens between the owner's wallet and the vault. Both directions are signed in the owner's wallet and sent
  * straight to the chain: deposit is a token transfer, withdraw a Safe transaction that always pays the signing owner.
  */
-export function FundsPanel({ control }: { control: FundsControl }) {
+export function FundsPanel({ control, depositOnly = false, title = "Funds" }: { control: FundsControl; depositOnly?: boolean; title?: string }) {
   const [direction, setDirection] = useState<Direction>("deposit");
   const [symbol, setSymbol] = useState<TokenSymbol>("USDC");
   const [amount, setAmount] = useState("");
 
   if (!control.canAct) {
     return (
-      <Panel title="Funds">
+      <Panel title={title}>
         <p className="text-sm text-soft">{control.notice ?? "Reading the vault's owners from the chain…"}</p>
       </Panel>
     );
@@ -71,7 +71,8 @@ export function FundsPanel({ control }: { control: FundsControl }) {
   const error = parsed && "error" in parsed ? parsed.error : tooMuch ? `Not enough ${symbol} ${direction === "deposit" ? "in your wallet" : "in the vault"}` : null;
 
   return (
-    <Panel title="Funds">
+    <Panel title={title}>
+      {!depositOnly && (
       <div role="tablist" aria-label="Deposit or withdraw" className="grid grid-cols-2 border border-line-strong">
         {(["deposit", "withdraw"] as const).map((d) => (
           <button
@@ -89,8 +90,9 @@ export function FundsPanel({ control }: { control: FundsControl }) {
           </button>
         ))}
       </div>
+      )}
 
-      <div className="mt-4 space-y-3">
+      <div className={cn("space-y-3", !depositOnly && "mt-4")}>
         <div>
           <label htmlFor="funds-token" className="mono-label">Token</label>
           <select

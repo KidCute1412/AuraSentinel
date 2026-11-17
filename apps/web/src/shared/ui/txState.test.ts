@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { describeTxError, isBusy, isUserRejection, txInitial, txReduce, type TxPhase } from "./txState";
+import { describeTxError, isBusy, isUserRejection, txInitial, txReduce, UserFacingError, type TxPhase } from "./txState";
 
 const run = (...actions: Parameters<typeof txReduce>[1][]): TxPhase => actions.reduce(txReduce, txInitial as TxPhase);
 
@@ -52,6 +52,10 @@ describe("error helpers", () => {
   it("turns owner-call reverts and wallet problems into plain English", () => {
     expect(describeTxError({ reason: "NotOwner" })).toMatch(/Only the vault owner/);
     expect(describeTxError({ reason: "InvalidPolicy" })).toMatch(/rejected this policy/);
+    expect(describeTxError({ reason: "ModuleExists" })).toMatch(/already has a guard module/);
+    expect(describeTxError({ reason: "GS026" })).toMatch(/Only its owner/);
+    expect(describeTxError({ reason: "FaucetCooldown" })).toMatch(/faucet timer/);
+    expect(describeTxError(new UserFacingError("Deploy the module first."))).toBe("Deploy the module first.");
     expect(describeTxError(new Error("Connect your wallet first."))).toBe("Connect your wallet first.");
     expect(describeTxError(new Error("insufficient funds for gas * price + value"))).toMatch(/enough AVAX/);
   });
