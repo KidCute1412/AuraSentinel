@@ -14,7 +14,8 @@ const target = { safe: SAFE, module: MODULE } as const;
 const intent: SwapIntent = { tokenIn: USDC, tokenOut: WAVAX, amountIn: 100n, minAmountOut: 7n, recipient: SAFE, origin: 'rebalancer' };
 
 /** Fake Anvil: records the RPC sequence; the "swap" moves -100 USDC / +7 WAVAX on the Safe. */
-function fakeAnvil(opts: { revertData?: `0x${string}` } = {}) {
+/** `routerRevertData`: what the router answers when the simulator asks it directly (undefined = it accepts). */
+function fakeAnvil(opts: { revertData?: `0x${string}`; routerRevertData?: `0x${string}`; routerDown?: boolean } = {}) {
   const calls: string[] = [];
   let swapped = false;
   let snap = 0;
@@ -38,7 +39,12 @@ function fakeAnvil(opts: { revertData?: `0x${string}` } = {}) {
     impersonateAccount: vi.fn(async () => undefined),
     stopImpersonatingAccount: vi.fn(async () => undefined),
     setBalance: vi.fn(async () => undefined),
-    call: vi.fn(async () => {
+    call: vi.fn(async ({ to }: { to: string }) => {
+      if (to === ROUTER) {
+        if (opts.routerDown) throw new Error('fetch failed');
+        if (opts.routerRevertData) throw Object.assign(new Error('reverted'), { cause: { data: opts.routerRevertData } });
+        return { data: '0x' };
+      }
       if (opts.revertData) throw Object.assign(new Error('reverted'), { cause: { data: opts.revertData } });
       return { data: '0x' };
     }),
@@ -73,6 +79,47 @@ describe('AnvilSimulator', () => {
     const r = await sim.simulate({ ...intent, amountIn: 2_000n }, target);
     expect(r).toMatchObject({ ok: false, revertReason: 'ExceedsPerTxCap' });
     expect(calls).not.toContain('send');
+  });
+
+  describe('SwapFailed: the router is asked for the real reason (L6)', () => {
+    const swapFailed = encodeErrorResult({ abi: POLICY_MODULE_ABI, errorName: 'SwapFailed' });
+    // Real revert data from the Trader Joe router on Fuji (eth_call, 2026-11-17).
+    const slippage = '0x08c379a0000000000000000000000000000000000000000000000000000000000000002000000000000000000000000000000000000000000000000000000000000000254a6f65526f757465723a20494e53554646494349454e545f4f55545055545f414d4f554e54000000000000000000000000000000000000000000000000000000';
+    const transferFrom = '0x08c379a0000000000000000000000000000000000000000000000000000000000000002000000000000000000000000000000000000000000000000000000000000000245472616e7366657248656c7065723a205452414e534645525f46524f4d5f4641494c454400000000000000000000000000000000000000000000000000000000';
+
+    it('price moved: reports ROUTER_INSUFFICIENT_OUTPUT, asking as the Safe with the same deadline', async () => {
+      const { client, calls } = fakeAnvil({ revertData: swapFailed, routerRevertData: slippage });
+      const sim = new AnvilSimulator(client as never, { refreshIntervalMs: 0 });
+      const r = await sim.simulate(intent, target);
+      expect(r).toMatchObject({ ok: false, revertReason: 'ROUTER_INSUFFICIENT_OUTPUT' });
+      expect(calls).not.toContain('send');
+      const probe = client.call.mock.calls.find(([a]) => (a as { to: string }).to === ROUTER)![0] as { account: string; data: string };
+      expect(probe.account).toBe(SAFE);
+      // swapExactTokensForTokens(100, 7, [USDC, WAVAX], SAFE, deadline = block 1_000 + 300)
+      expect(probe.data.startsWith('0x38ed1739')).toBe(true);
+      expect(probe.data).toContain((1_300).toString(16).padStart(64, '0'));
+    });
+
+    it('the router would accept, or only fails on transferFrom: keeps SwapFailed', async () => {
+      for (const routerRevertData of [undefined, transferFrom]) {
+        const { client } = fakeAnvil({ revertData: swapFailed, routerRevertData });
+        const sim = new AnvilSimulator(client as never, { refreshIntervalMs: 0 });
+        expect(await sim.simulate(intent, target)).toMatchObject({ ok: false, revertReason: 'SwapFailed' });
+      }
+    });
+
+    it('the probe itself fails (RPC): keeps SwapFailed, never throws', async () => {
+      const { client } = fakeAnvil({ revertData: swapFailed, routerDown: true });
+      const sim = new AnvilSimulator(client as never, { refreshIntervalMs: 0 });
+      expect(await sim.simulate(intent, target)).toMatchObject({ ok: false, revertReason: 'SwapFailed' });
+    });
+
+    it('other module reverts never probe the router', async () => {
+      const { client } = fakeAnvil({ revertData: encodeErrorResult({ abi: POLICY_MODULE_ABI, errorName: 'ExceedsPerTxCap' }), routerRevertData: slippage });
+      const sim = new AnvilSimulator(client as never, { refreshIntervalMs: 0 });
+      expect(await sim.simulate(intent, target)).toMatchObject({ revertReason: 'ExceedsPerTxCap' });
+      expect(client.call.mock.calls.some(([a]) => (a as { to: string }).to === ROUTER)).toBe(false);
+    });
   });
 
   it('reuses a fresh base snapshot instead of resetting on every sim', async () => {

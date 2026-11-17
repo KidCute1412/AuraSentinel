@@ -77,8 +77,11 @@ export const REASON_PARAMS = [
 export type ReasonParam = (typeof REASON_PARAMS)[number];
 export type ReasonParams = Partial<Record<ReasonParam, string>>;
 
-/** contract = AgentPolicyModule custom error · safe = Safe core · intent = precheck-only · invariant = post-sim. */
-export type ReasonKind = 'contract' | 'safe' | 'intent' | 'invariant' | 'unknown';
+/**
+ * contract = AgentPolicyModule custom error · safe = Safe core · router = Trader Joe router (found by the simulator
+ * behind SwapFailed) · intent = precheck-only · invariant = post-sim.
+ */
+export type ReasonKind = 'contract' | 'safe' | 'router' | 'intent' | 'invariant' | 'unknown';
 
 export interface ReasonEntry {
   kind: ReasonKind;
@@ -205,6 +208,43 @@ export const REASONS = {
     title: 'Safe từ chối (GS104)',
     messageVi:
       'Ví gọi lệnh không phải module được két bật, nên Safe từ chối (GS104). Agent không thể tự cấp quyền rút tiền.',
+  },
+
+  // Trader Joe router (Error(string), checked on the real Fuji router). On chain the Safe swallows these and the
+  // module can only say SwapFailed; the simulator asks the router directly to name the real cause (L6).
+  ROUTER_INSUFFICIENT_OUTPUT: {
+    kind: 'router',
+    title: 'Trượt giá quá mức',
+    messageVi:
+      'Giá trong pool đã đổi: swap sẽ nhận về ít hơn mức tối thiểu {minOut}. Lệnh bị chặn trước khi gửi, không có tiền nào rời két.',
+    fallbackVi:
+      'Giá trong pool đã đổi: swap sẽ nhận về ít hơn mức tối thiểu. Lệnh bị chặn trước khi gửi, không có tiền nào rời két.',
+  },
+  ROUTER_EXPIRED: {
+    kind: 'router',
+    title: 'Lệnh quá hạn',
+    messageVi: 'Lệnh tới sàn sau thời hạn (deadline) nên sàn từ chối. Không có tiền nào rời két.',
+  },
+  ROUTER_INVALID_PATH: {
+    kind: 'router',
+    title: 'Cặp token không hợp lệ',
+    messageVi: 'Sàn không có đường swap cho cặp token này. Lệnh bị chặn, không có tiền nào rời két.',
+  },
+  ROUTER_INSUFFICIENT_INPUT: {
+    kind: 'router',
+    title: 'Số lượng bán bằng 0',
+    messageVi: 'Số lượng token bán quá nhỏ nên sàn không tính được giá. Lệnh bị chặn, không có tiền nào rời két.',
+  },
+  ROUTER_INSUFFICIENT_LIQUIDITY: {
+    kind: 'router',
+    title: 'Pool cạn thanh khoản',
+    messageVi: 'Pool không đủ thanh khoản cho lệnh này. Lệnh bị chặn, không có tiền nào rời két.',
+  },
+  ROUTER_TRANSFER_FAILED: {
+    kind: 'router',
+    title: 'Sàn không kéo được token',
+    messageVi:
+      'Sàn không chuyển được token khỏi két (thiếu số dư hoặc quyền). Giao dịch được hoàn tác, không có tiền nào rời két.',
   },
 
   // Off-chain intent checks: the module ABI has no recipient field, so only precheck can see this.
