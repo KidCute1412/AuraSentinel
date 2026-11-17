@@ -1,12 +1,13 @@
 import { useState } from "react";
 import { fromAmount, type StateDto } from "@agentshield/shared";
-import { setPolicyTx } from "@/shared/api/mockChain";
 import { TOKENS, tokenAddressIn } from "@/shared/api/mockEngine";
 import { cn } from "@/shared/lib/cn";
 import { formatTokenAmount } from "@/shared/lib/format";
+import { policyTokensIn } from "@/shared/lib/policy";
 import { timeLeft } from "@/shared/lib/time";
 import { Panel } from "@/shared/ui/Panel";
 import { TxButton } from "@/shared/ui/TxButton";
+import type { OwnerControl } from "../hooks/useOwnerControl";
 import { EXPIRY_CHOICES, policyDiff, validatePolicy, valuesFromState, type PolicyErrors, type PolicyFormValues } from "../lib/policyForm";
 
 const limitOf = (state: StateDto, token: string) => state.policy.limits.find((l) => l.token.toLowerCase() === token.toLowerCase());
@@ -46,10 +47,13 @@ function Field({ id, label, unit, value, error, onChange }: { id: string; label:
 
 /**
  * Current limits, plus the owner's form to change them. Signing happens in the owner's wallet, never through the
- * backend (invariant 2). A locked vault re-activates by setting a fresh policy (new epoch).
+ * backend (invariant 2). A locked vault re-activates by setting a fresh policy (new epoch). Agent and router are kept
+ * as the chain holds them; only the limits and the expiry change.
  */
-export function PolicyPanel({ safe, state, canEdit }: { safe: string; state: StateDto; canEdit: boolean }) {
+export function PolicyPanel({ state, control }: { state: StateDto; control: OwnerControl }) {
   const nowSec = Math.floor(Date.now() / 1000);
+  const canEdit = control.canSign;
+  const tokens = policyTokensIn(state);
   // By symbol from the state's balances, so a live StateDto (real token addresses) reads the same way.
   const usdc = limitOf(state, tokenAddressIn(state, "USDC"));
   const wavax = limitOf(state, tokenAddressIn(state, "WAVAX"));
@@ -166,7 +170,12 @@ export function PolicyPanel({ safe, state, canEdit }: { safe: string; state: Sta
                 </tbody>
               </table>
               <div className="flex flex-wrap items-start gap-3">
-                <TxButton send={setPolicyTx(safe, preview.input)} onConfirmed={close}>
+                <TxButton
+                  send={control.setPolicy(preview.input, tokens)}
+                  disabled={!!control.policyBlocker(preview.input, tokens, nowSec)}
+                  disabledReason={control.policyBlocker(preview.input, tokens, nowSec) ?? undefined}
+                  onConfirmed={close}
+                >
                   {locked ? "Sign and re-activate" : "Sign and save policy"}
                 </TxButton>
                 <button type="button" onClick={() => setPreview(null)} className="min-h-10 px-3 text-sm font-bold text-soft hover:text-fg">Back to editing</button>

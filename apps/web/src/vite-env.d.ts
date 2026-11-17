@@ -7,6 +7,8 @@ interface ImportMetaEnv {
   readonly VITE_DATA_SOURCE?: string;
   /** Live mode, optional: the public demo Safe (same as SAFE_ADDRESS on the server); else found via GET /vaults. */
   readonly VITE_DEMO_SAFE?: string;
+  /** AgentShieldFactory on Fuji: lets the vault page find a module on-chain when the server is down (Kill-Switch). */
+  readonly VITE_FACTORY_ADDRESS?: string;
 }
 interface ImportMeta {
   readonly env: ImportMetaEnv;

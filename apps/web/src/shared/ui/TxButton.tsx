@@ -48,7 +48,7 @@ export function TxButton({ send, children, variant = "primary", disabled, disabl
     try {
       const tx = await send();
       if (!alive.current) return;
-      dispatch({ type: "signed", hash: tx.hash });
+      dispatch({ type: "signed", hash: tx.hash, now: performance.now() });
       await tx.wait();
       if (!alive.current) return;
       dispatch({ type: "confirmed", now: performance.now() });

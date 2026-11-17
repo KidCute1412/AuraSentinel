@@ -47,3 +47,7 @@ test-results/
 
 # start.sh dev server logs
 .dev-logs/
+
+# stray root-level env copies (e.g. received from a teammate): never commit
+/*.env
+/*.env.*

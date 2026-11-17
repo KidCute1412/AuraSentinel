@@ -4,9 +4,9 @@ import { describeTxError, isBusy, isUserRejection, txInitial, txReduce, type TxP
 const run = (...actions: Parameters<typeof txReduce>[1][]): TxPhase => actions.reduce(txReduce, txInitial as TxPhase);
 
 describe("txReduce", () => {
-  it("walks idle -> signing -> pending -> confirmed and measures elapsed time", () => {
-    const end = run({ type: "submit", now: 1000 }, { type: "signed", hash: "0xabc" }, { type: "confirmed", now: 2500 });
-    expect(end).toEqual({ kind: "confirmed", ms: 1500, hash: "0xabc" });
+  it("walks idle -> signing -> pending -> confirmed and measures broadcast -> receipt", () => {
+    const end = run({ type: "submit", now: 1000 }, { type: "signed", hash: "0xabc", now: 1200 }, { type: "confirmed", now: 2500 });
+    expect(end).toEqual({ kind: "confirmed", ms: 1300, hash: "0xabc" });
   });
 
   it("ignores a second submit while busy", () => {
@@ -21,7 +21,7 @@ describe("txReduce", () => {
 
   it("surfaces a failure only while a tx is in flight", () => {
     expect(run({ type: "failed", message: "x" })).toEqual(txInitial);
-    expect(run({ type: "submit", now: 1 }, { type: "signed", hash: "0x1" }, { type: "failed", message: "boom" })).toEqual({ kind: "error", message: "boom" });
+    expect(run({ type: "submit", now: 1 }, { type: "signed", hash: "0x1", now: 2 }, { type: "failed", message: "boom" })).toEqual({ kind: "error", message: "boom" });
   });
 
   it("allows retry after an error", () => {
@@ -31,7 +31,7 @@ describe("txReduce", () => {
 
   it("does not go backwards on out-of-order events", () => {
     expect(run({ type: "confirmed", now: 5 })).toEqual(txInitial);
-    expect(run({ type: "signed", hash: "0x1" })).toEqual(txInitial);
+    expect(run({ type: "signed", hash: "0x1", now: 2 })).toEqual(txInitial);
   });
 });
 
@@ -47,5 +47,12 @@ describe("error helpers", () => {
   it("describes revert reasons and unknown failures", () => {
     expect(describeTxError({ reason: "ExceedsPerTxCap" })).toContain("ExceedsPerTxCap");
     expect(describeTxError(new Error("x"))).toMatch(/failed/);
+  });
+
+  it("turns owner-call reverts and wallet problems into plain English", () => {
+    expect(describeTxError({ reason: "NotOwner" })).toMatch(/Only the vault owner/);
+    expect(describeTxError({ reason: "InvalidPolicy" })).toMatch(/rejected this policy/);
+    expect(describeTxError(new Error("Connect your wallet first."))).toBe("Connect your wallet first.");
+    expect(describeTxError(new Error("insufficient funds for gas * price + value"))).toMatch(/enough AVAX/);
   });
 });

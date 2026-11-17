@@ -1,3 +1,4 @@
+import type { PolicyInput } from "@/shared/lib/policy";
 import { useEffect } from "react";
 import { zeroAddress } from "viem";
 import { create } from "zustand";
@@ -219,13 +220,7 @@ export const killTx = (safe: string) =>
     useMockChain.getState().patch(safe, (s) => ({ ...s, state: { ...s.state, isActive: false, blockNumber: (BigInt(s.state.blockNumber) + 1n).toString() } })),
   );
 
-export interface PolicyInput {
-  usdcMaxPerTx: bigint;
-  usdcDailyCap: bigint;
-  wavaxMaxPerTx: bigint;
-  wavaxDailyCap: bigint;
-  expiry: number;
-}
+export type { PolicyInput } from "@/shared/lib/policy";
 
 /** Owner sets a new policy; a locked vault becomes active again under a new epoch. */
 export const setPolicyTx = (safe: string, input: PolicyInput) =>

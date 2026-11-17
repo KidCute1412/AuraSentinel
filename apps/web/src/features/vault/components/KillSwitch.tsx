@@ -1,14 +1,18 @@
 import { Lock, ShieldOff } from "lucide-react";
 import { useReducer, useRef } from "react";
-import { killTx } from "@/shared/api/mockChain";
 import { cn } from "@/shared/lib/cn";
 import { HoldButton } from "@/shared/ui/HoldButton";
 import { SnowtraceLink } from "@/shared/ui/SnowtraceLink";
+import type { SentTx } from "@/shared/ui/TxButton";
 import { describeTxError, isUserRejection, txInitial, txReduce } from "@/shared/ui/txState";
 
 interface Props {
-  safe: string;
   isActive: boolean;
+  /** Sign and send the revoke (useOwnerControl): the wallet on live data, the simulation otherwise. */
+  send: () => Promise<SentTx>;
+  /** The connected wallet is the module owner. Otherwise the block shows `notice` and the button stays off. */
+  canSign?: boolean;
+  notice?: string | null;
   /** "full" = the hazard-zone block on the dashboard; "compact" = one button for headers and the phone dock. */
   size?: "full" | "compact";
   onKilled?: () => void;
@@ -20,16 +24,16 @@ const seconds = (ms: number) => `${(ms / 1000).toFixed(1)} s`;
  * Owner revokes the agent. Hold-to-confirm so it cannot be hit by accident, signed in the owner's wallet and
  * sent straight to the chain: it keeps working with our server switched off (invariant 2).
  */
-export function KillSwitch({ safe, isActive, size = "full", onKilled }: Props) {
+export function KillSwitch({ isActive, send, canSign = true, notice, size = "full", onKilled }: Props) {
   const [phase, dispatch] = useReducer(txReduce, txInitial);
   const hash = useRef<string | null>(null);
 
   const fire = async () => {
     dispatch({ type: "submit", now: performance.now() });
     try {
-      const tx = await killTx(safe)();
+      const tx = await send();
       hash.current = tx.hash;
-      dispatch({ type: "signed", hash: tx.hash });
+      dispatch({ type: "signed", hash: tx.hash, now: performance.now() });
       await tx.wait();
       dispatch({ type: "confirmed", now: performance.now() });
       onKilled?.();
@@ -55,12 +59,14 @@ export function KillSwitch({ safe, isActive, size = "full", onKilled }: Props) {
   );
 
   const control = (
-    <HoldButton tone="danger" ms={800} disabled={busy || !isActive} onComplete={() => void fire()} holdingLabel="Keep holding…">
+    <HoldButton tone="danger" ms={800} disabled={busy || !isActive || !canSign} onComplete={() => void fire()} holdingLabel="Keep holding…">
       {label}
     </HoldButton>
   );
 
   if (size === "compact") {
+    // Compact spots (header, phone dock) are for the owner only: nothing to show anyone else.
+    if (!canSign && phase.kind !== "confirmed") return null;
     return (
       <div className="flex items-center gap-3">
         {isActive ? control : null}
@@ -80,6 +86,7 @@ export function KillSwitch({ safe, isActive, size = "full", onKilled }: Props) {
           </p>
         </div>
         {control}
+        {!canSign && notice && <p className="text-sm text-soft">{notice}</p>}
         {status}
         {phase.kind === "error" && (
           <p role="alert" className="border-l-4 border-danger bg-tint-pink px-3 py-2 text-xs text-fg">
