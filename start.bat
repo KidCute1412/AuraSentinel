@@ -9,7 +9,7 @@ set "SETUP_ONLY="
 if /i "%~1"=="--setup-only" set "SETUP_ONLY=1"
 
 rem Local dev from a fresh clone: env files -> deps -> shared build -> docker infra -> migrations
-rem -> api + worker + web in a split terminal -> wait for /api/health -> open the browser.
+rem -> api + worker + web in a split terminal -> wait for /api/health (no browser is opened).
 rem   start.bat               everything
 rem   start.bat --setup-only  stop after migrations (CI-style check, no windows)
 rem Production on one laptop is a different file: docs/runbook/production.md
@@ -87,7 +87,6 @@ goto waitapi
 echo       API is up:
 curl -s http://localhost:4000/api/health
 echo.
-start "" http://localhost:5173
 
 :banner
 echo.
