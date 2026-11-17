@@ -398,8 +398,17 @@ Tất cả dùng `VaultLayout`: `VaultHeader` (địa chỉ, trạng thái, agen
 
 ## 11. `/vaults` — Danh sách vault của tôi
 
-- Thẻ cho mỗi vault: địa chỉ rút gọn (`AddressChip`), trạng thái (Active / Revoked / Chưa hoàn tất), % ngân sách ngày đã dùng, job gần nhất.
-- Dữ liệu: `GET /vaults` trả toàn bộ registry nên FE lọc theo `owner` = ví kết nối (xem `api.md` §12 điểm mở 5). Ô tìm theo địa chỉ; lọc Active / Revoked / Chưa hoàn tất.
-- Vault chưa hoàn tất wizard: nút "Tiếp tục tạo" tới bước dang dở.
-- Trạng thái trống: giải thích 1 câu + nút "Tạo vault" và "Thử demo".
-- Chưa kết nối ví: chuyển về `/signin` rồi quay lại.
+- **Thẻ cho mỗi vault:** nhãn trạng thái, địa chỉ (`AddressChip`), thanh ngân sách ngày đã dùng, số dư USDC/WAVAX, job gần nhất (`GET /vaults/{safe}/jobs?limit=1`), nút `Open vault`. Vault demo công khai có thêm nhãn `Public demo`.
+- **Trạng thái đọc từ chain** (`GET /vaults/{safe}/state` của từng vault, P1), không lấy từ registry:
+  - `Incomplete`: module chưa từng có policy (`policyEpoch = 0` hoặc chưa có agent) → nút `Continue setup` trỏ wizard vào đúng Safe đó.
+  - `Revoked`: đã bấm Kill-Switch.
+  - `Protected`: còn lại. Hết hạn policy vẫn là `Protected` nhưng có cảnh báo vàng "Policy expired" + link `Set a new policy` (chủ vault chưa bấm Kill). Vault chưa có tiền có nhắc `Deposit`.
+  - Một vault đọc lỗi chỉ báo trên thẻ đó, không làm hỏng cả trang.
+- **Dữ liệu:** `GET /vaults` trả toàn bộ registry, FE lọc theo `owner` = ví đăng nhập (`api.md` §12 điểm mở 5), vault mới nhất lên đầu.
+- **Vault đang tạo dở trong wizard:** server chỉ biết vault từ bước module, nên Safe trong con trỏ `localStorage` có thẻ riêng, đọc chain như wizard ("Next: step 2 of 4, Module"), nút `Continue setup` và `Remove from list` (chỉ quên trong trình duyệt). Thẻ này vẫn hiện khi API tắt.
+- **Lọc và tìm:** All / Protected / Revoked / Incomplete kèm số lượng, ô tìm theo địa chỉ; cả hai nằm trên query string (`?status=revoked&q=ca43`). Không còn kết quả → `Clear filters`.
+- **API tắt:** báo "danh sách có thể thiếu" + `Try again`; trang vault từng cái vẫn chạy từ chain.
+- **Trạng thái trống:** một câu giải thích + `Create vault` và `Try the demo`. Nút `Create vault` luôn có ở đầu trang.
+- Chưa đăng nhập ví: chuyển về `/signin` rồi quay lại.
+- **Code:** `features/vault/list/{VaultListPage,VaultCard}.tsx`, `useMyVaults.ts`, `vaultList.ts` (luật thuần, có test).
+
