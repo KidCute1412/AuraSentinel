@@ -566,6 +566,48 @@ contract AgentPolicyModuleTest is Test {
         assertEq(wavax.balanceOf(caller), 0);
     }
 
+    /// contracts.md section 7: any caller, any amount, every door it can reach. The attacker ends with nothing and the
+    /// Safe, the policy and the allowances are exactly as before.
+    function testFuzz_attackerNeverProfits(uint256 amount, address caller) public {
+        vm.assume(caller != agent && caller != owner && caller != address(safe) && caller != address(module));
+        vm.assume(caller != address(router) && caller != address(0));
+        amount = bound(amount, 1, type(uint128).max);
+        uint256 safeUsdc = usdc.balanceOf(address(safe));
+        uint256 safeWavax = wavax.balanceOf(address(safe));
+        uint256 epoch = module.policyEpoch();
+
+        vm.startPrank(caller);
+        // 1. Swap as if it were the agent.
+        vm.expectRevert(IAgentPolicyModule.UnauthorizedAgent.selector);
+        module.executeGuardedSwap(address(usdc), address(wavax), amount, 1, block.timestamp + 1 minutes);
+        // 2. Rewrite the policy to name itself as the agent with unlimited caps.
+        address[] memory tokens = new address[](1);
+        tokens[0] = address(usdc);
+        IAgentPolicyModule.Limits[] memory l = new IAgentPolicyModule.Limits[](1);
+        l[0] = IAgentPolicyModule.Limits(type(uint128).max, type(uint128).max);
+        vm.expectRevert(IAgentPolicyModule.NotOwner.selector);
+        module.setPolicy(IAgentPolicyModule.Policy(caller, caller, uint64(block.timestamp + 1 days), true), tokens, l);
+        // 3. Kill the vault (denial of service).
+        vm.expectRevert(IAgentPolicyModule.NotOwner.selector);
+        module.revoke();
+        // 4. Ask the Safe directly for a transfer or an approval (GS104: not an enabled module).
+        vm.expectRevert("GS104");
+        safe.execTransactionFromModule(address(usdc), 0, abi.encodeCall(MockERC20.transfer, (caller, amount)), 0);
+        vm.expectRevert("GS104");
+        safe.execTransactionFromModule(address(usdc), 0, abi.encodeCall(MockERC20.approve, (caller, amount)), 0);
+        vm.stopPrank();
+
+        assertEq(usdc.balanceOf(caller), 0);
+        assertEq(wavax.balanceOf(caller), 0);
+        assertEq(usdc.allowance(address(safe), caller), 0);
+        assertEq(usdc.balanceOf(address(safe)), safeUsdc);
+        assertEq(wavax.balanceOf(address(safe)), safeWavax);
+        assertEq(module.policyEpoch(), epoch);
+        (address agentNow,,, bool active) = module.policy();
+        assertEq(agentNow, agent);
+        assertTrue(active);
+    }
+
     function testFuzz_agentNeverExceedsCaps(uint256 a, uint256 b) public {
         a = bound(a, 1, USDC_MAX_TX);
         b = bound(b, 1, USDC_MAX_TX);

@@ -46,6 +46,10 @@ function Hero({ proof, offline }: { proof: Proof | null; offline: boolean }) {
   const notRun = proof ? testsNotRun(proof.tests) : true;
   const measured = !!proof && proof.finality.samples > 0;
   const missing = offline ? "needs the server, which is offline" : "loading";
+  // "0 high, 0 medium, 4 low": the headline is the most severe count, the rest goes in the note so the tile never wraps.
+  const slither = proof && proof.tests.slither !== "not run" ? proof.tests.slither.split(",").map((p) => p.trim()) : null;
+  const slitherHead = slither?.[0] ?? null;
+  const slitherRest = slither && slither.length > 1 ? slither.slice(1).join(" · ") : slither ? "" : null;
   return (
     <section className="blueprint relative overflow-hidden border-b border-line">
       <div className="mx-auto max-w-6xl px-4 pb-16 pt-20 sm:px-6 lg:pt-28">
@@ -75,7 +79,7 @@ function Hero({ proof, offline }: { proof: Proof | null; offline: boolean }) {
             note={!proof ? missing : notRun ? "contract test suite not run yet" : `${proof.tests.invariants.length} invariants · ${proof.tests.passed ? "all green" : "FAILING"}`}
             tone={proof && !notRun && proof.tests.passed ? "ok" : "neutral"}
           />
-          <Tile label="Slither" value={proof && proof.tests.slither !== "not run" ? proof.tests.slither : UNKNOWN} note={proof ? "static analysis summary" : missing} tone="neutral" />
+          <Tile label="Slither" value={slitherHead ?? UNKNOWN} note={!proof ? missing : slitherRest ? `${slitherRest} · static analysis` : "static analysis not run yet"} tone="neutral" />
         </dl>
       </div>
     </section>

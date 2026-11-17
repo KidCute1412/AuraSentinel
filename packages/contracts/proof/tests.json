@@ -1,0 +1,37 @@
+{
+  "fuzzRuns": 10000,
+  "invariants": [
+    "invariant_spentNeverExceedsDailyCap",
+    "invariant_noSwapExceedsPerTxCap",
+    "invariant_revokedMeansNoSpend",
+    "invariant_onlyOwnerAndAgentCanAct",
+    "invariant_attackerNeverReceivesTokens",
+    "invariant_fundsOnlyInSafeOrPool",
+    "invariant_noAllowanceLeftToRouter"
+  ],
+  "passed": true,
+  "slither": "0 high, 0 medium, 4 low",
+  "invariantRuns": 1000,
+  "invariantDepth": 100,
+  "invariantCalls": 100000,
+  "fuzzTests": [
+    "testFuzz_agentNeverExceedsCaps(uint256,uint256)",
+    "testFuzz_attackerCannotSwapOrMoveAnything(address,uint256,uint256)",
+    "testFuzz_attackerNeverProfits(uint256,address)",
+    "testFuzz_onlyOwnerCanDeploy(address)",
+    "testFuzz_faucetNeverMintsTwiceWithinCooldown(uint256)"
+  ],
+  "tests": {
+    "total": 81,
+    "failed": []
+  },
+  "slitherFindings": {
+    "high": 0,
+    "medium": 0,
+    "low": 4,
+    "informational": 2
+  },
+  "srcSha256": "f4fa9800eec10b100078f390bf83c1da681e5069bda806c8ca127bdc2957688f",
+  "commit": "2675063",
+  "generatedAt": "2026-11-17T06:57:52.217Z"
+}

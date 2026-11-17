@@ -86,6 +86,7 @@ describe("/proof", () => {
     expect(await screen.findByText("invariant_spentNeverExceedsDailyCap")).toBeInTheDocument();
     expect(screen.getByText("Passing")).toBeInTheDocument();
     expect(screen.getAllByText("1.80s").length).toBeGreaterThan(0); // hero tile + finality section
-    expect(screen.getAllByText(/0 high, 0 medium/).length).toBeGreaterThan(0);
+    expect(screen.getByText("0 high")).toBeInTheDocument();
+    expect(screen.getByText("0 medium · static analysis")).toBeInTheDocument();
   });
 });
