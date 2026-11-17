@@ -108,7 +108,20 @@ Ngoài 12 error của §4, module có thêm 3 error cho owner và guard: `NotOwn
 
 Revert ngoài module (không phải custom error của ta): Safe `GS104` = "caller không phải module đã enable" (attack #3).
 
-Quy ước tên reason code (`REASONS` trong `errors.ts`): **PascalCase** = custom error của module (precheck và sim mirror gate thì trả đúng tên này) · **`GS###`** = lỗi Safe · **SCREAMING_SNAKE** = chỉ có off-chain (`RECIPIENT_NOT_SAFE`, `INVARIANT_*`, `UNKNOWN_REVERT`). Câu tiếng Việt lấy qua `formatReasonVi(code, params)`; thiếu số thì tự dùng câu không số, mã lạ thì về `UNKNOWN_REVERT`. `packages/contracts/abi/` đã có ABI; test `reasons.spec.ts` fail nếu một error trong ABI chưa có mục.
+**Router Trader Joe (L6).** Module gọi router qua `Safe.execTransactionFromModule`, mà Safe chỉ trả `false` và **nuốt lý do**, nên on-chain mọi lỗi router đều thành `SwapFailed`. Khi chạy thử ra `SwapFailed`, simulator (`probeRouterFailure` trong `core/chain/revert-decoder.ts`) hỏi lại router bằng `eth_call` **từ địa chỉ Safe** với đúng tham số. Router kiểm deadline và `minOut` **trước** khi kéo token, nên không cần allowance vẫn biết lý do. Có code router thì dùng code đó thay `SwapFailed`; `TRANSFER_FROM_FAILED` (giá vẫn ổn) hoặc không rõ thì giữ `SwapFailed`. Giao dịch đã lên chain thì giữ `SwapFailed` (đúng sự thật on-chain).
+
+| Chuỗi revert (đã kiểm trên router Fuji thật) | Reason code |
+|---|---|
+| `JoeRouter: INSUFFICIENT_OUTPUT_AMOUNT` | `ROUTER_INSUFFICIENT_OUTPUT` (trượt giá) |
+| `JoeRouter: EXPIRED` | `ROUTER_EXPIRED` |
+| `JoeLibrary: INVALID_PATH` | `ROUTER_INVALID_PATH` |
+| `JoeLibrary: INSUFFICIENT_INPUT_AMOUNT` / `INSUFFICIENT_AMOUNT` | `ROUTER_INSUFFICIENT_INPUT` |
+| `JoeLibrary: INSUFFICIENT_LIQUIDITY` | `ROUTER_INSUFFICIENT_LIQUIDITY` |
+| `TransferHelper: TRANSFER_FROM_FAILED` | `ROUTER_TRANSFER_FAILED` |
+
+Khớp theo phần sau tiền tố, nên fork kiểu Uniswap V2 (`UniswapV2Router: …`) cũng chạy. Chuỗi khác, `Panic`, selector lạ ⇒ `UNKNOWN_REVERT`. Test dùng dữ liệu revert thật lấy từ router Fuji (`revert-decoder.spec.ts`).
+
+Quy ước tên reason code (`REASONS` trong `errors.ts`): **PascalCase** = custom error của module (precheck và sim mirror gate thì trả đúng tên này) · **`GS###`** = lỗi Safe · **SCREAMING_SNAKE** = chỉ có off-chain (`RECIPIENT_NOT_SAFE`, `INVARIANT_*`, `ROUTER_*`, `UNKNOWN_REVERT`). Câu tiếng Việt lấy qua `formatReasonVi(code, params)`; thiếu số thì tự dùng câu không số, mã lạ thì về `UNKNOWN_REVERT`. `packages/contracts/abi/` đã có ABI; test `reasons.spec.ts` fail nếu một error trong ABI chưa có mục.
 
 ## 7. Test (Foundry)
 

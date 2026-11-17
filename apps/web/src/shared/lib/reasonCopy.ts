@@ -104,6 +104,33 @@ export const REASON_COPY: Record<ReasonCode, ReasonCopy> = {
       "The caller is not a module enabled on the vault, so the Safe refused the call (GS104). The agent cannot grant itself an allowance.",
   },
 
+  // Trader Joe router: the real cause behind SwapFailed, found by the simulator (L6).
+  ROUTER_INSUFFICIENT_OUTPUT: {
+    title: "Price moved too far",
+    message: "The pool price moved: the swap would return less than the minimum of {minOut}. Blocked before sending, no funds left the vault.",
+    fallback: "The pool price moved: the swap would return less than the minimum. Blocked before sending, no funds left the vault.",
+  },
+  ROUTER_EXPIRED: {
+    title: "Order expired",
+    message: "The order reached the exchange after its deadline, so the exchange refused it. No funds left the vault.",
+  },
+  ROUTER_INVALID_PATH: {
+    title: "No route for this pair",
+    message: "The exchange has no swap route for this token pair. Blocked, no funds left the vault.",
+  },
+  ROUTER_INSUFFICIENT_INPUT: {
+    title: "Amount too small",
+    message: "The amount to sell is too small for the exchange to price. Blocked, no funds left the vault.",
+  },
+  ROUTER_INSUFFICIENT_LIQUIDITY: {
+    title: "Pool has no liquidity",
+    message: "The pool does not hold enough liquidity for this order. Blocked, no funds left the vault.",
+  },
+  ROUTER_TRANSFER_FAILED: {
+    title: "Exchange could not pull funds",
+    message: "The exchange could not move the tokens out of the vault (balance or approval missing). Reverted, no funds left the vault.",
+  },
+
   // Off-chain intent check (the module ABI has no recipient field).
   RECIPIENT_NOT_SAFE: {
     title: "Recipient is not the vault",

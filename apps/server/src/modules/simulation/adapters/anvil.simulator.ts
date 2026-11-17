@@ -14,7 +14,7 @@ import {
 import { avalancheFuji } from 'viem/chains';
 import { ERC20_ABI, POLICY_MODULE_ABI, SWAP_GAS } from '../../../core/chain/abis';
 import { encodeGuardedSwap, swapDeadline } from '../../../core/chain/swap-calldata';
-import { decodeRevert } from '../../../core/chain/revert-decoder';
+import { decodeRevert, probeRouterFailure } from '../../../core/chain/revert-decoder';
 import { Mutex } from '../../../core/mutex';
 import type { SimResult, SwapIntent } from '../../../core/types';
 import type { SimTarget, SimulatorPort } from '../simulator.port';
@@ -180,7 +180,8 @@ export class AnvilSimulator implements SimulatorPort, OnModuleDestroy {
     });
     const agent = target.agent ?? agentSigner;
     const block = await c.getBlock();
-    const data = encodeGuardedSwap(intent, swapDeadline(block.timestamp));
+    const deadline = swapDeadline(block.timestamp);
+    const data = encodeGuardedSwap(intent, deadline);
     const watched = this.watchList(intent, target);
     const before = await this.balances(intent, target.safe, watched);
 
@@ -190,7 +191,20 @@ export class AnvilSimulator implements SimulatorPort, OnModuleDestroy {
       try {
         await c.call({ account: agent, to: target.module, data, gas: SWAP_GAS });
       } catch (e) {
-        return reverted(decodeRevert(e));
+        const reason = decodeRevert(e);
+        if (reason !== 'SwapFailed') return reverted(reason);
+        // SwapFailed hides the router's reason (the Safe swallows it): ask the router directly, as the Safe (L6).
+        return reverted(
+          await probeRouterFailure(c, {
+            router,
+            safe: target.safe,
+            tokenIn: intent.tokenIn,
+            tokenOut: intent.tokenOut,
+            amountIn: intent.amountIn,
+            minOut: intent.minAmountOut,
+            deadline,
+          }),
+        );
       }
       const hash = await c.sendTransaction({ account: agent, chain: avalancheFuji, to: target.module, data, gas: SWAP_GAS });
       const receipt = await c.waitForTransactionReceipt({ hash, pollingInterval: 50 });
