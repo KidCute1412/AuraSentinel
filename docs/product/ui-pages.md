@@ -19,8 +19,8 @@
 | `/demo` | Demo vault (sandbox), **một màn** | public, **không cần đăng nhập** (throttle IP, D12) | Q9, Q10, Q11 | state, jobs, rebalance, attacks, SSE | owner demo: setPolicy/Kill |
 | `/vaults` | Danh sách vault của tôi (§11) | ví kết nối | L9 | `GET /vaults` | không |
 | `/vaults/new` | Chuyển sang bước đầu tiên chưa xong của wizard | ví kết nối | L9 | — | — |
-| `/vaults/new/safe` | Wizard bước 1: chọn/tạo Safe | ví kết nối | L9 | `GET /vaults/{safe}` | create Safe |
-| `/vaults/new/module` | Wizard bước 2: triển khai + bật module | ví kết nối | L9 | `GET /vaults/{safe}` (poll đến khi indexer thấy), `PUT /vaults/{safe}` | createModule, enableModule |
+| `/vaults/new/safe` | Wizard bước 1: chọn/tạo Safe | ví kết nối | L9 | — (đọc chain) | create Safe |
+| `/vaults/new/module` | Wizard bước 2: triển khai + bật module | ví kết nối | L9 | — (đọc chain) | deployModule, enableModule |
 | `/vaults/new/policy` | Wizard bước 3: đặt policy | ví kết nối | L9 | — | setPolicy |
 | `/vaults/new/fund` | Wizard bước 4: nạp tiền | ví kết nối | L9 | — | faucet, deposit |
 | `/vaults/:safe` | **Tổng quan** vault (dashboard 3 cột, §4) | public đọc; owner thao tác | L7, L8, Q9 | như `/demo` + auth | setPolicy, revoke, deposit, withdraw |
@@ -68,9 +68,9 @@ Wizard `/vaults/new/*`, bước hoàn thành đọc từ chain:
 
 | Bước | Đã xong khi | Guard khi vào bước này mà bước trước chưa xong |
 |---|---|---|
-| `safe` | `Safe.isOwner(ví)` với Safe đã chọn | (bước đầu, không có guard bước trước) |
-| `module` | `Safe.isModuleEnabled(module)` | về `safe` kèm thông báo "Hoàn tất bước 1 trước" |
-| `policy` | `isActive = true` | về bước đầu tiên chưa xong |
+| `safe` | ví nằm trong `Safe.getOwners()` của Safe đã chọn | (bước đầu, không có guard bước trước) |
+| `module` | `Safe.isModuleEnabled(factory.moduleOf(safe))` | về `safe` kèm thông báo "Hoàn tất bước 1 trước" |
+| `policy` | `policy().isActive`, có `agentSigner`, chưa hết hạn | về bước đầu tiên chưa xong |
 | `fund` | balance Safe > 0 | về bước đầu tiên chưa xong |
 
 - Vào bước đã xong: xem được ở chế độ chỉ đọc, kèm nút "Sang bước tiếp theo".
@@ -254,16 +254,26 @@ Mỗi bước có URL riêng: `/vaults/new/safe`, `/module`, `/policy`, `/fund`.
 Bước:  ① Safe ─ ② Module ─ ③ Policy ─ ④ Nạp tiền ─ ✔ Xong
 ```
 
-| Bước | Hành động ví | Điều kiện hoàn thành (đọc chain) |
-|---|---|---|
-| 1. Safe | Tạo Safe mới (Protocol Kit) hoặc chọn Safe đã có mà ví là owner | `Safe.isOwner(ví)` |
-| 2. Module | Factory `deployModule(safe)` + Safe `enableModule` | `Safe.isModuleEnabled(module)`; sự kiện `ModuleDeployed` |
-| 3. Policy | Form policy → `setPolicy` | `isActive = true` |
-| 4. Nạp tiền | `faucet` MockUSDC (có cooldown) → transfer vào Safe | balance Safe > 0 |
+Cùng chuỗi bước với `packages/contracts/script/CreateVault.s.sol` (L4), nhưng owner ký trên trình duyệt (P2). Không bước nào đi qua server.
 
-- **Resume:** tiến trình suy ra từ **chain** (không lưu trong DB, P1); lưu `safe` đang làm ở `localStorage` để đóng tab mở lại vẫn tiếp tục.
-- **Sau bước 2:** poll `GET /vaults/{safe}` (≤ 5s theo A8) đến khi indexer đăng ký; nếu quá hạn có nút `Đăng ký thủ công` → `PUT /vaults/{safe}`.
-- **Lỗi:** user từ chối ký → giữ nguyên bước; tx revert → hiện reason code; faucet cooldown → đếm ngược.
+| Bước | Hành động ví (tx) | Điều kiện hoàn thành (đọc chain) |
+|---|---|---|
+| 1. Safe | `SafeProxyFactory.createProxyWithNonce` (Safe v1.4.1 L2, 1-of-1, owner = ví đang ký, salt ngẫu nhiên); hoặc dán địa chỉ Safe 1/1 đã có | ví nằm trong `getOwners()` |
+| 2. Module | (a) `AgentShieldFactory.deployModule(safe)` (bỏ qua nếu `moduleOf(safe)` đã có); (b) `Safe.execTransaction(safe, enableModule(module))` chữ ký approved-hash | `isModuleEnabled(module)` |
+| 3. Policy | Form điền sẵn 500 / 1.500 USDC, 20 / 60 WAVAX, 30 ngày → `setPolicy`. Agent = ví agent của server, router = Trader Joe, token USDC/WAVAX: lấy từ `deployments/fuji.json`, không cho sửa | policy active, có agent, chưa hết hạn |
+| 4. Nạp tiền | Faucet MockUSDC/MockWAVAX (cooldown) → transfer vào Safe (panel chỉ có Nạp, không có Rút) | USDC hoặc WAVAX trong Safe > 0 |
+| ✔ Xong | Không ký. Poll `GET /vaults/{safe}` (server tìm thấy module qua indexer hoặc đọc chain) → nút `Open your vault` | API trả 200 |
+
+- **Code:** `shared/lib/wizard.ts` (dựng tham số, thuần), `shared/web3/wizardChain.ts` (đọc chain + gửi tx), `features/vault/hooks/useWizardControl.ts`, `features/vault/wizard/{WizardPage,WizardSteps}.tsx`.
+- **Resume:** tiến trình suy ra từ **chain** mỗi lần vào (P1); chỉ lưu con trỏ `safe` ở `localStorage`. Địa chỉ Safe là CREATE2 nên được lưu ngay khi ký, đóng tab lúc tx đang mined vẫn tiếp tục được. Đã deploy module mà chưa bật → mở lại vào thẳng bước bật module.
+- **Tự chuyển bước:** khi chain xác nhận bước đang làm, trang tự sang bước kế.
+- **Dễ dùng:** đầu trang ghi còn khoảng mấy lần ký ví; bước 1 có nút kết nối ví ngay tại chỗ; cảnh báo khi ví đang ký khác tài khoản đã đăng nhập (vault sẽ thuộc ví đang ký); bước 3 tóm tắt policy bằng câu thường ("tối đa 500 USDC mỗi lệnh…, tới ngày …"); bước 4 nhắc lấy token từ faucet khi ví chưa có; lỗi revert hiện câu tiếng Anh dễ hiểu (NotSafeOwner, ModuleExists, GS013/GS025/GS026, FaucetCooldown); trang `/vaults` có banner `Continue setup` khi còn vault đang tạo dở.
+- **Server chậm hoặc tắt:** sau 15 giây chưa thấy server nhận vault, nút `Open your vault` vẫn mở được (trang vault đọc thẳng chain khi API tắt).
+- **Chặn:** Safe không thuộc ví, Safe nhiều chữ ký (threshold > 1), hoặc module do owner khác tạo → màn "Cannot continue" + nút `Start a new vault`.
+- **Gas:** cảnh báo khi ví < 0,02 AVAX (fork test đo cả 8 tx ≈ 0,002 AVAX) kèm link faucet Core.
+- **Lỗi:** user từ chối ký → giữ nguyên bước; tx revert → hiện reason code (chạy thử `simulateContract` trước khi mở ví); faucet cooldown → hiện thời gian chờ.
+- **Sau khi xong:** vault vào registry nên rebalancer 24/7 sẽ tự giao dịch, tối đa `REBALANCE_MAX_VAULTS` vault (mặc định 5, vault cũ nhất trước; ví agent trả gas cho tất cả). Trang ghi rõ điều này.
+- **Kiểm thử:** `wizardChain.fork.test.ts` chạy đủ 4 bước từ một ví mới trên fork Fuji (Safe factory + AgentShieldFactory thật) rồi giả lập agent swap được trong hạn mức, bị chặn khi vượt.
 - Mục tiêu: ví mới tạo xong < 3 phút.
 
 ---

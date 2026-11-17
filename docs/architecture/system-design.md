@@ -238,6 +238,7 @@ stateDiagram-v2
 ### 4.2 Các quy tắc vận hành
 - **Retry chỉ cho lỗi hạ tầng** (RPC timeout, 5xx) — exponential backoff 3 lần. **Không bao giờ retry revert**: revert là kết quả đúng của Shield 2.
 - **Idempotency Rebalancer:** `jobId = rebalance:{safe}:{floor(blockNumber/10)}` + bỏ qua nếu queue `swap` còn job `active`/`waiting` → không rebalance 2 lần khi tx trước chưa mined.
+- **Giới hạn số vault:** mọi vault không phải demo trong registry (kể cả vault tạo bằng wizard L9) đều được rebalance bằng chung ví agent. `REBALANCE_MAX_VAULTS` (mặc định 5, `0` = không giới hạn) chỉ cho N vault đủ điều kiện đầu tiên theo thứ tự đăng ký (cũ nhất trước, nên vault của đội luôn giữ chỗ); vault bị Kill/hết hạn không chiếm chỗ; vault còn lại bị skip `vault-limit`.
 - **Clamp số tiền:** Rebalancer luôn `amountIn = min(deviation, maxPerTx, dailyCap − spentToday)`; dưới ngưỡng (vd 2% tổng quỹ) thì skip.
 - **Định giá cho Rebalancer:** dùng `router.getAmountsOut` (cùng nguồn giá với pool sẽ swap) → tránh lệch giữa “tính” và “khớp”.
 

@@ -34,6 +34,8 @@ type SwapDecision = Extract<VaultDecision, { action: 'swap' }>;
  * The 24/7 rebalancer (Q7). Each tick: take every vault in the registry (A8), read it from the chain, let the pure
  * planner decide (domain/rebalance.plan.ts, no LLM), and queue the swaps for the Auditor. It
  * never signs: the Auditor runs Shield 1 and the module (Shield 2) still has the last word.
+ * Vaults made with the web wizard (L9) join the registry too; REBALANCE_MAX_VAULTS bounds how many the shared
+ * agent trades, since its gas pays for all of them.
  *
  * Idempotency (system-design §4.2): a vault with a swap still queued is skipped, and each
  * decision claims `rebalance:{safe}:{floor(block/10)}` in Redis, so a tick that fires again
@@ -94,9 +96,11 @@ export class RebalancerProcessor extends WorkerHost {
       }
     }
 
+    // Registry order is oldest first, so the team's own vaults keep their slots when visitors create more.
     const decisions = planTick(
       loaded.map((v) => v.snapshot),
       blockNumber,
+      this.env.REBALANCE_MAX_VAULTS,
     );
     for (const decision of decisions) {
       if (decision.action === 'skip') {

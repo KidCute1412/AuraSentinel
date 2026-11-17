@@ -15,6 +15,17 @@ function read(): Address | null {
 interface WizardSafeState {
   safe: Address | null;
   setSafe: (safe: Address | null) => void;
+  /** Save for the next visit only (a Safe still being mined): this tab keeps showing the current step. */
+  remember: (safe: Address) => void;
+}
+
+function store(safe: Address | null) {
+  try {
+    if (safe) localStorage.setItem(KEY, safe);
+    else localStorage.removeItem(KEY);
+  } catch {
+    // ignore: in-memory value still works for this tab
+  }
 }
 
 /**
@@ -24,12 +35,8 @@ interface WizardSafeState {
 export const useWizardSafe = create<WizardSafeState>((set) => ({
   safe: read(),
   setSafe: (safe) => {
-    try {
-      if (safe) localStorage.setItem(KEY, safe);
-      else localStorage.removeItem(KEY);
-    } catch {
-      // ignore: in-memory value still works for this tab
-    }
+    store(safe);
     set({ safe });
   },
+  remember: (safe) => store(safe),
 }));
