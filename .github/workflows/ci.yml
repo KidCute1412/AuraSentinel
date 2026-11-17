@@ -107,6 +107,10 @@ jobs:
         run: forge test -vvv --fuzz-runs 1000
         env:
           FOUNDRY_PROFILE: ci
+      # /proof serves proof/tests.json: it must be a passing run of the src/ in this commit.
+      - name: Proof artifact is current
+        if: steps.has.outputs.present == 'true'
+        run: node script/proof-artifact.mjs --check
       # Blocks on high-severity findings; triage medium/low in review.
       - name: Slither
         if: steps.has.outputs.present == 'true'

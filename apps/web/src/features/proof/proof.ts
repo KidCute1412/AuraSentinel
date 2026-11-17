@@ -1,64 +1,37 @@
 import { useQuery } from "@tanstack/react-query";
-import { z } from "zod";
+import { ProofDto, explorerAddressUrl } from "@agentshield/shared";
+import { apiRequest } from "@/shared/api/client";
+import { FUJI_DEPLOYMENT } from "@/shared/web3/deployments";
 
-/** Shape of GET /proof (docs/architecture/api.md section 8). `recentMs` is optional: the doc only guarantees the aggregates. */
-const proofSchema = z.object({
-  network: z.object({ name: z.string(), chainId: z.number() }),
-  contracts: z.array(
-    z.object({ name: z.string(), address: z.string(), verified: z.boolean(), explorerUrl: z.string().optional() }),
-  ),
-  finality: z.object({
-    samples: z.number(),
-    avgMs: z.number(),
-    minMs: z.number(),
-    maxMs: z.number(),
-    recentMs: z.array(z.number()).optional(),
-  }),
-  tests: z.object({
-    fuzzRuns: z.number(),
-    invariants: z.array(z.string()),
-    passed: z.boolean(),
-    slither: z.string(),
-  }),
-  blockedTxs: z.array(z.object({ txHash: z.string(), error: z.string(), at: z.string(), explorerUrl: z.string().optional() })),
-});
+export type Proof = ProofDto;
 
-export type Proof = z.infer<typeof proofSchema>;
+/**
+ * The deployed contracts, from the committed deployment record. Public, so the page can list them even with the server
+ * down; whether each one is verified on Snowtrace is only known once the server has asked.
+ */
+export const DEPLOYED_CONTRACTS: Proof["contracts"] = [
+  { name: "AgentPolicyModule", address: FUJI_DEPLOYMENT.publicModule, verified: false, explorerUrl: explorerAddressUrl(FUJI_DEPLOYMENT.publicModule) },
+  { name: "AgentShieldFactory", address: FUJI_DEPLOYMENT.factory, verified: false, explorerUrl: explorerAddressUrl(FUJI_DEPLOYMENT.factory) },
+  { name: "MockUSDC", address: FUJI_DEPLOYMENT.usdc, verified: false, explorerUrl: explorerAddressUrl(FUJI_DEPLOYMENT.usdc) },
+  { name: "MockWAVAX", address: FUJI_DEPLOYMENT.wavax, verified: false, explorerUrl: explorerAddressUrl(FUJI_DEPLOYMENT.wavax) },
+];
 
-/** Illustrative numbers from the API doc. Shown only when the backend is unreachable, always labelled "sample". */
-export const SAMPLE_PROOF: Proof = {
-  network: { name: "Avalanche Fuji", chainId: 43113 },
-  contracts: [
-    { name: "AgentPolicyModule", address: "0x5a3e00000000000000000000000000000000a001", verified: true },
-    { name: "ModuleFactory", address: "0x5a3e00000000000000000000000000000000a002", verified: true },
-    { name: "MockUSDC", address: "0x5a3e00000000000000000000000000000000a003", verified: true },
-    { name: "Demo Safe", address: "0x5a3e00000000000000000000000000000000a004", verified: true },
-  ],
-  finality: { samples: 10, avgMs: 1480, minMs: 1200, maxMs: 2100, recentMs: [1480, 1320, 1200, 1610, 1390, 2100, 1450, 1380, 1520, 1350] },
-  tests: {
-    fuzzRuns: 10000,
-    invariants: ["spentTodayLeCap", "attackerBalanceZero", "revokedMeansNoSpend"],
-    passed: true,
-    slither: "0 high",
-  },
-  blockedTxs: [
-    { txHash: "0x9c1d00000000000000000000000000000000000000000000000000000000b001", error: "ExceedsPerTxCap", at: "2026-11-05T09:12:41Z" },
-    { txHash: "0x9c1d00000000000000000000000000000000000000000000000000000000b002", error: "ExceedsPerTxCap", at: "2026-11-05T09:14:07Z" },
-    { txHash: "0x9c1d00000000000000000000000000000000000000000000000000000000b003", error: "ExceedsPerTxCap", at: "2026-11-05T09:20:55Z" },
-  ],
-};
+export type ProofView =
+  | { status: "loading" }
+  /** The server did not answer: only the deployment record is shown, never made-up numbers. */
+  | { status: "offline"; contracts: Proof["contracts"] }
+  | { status: "ready"; proof: Proof };
 
-async function fetchProof(): Promise<Proof> {
-  const res = await fetch("/api/v1/proof");
-  if (!res.ok) throw new Error(`proof ${res.status}`);
-  return proofSchema.parse(await res.json());
+/** GET /proof. Every number on the page comes from here; nothing is filled in when it is missing. */
+export function useProof(): ProofView {
+  const q = useQuery({ queryKey: ["proof"], queryFn: ({ signal }) => apiRequest("/proof", ProofDto, { signal }), staleTime: 30_000 });
+  if (q.data) return { status: "ready", proof: q.data };
+  if (q.isError) return { status: "offline", contracts: DEPLOYED_CONTRACTS };
+  return { status: "loading" };
 }
 
-/** Never blocks the UI: on loading or error callers get the sample data and `sample: true`. */
-export function useProof(): { proof: Proof; sample: boolean } {
-  const q = useQuery({ queryKey: ["proof"], queryFn: fetchProof, staleTime: 30_000 });
-  return { proof: q.data ?? SAMPLE_PROOF, sample: !q.data };
-}
+/** The contract suite has not produced its artifact yet (server's TESTS_NOT_RUN): "not run", not "failing". */
+export const testsNotRun = (t: Proof["tests"]): boolean => t.fuzzRuns === 0 && t.invariants.length === 0;
 
 export { useCountUp } from "@/shared/lib/useCountUp";
 export { useReducedMotion } from "@/shared/lib/useReducedMotion";

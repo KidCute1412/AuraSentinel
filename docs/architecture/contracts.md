@@ -115,11 +115,25 @@ Quy ước tên reason code (`REASONS` trong `errors.ts`): **PascalCase** = cust
 | Loại | Nội dung |
 |---|---|
 | Unit | 1 test / gate / custom error, bao gồm biên (`amountIn == maxPerTx`, `== dailyCap`) |
-| Fuzz (10,000 runs) | `testFuzz_attackerNeverProfits(amount, caller)`: mọi caller, mọi amount ⇒ số dư attacker = 0 |
-| Invariant + Handler | Handler gọi ngẫu nhiên `executeGuardedSwap`, `vm.warp` qua ngày, `revoke`, gọi từ attacker. Invariants: `spentInDay[token][today] <= dailyCap`; attacker balance = 0; sau `revoke` thì `spentInDay` không tăng |
+| Fuzz (10,000 runs) | `testFuzz_attackerNeverProfits(amount, caller)`: mọi caller, mọi amount, thử swap / `setPolicy` / `revoke` / gọi thẳng Safe ⇒ attacker không nhận gì, Safe và policy y nguyên |
+| Invariant + Handler | `test/handlers/PolicyHandler.sol` gọi ngẫu nhiên: agent swap (trong và ngoài hạn mức, 2 chiều), token lạ, `vm.warp` tới 3 ngày, owner `revoke` / `setPolicy` (epoch mới), attacker swap / chiếm quyền / gọi thẳng Safe. 7 invariant trong `test/invariant/`: `spentNeverExceedsDailyCap`, `noSwapExceedsPerTxCap`, `revokedMeansNoSpend`, `onlyOwnerAndAgentCanAct`, `attackerNeverReceivesTokens`, `fundsOnlyInSafeOrPool`, `noAllowanceLeftToRouter` |
 | Fork test Fuji | Swap thật với router TJ + pool đã tạo (kiểm exact approval, allowance = 0 sau swap) |
 
 Slither + checklist: skill `secure-workflow-guide`, chạy trước khi deploy.
+
+**Kết quả L5 (2026-11-17, `proof/tests.json`):** 81 test pass; 10,000 run cho mỗi fuzz test; invariant 1,000 run × depth 100 (100,000 lời gọi). Mutation check: lần lượt tắt kiểm `PolicyInactive`, `ExceedsDailyCap`, `ExceedsPerTxCap`, `onlyOwner`, `UnauthorizedAgent` trong `src/` thì invariant tương ứng đều FAIL (rồi khôi phục), nên bộ invariant bắt được lỗi thật chứ không xanh suông. Không sửa `src/` (bytecode trên Fuji đã verify).
+
+Tạo lại artifact: `pnpm --filter @agentshield/contracts proof` (~2 phút). CI chạy `--check`: artifact phải `passed` và khớp sha256 của `src/` hiện tại. Server đọc file này qua `PROOF_TESTS_FILE` (image prod chép sẵn vào `/app/proof/tests.json`).
+
+**Slither (0 high, 0 medium; report tạo sau commit cuối của `src/`):**
+
+| Mức | Detector | Chỗ | Kết luận |
+|---|---|---|---|
+| Low | `timestamp` | `executeGuardedSwap`, `setPolicy` | Cố ý: hạn mức theo ngày UTC, `expiry`, `deadline ≤ now + 10 phút`. Validator lệch vài giây không đổi được ngày hay vượt cap. |
+| Low | `timestamp` | `FaucetToken.faucet` | Cooldown faucet của token test; lệch vài giây vô hại. |
+| Low | `missing-zero-check` | `AgentShieldFactory.deployModule(safe)` | Đã chặn gián tiếp: `staticcall` tới `address(0)` trả dữ liệu rỗng ⇒ `NotSafeOwner`; constructor module cũng từ chối 0. |
+| Info | `costly-loop` | `setPolicy` | Vòng lặp bị chặn bởi `MAX_TOKENS = 16`, chỉ owner gọi. |
+| Info | `low-level-calls` | `deployModule` | `staticcall` có chủ đích để Safe giả không re-enter được. |
 
 ## 8. Deploy
 

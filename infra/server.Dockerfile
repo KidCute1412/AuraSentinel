@@ -22,12 +22,15 @@ RUN pnpm --filter @agentshield/shared build \
 
 FROM node:22-alpine AS runtime
 ENV NODE_ENV=production \
-    MIGRATIONS_DIR=/app/migrations
+    MIGRATIONS_DIR=/app/migrations \
+    PROOF_TESTS_FILE=/app/proof/tests.json
 WORKDIR /app
 COPY --from=build --chown=node:node /out/node_modules ./node_modules
 COPY --from=build --chown=node:node /out/package.json ./package.json
 COPY --from=build --chown=node:node /out/dist ./dist
 COPY --from=build --chown=node:node /out/migrations ./migrations
+# GET /proof serves the committed contract test report (packages/contracts: pnpm proof).
+COPY --chown=node:node packages/contracts/proof/tests.json ./proof/tests.json
 USER node
 EXPOSE 4000
 CMD ["node", "dist/main.api.js"]
