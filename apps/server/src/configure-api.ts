@@ -1,9 +1,41 @@
 import { PROBLEM_CONTENT_TYPE, problem } from '@agentshield/shared';
+import { timingSafeEqual } from 'node:crypto';
 import type { INestApplication } from '@nestjs/common';
 import type { Express, NextFunction, Request, Response } from 'express';
+import { ENV } from './core/config/config.module';
+import type { Env } from './core/config/env.schema';
 import { ProblemFilter } from './core/http/problem.filter';
 import { OwnershipService } from './modules/auth/ownership.service';
 import { SessionService } from './modules/auth/session.service';
+
+/** Header names the web's Vercel proxy sets (apps/web/api/_proxy-core.ts). */
+export const PROXY_SECRET_HEADER = 'x-agentshield-proxy';
+export const CLIENT_IP_HEADER = 'x-agentshield-client-ip';
+
+const sameSecret = (given: string, expected: string): boolean => {
+  const a = Buffer.from(given);
+  const b = Buffer.from(expected);
+  return a.length === b.length && timingSafeEqual(a, b);
+};
+
+/**
+ * Requests relayed by the web's own Vercel proxy: with the right shared secret, `req.ip` becomes the visitor the proxy
+ * saw (otherwise every visitor would share Vercel's address and one write limit), and the hop counts as HTTPS. Without
+ * the secret the headers are dropped, so nobody can claim an IP by calling the server directly.
+ */
+export function trustWebProxy(secret: string | undefined) {
+  return (req: Request, _res: Response, next: NextFunction) => {
+    const given = req.headers[PROXY_SECRET_HEADER];
+    const client = req.headers[CLIENT_IP_HEADER];
+    delete req.headers[PROXY_SECRET_HEADER];
+    delete req.headers[CLIENT_IP_HEADER];
+    if (secret && typeof given === 'string' && typeof client === 'string' && client.length <= 64 && sameSecret(given, secret)) {
+      Object.defineProperty(req, 'ip', { value: client, configurable: true });
+      req.headers['x-forwarded-proto'] = 'https';
+    }
+    next();
+  };
+}
 
 /** Helmet-equivalent headers for a JSON API (A9), without the dependency. */
 export const SECURITY_HEADERS: Readonly<Record<string, string>> = {
@@ -28,6 +60,8 @@ export function configureApi(app: INestApplication, opts: { corsOrigins?: readon
   // Behind nginx (compose) or the Vite proxy: trust private-network hops so req.ip is the real
   // client, which the per-IP write limit depends on. Public addresses are never trusted.
   express.set('trust proxy', 'loopback, linklocal, uniquelocal');
+  // Behind the web's Vercel proxy (public IPs): only with the shared secret, see trustWebProxy.
+  app.use(trustWebProxy(app.get<Env>(ENV, { strict: false })?.WEB_PROXY_SECRET));
   app.use((_req: Request, res: Response, next: NextFunction) => {
     for (const [k, v] of Object.entries(SECURITY_HEADERS)) res.setHeader(k, v);
     next();

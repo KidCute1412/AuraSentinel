@@ -60,6 +60,11 @@ export const envSchema = z.object({
   DEMO_WRITE_COOLDOWN_MS: z.coerce.number().int().nonnegative().default(5_000),
   /** Refuse new jobs (503 AGENT_LOW_GAS) below this agent balance, in wei. Default 0.02 AVAX (~1 swap at 700k gas). */
   AGENT_MIN_GAS_WEI: z.coerce.bigint().nonnegative().default(20_000_000_000_000_000n),
+  /**
+   * Shared with the web's Vercel proxy (apps/web/api/proxy.ts). When a request carries it, the client IP that proxy
+   * forwards is trusted (per-IP write limits), and the request counts as HTTPS. Unset: the header is ignored.
+   */
+  WEB_PROXY_SECRET: z.string().min(32).optional(),
   /** Browser origins allowed by CORS, comma separated. Unset: no CORS (prod is same-origin behind nginx). */
   CORS_ORIGINS: z
     .string()
