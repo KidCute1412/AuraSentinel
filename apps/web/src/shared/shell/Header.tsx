@@ -6,6 +6,7 @@ import { cn } from "@/shared/lib/cn";
 import { useSession } from "@/shared/session/sessionStore";
 import { DropdownMenu, menuItemClass } from "@/shared/ui/DropdownMenu";
 import { AccountMenu } from "./AccountMenu";
+import { AdminEntry } from "./AdminEntry";
 import { ThemeToggle } from "@/shared/theme/ThemeToggle";
 
 /** `mobileOnly` rows duplicate a link the bar already shows from the `sm` breakpoint up. */
@@ -73,6 +74,7 @@ export function Header() {
         </div>
 
         <div className="order-2 ml-auto flex items-center gap-2 sm:order-3 sm:gap-3">
+          <AdminEntry />
           <ThemeToggle />
           {wallet ? <AccountMenu wallet={wallet} /> : <Link to="/signin" className="inline-flex h-10 items-center px-2 font-bold text-fg hover:text-accent-text">Sign in</Link>}
         </div>

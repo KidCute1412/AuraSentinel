@@ -44,7 +44,7 @@ describe("AdminDrawer", () => {
     expect(screen.getByRole("dialog", { name: "Admin panel" })).toBeInTheDocument();
     await screen.findByText(/RUNNING/);
 
-    fireEvent.keyDown(window, { key: "Escape" });
+    fireEvent.keyDown(document, { key: "Escape" });
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
   });
 
@@ -63,6 +63,25 @@ describe("AdminDrawer", () => {
     expect(screen.getByText(/PAUSED/)).toBeInTheDocument();
     expect(screen.getByText("5 AVAX")).toBeInTheDocument();
     expect(screen.getByText("Low gas")).toBeInTheDocument();
+  });
+
+  it("keeps Tab inside the open panel and returns focus to the button on close", async () => {
+    fetchMock.mockResolvedValue(jsonResponse(status(false)));
+    render(wrap(<AdminDrawer role="admin" />));
+    const trigger = screen.getByRole("button", { name: "Admin panel" });
+    fireEvent.click(trigger);
+    const close = screen.getByRole("button", { name: "Close admin panel" });
+    expect(close).toHaveFocus();
+    await screen.findByRole("button", { name: "Pause rebalancer" });
+
+    fireEvent.keyDown(document, { key: "Tab", shiftKey: true });
+    expect(screen.getByRole("link", { name: /Health check/ })).toHaveFocus();
+    fireEvent.keyDown(document, { key: "Tab" });
+    expect(close).toHaveFocus();
+
+    fireEvent.click(close);
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(trigger).toHaveFocus();
   });
 
   it("says so when the admin API is not reachable", async () => {

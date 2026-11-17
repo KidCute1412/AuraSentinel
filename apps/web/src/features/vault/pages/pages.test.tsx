@@ -83,6 +83,8 @@ describe("Red team page", () => {
     for (const title of ["Over-withdraw", "Wrong recipient", "Unlimited approval", "Bypass the website", "Prompt injection"]) {
       expect(panel.getByText(title)).toBeInTheDocument();
     }
+    // No "on the left": on phones the controls sit above this panel.
+    expect(panel.getByText(/Pick a test in the Red team panel/)).toBeInTheDocument();
   });
 
   it("shows on each attack button which shield must stop it", () => {
@@ -117,6 +119,8 @@ describe("Red team page", () => {
     expect(screen.queryByRole("button", { name: /Bypass the website/ })).toBeNull();
     expect(screen.getByText(/Only the vault owner/)).toBeInTheDocument();
     expect(screen.getByText("What each test proves")).toBeInTheDocument();
+    expect(screen.getByText(/Every test the owner runs shows up in the activity log/)).toBeInTheDocument();
+    expect(screen.queryByText(/Pick a test/)).toBeNull();
   });
 });
 

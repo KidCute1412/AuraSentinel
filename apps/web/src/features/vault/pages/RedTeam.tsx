@@ -33,8 +33,11 @@ function OutcomeCard({ job, scenario }: { job: JobDetailDto; scenario: AttackSce
   );
 }
 
-/** Before anything runs: what each button is meant to prove, from the same table the server tests assert. */
-function WhatEachTestProves() {
+/**
+ * Before anything runs: what each button is meant to prove, from the same table the server tests assert.
+ * The footer names no side: the controls sit beside this panel on desktop but above it on phones.
+ */
+function WhatEachTestProves({ canAct }: { canAct: boolean }) {
   return (
     <Panel title="What each test proves">
       <ol className="space-y-3">
@@ -48,7 +51,11 @@ function WhatEachTestProves() {
           </li>
         ))}
       </ol>
-      <p className="mt-4 border-t border-line pt-3 text-sm text-muted">Run one on the left. Its verdict shows up here, step by step, and stays in the activity log.</p>
+      <p className="mt-4 border-t border-line pt-3 text-sm text-muted">
+        {canAct
+          ? "Pick a test in the Red team panel. Its verdict shows up here, step by step, and stays in the activity log."
+          : "Every test the owner runs shows up in the activity log, step by step, with the same verdict."}
+      </p>
     </Panel>
   );
 }
@@ -80,9 +87,11 @@ export function RedTeam({ view, role }: { view: VaultView; role: VaultRole }) {
     );
   }
 
+  const canAct = canRunJobs(role, view.isDemo, DATA_SOURCE);
+
   return (
     <div className="grid grid-cols-[minmax(0,1fr)] gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)]">
-      <RedTeamPanel view={view} canAct={canRunJobs(role, view.isDemo, DATA_SOURCE)} onStarted={(id, scenario) => setLast({ id, scenario })} />
+      <RedTeamPanel view={view} canAct={canAct} onStarted={(id, scenario) => setLast({ id, scenario })} />
       <div ref={resultRef} className="scroll-mt-20 space-y-6">
         {job && last ? (
           <>
@@ -101,7 +110,7 @@ export function RedTeam({ view, role }: { view: VaultView; role: VaultRole }) {
             </Link>
           </Panel>
         ) : (
-          <WhatEachTestProves />
+          <WhatEachTestProves canAct={canAct} />
         )}
       </div>
     </div>
