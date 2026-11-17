@@ -30,6 +30,7 @@ x-server-env: &server-env
   AGENT_MIN_GAS_WEI: ${AGENT_MIN_GAS_WEI:-20000000000000000}
   SESSION_SECRET: ${SESSION_SECRET:?set SESSION_SECRET (32+ random chars)}
   SIWE_DOMAINS: ${SIWE_DOMAINS:-}
+  WEB_PROXY_SECRET: ${WEB_PROXY_SECRET:-}
   ADMIN_ADDRESSES: ${ADMIN_ADDRESSES:-}
 
 x-server-build: &server-build
@@ -134,6 +135,8 @@ services:
       args:
         VITE_FUJI_RPC_URL: ${VITE_FUJI_RPC_URL:-https://api.avax-test.network/ext/bc/C/rpc}
         VITE_WALLETCONNECT_PROJECT_ID: ${VITE_WALLETCONNECT_PROJECT_ID:-}
+        VITE_DATA_SOURCE: ${VITE_DATA_SOURCE:-live}
+        VITE_DEMO_SAFE: ${VITE_DEMO_SAFE:-}
     restart: unless-stopped
     ports:
       - "127.0.0.1:${WEB_PORT:-8080}:80"

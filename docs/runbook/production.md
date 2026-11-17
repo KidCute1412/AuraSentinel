@@ -55,6 +55,39 @@ curl http://localhost:8080/api/health     # status "ok": postgres, redis, rpc, w
 ```
 `status: "degraded"` (vẫn 200) khi RPC hoặc worker chết: state trả bản cũ `stale: true`, job chờ trong queue. `503` khi postgres hoặc redis chết.
 
+## 2b. Web trên Vercel, server chạy compose (deploy thật cho giám khảo)
+
+Web tĩnh trên Vercel; server (api, worker, postgres, redis, anvil) chạy bằng compose ở mục 2 và được mở ra internet bằng một tunnel. Trình duyệt chỉ thấy **một domain** (Vercel): `/api/*` đi qua proxy `apps/web/api/proxy.ts` (Edge Function) tới server, nên cookie đăng nhập SIWE và SSE chạy không cần CORS. Không cần sửa code, chỉ điền biến.
+
+**Chưa có server:** để trống `VITE_DATA_SOURCE` trên Vercel → web chạy **mock** (giả lập trong trình duyệt, sign-in bằng địa chỉ giả, không chạm chain). Đúng thiết kế, nhưng đừng đưa link mock cho giám khảo mà không ghi rõ.
+
+1. **Mở server ra internet** (compose đang chạy, web nginx ở `localhost:8080`):
+   ```bash
+   cloudflared tunnel --url http://localhost:8080      # in ra https://<tên>.trycloudflare.com
+   ```
+   Quick tunnel đổi URL mỗi lần chạy. Muốn cố định thì dùng named tunnel với domain riêng.
+2. **`infra/.env.prod`** (rồi `up -d` lại api):
+   | Biến | Giá trị |
+   |---|---|
+   | `SIWE_DOMAINS` | domain Vercel, ví dụ `agentshield.vercel.app` (thêm domain riêng nếu có, phân cách bằng dấu phẩy) |
+   | `WEB_PROXY_SECRET` | chuỗi ngẫu nhiên ≥ 32 ký tự (`openssl rand -hex 32`), **giống hệt** biến cùng tên trên Vercel |
+3. **Vercel → Project → Settings → Environment Variables** (Root Directory = `apps/web`):
+   | Biến | Giá trị | Loại |
+   |---|---|---|
+   | `VITE_DATA_SOURCE` | `live` | build (vào bundle) |
+   | `VITE_WALLETCONNECT_PROJECT_ID` | project id miễn phí ở cloud.reown.com; không có thì điện thoại không có extension không đăng nhập được | build |
+   | `VITE_DEMO_SAFE` | `publicSafe` trong `fuji.json` (tuỳ chọn, `/demo` mở nhanh hơn) | build |
+   | `API_ORIGIN` | URL tunnel ở bước 1, **không** có `/api`, không có `/` cuối | server (chỉ Edge Function đọc) |
+   | `WEB_PROXY_SECRET` | giống bước 2 | server |
+4. **Redeploy** trên Vercel (biến `VITE_*` chỉ vào bundle lúc build; đổi `API_ORIGIN` cũng cần deploy lại).
+5. **Kiểm tra:** `https://<domain>/api/health` ra `"status":"ok"`; vào `/signin` phải mở ví thật và xin chữ ký (bản mock thì vào thẳng bằng địa chỉ giả); `/vaults` hiện vault thật.
+
+Ghi chú:
+- **Giới hạn ghi theo IP:** qua Vercel mọi người dùng đến từ IP của Vercel. Proxy gửi kèm IP thật + `WEB_PROXY_SECRET`; server chỉ tin IP đó khi secret khớp (`configure-api.ts`, `trustWebProxy`), nên không ai giả IP bằng cách gọi thẳng server. Thiếu secret thì cả lớp giám khảo chung một hạn mức 10 lần/phút.
+- **SSE qua Edge Function** có giới hạn thời gian của Vercel: khi bị cắt, web tự nối lại và poll 2 s trong lúc chờ, nên vẫn cập nhật.
+- `/api/proxy` trả `503` problem+json khi `API_ORIGIN` chưa đặt hoặc sai dạng.
+- Bản Docker `web` (nginx, mục 2) mặc định build **live** (`VITE_DATA_SOURCE=live` trong `web.Dockerfile`), không còn rơi về mock.
+
 ## 3. Thao tác thường gặp
 
 | Việc | Lệnh |
