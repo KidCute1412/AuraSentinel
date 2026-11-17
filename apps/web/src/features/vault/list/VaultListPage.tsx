@@ -10,10 +10,27 @@ import { Header } from "@/shared/shell/Header";
 import { primaryCta, secondaryCta } from "@/shared/ui/cta";
 import { NetworkGuard } from "@/shared/ui/NetworkGuard";
 import { Skeleton } from "@/shared/ui/Skeleton";
+import { usePageMood } from "@/shared/mascot/usePageMood";
+import { LINES } from "@/shared/mascot/lines";
 import { Breadcrumb } from "../layout/Breadcrumb";
 import { SetupCard, VaultCard } from "./VaultCard";
 import { useMyVaultList, useVaultReads } from "./useMyVaults";
 import { cardStatus, countByFilter, FILTER_LABEL, FILTERS, matchesFilter, matchesQuery, parseFilter, type Filter } from "./vaultList";
+
+/** No vaults yet. Its own component so Aura-kun's mood hook mounts together with the element it watches. */
+function EmptyVaults() {
+  usePageMood("vaults-empty", "inspect", LINES.emptyList);
+  return (
+    <section id="vaults-empty" data-ground="vaults-empty" className="border border-line bg-surface p-8 text-center shadow-hard">
+    <h2 className="text-xl">No vaults yet</h2>
+    <p className="mx-auto mt-2 max-w-md text-soft">A vault is a Safe you own, guarded by limits the AI agent can never exceed. Setting one up takes a few minutes.</p>
+    <div className="mt-6 flex flex-wrap justify-center gap-4">
+      <span className="drop-hard"><Link to="/vaults/new" className={primaryCta}>Create vault</Link></span>
+      <Link to="/demo" className={secondaryCta}>Try the demo</Link>
+    </div>
+  </section>
+  );
+}
 
 /**
  * /vaults: the connected wallet's vaults (ui-pages.md §11). The registry says which vaults are theirs; each card's
@@ -61,7 +78,7 @@ export function VaultListPage() {
         <Breadcrumb items={[{ label: "Vaults" }]} />
         <div className="flex flex-wrap items-end justify-between gap-4">
           <div>
-            <h1 className="text-3xl">My vaults</h1>
+            <h1 data-ground="page-title" className="text-3xl">My vaults</h1>
             <p className="mt-1 text-sm text-muted">Vaults owned by the connected wallet. Status and balances are read from the chain.</p>
           </div>
           <span className="drop-hard">
@@ -81,19 +98,12 @@ export function VaultListPage() {
         )}
 
         {nothingYet ? (
-          <section className="border border-line bg-surface p-8 text-center shadow-hard">
-            <h2 className="text-xl">No vaults yet</h2>
-            <p className="mx-auto mt-2 max-w-md text-soft">A vault is a Safe you own, guarded by limits the AI agent can never exceed. Setting one up takes a few minutes.</p>
-            <div className="mt-6 flex flex-wrap justify-center gap-4">
-              <span className="drop-hard"><Link to="/vaults/new" className={primaryCta}>Create vault</Link></span>
-              <Link to="/demo" className={secondaryCta}>Try the demo</Link>
-            </div>
-          </section>
+          <EmptyVaults />
         ) : (
           <>
             {views.length > 1 && (
               <div className="flex flex-wrap items-center gap-3">
-                <div role="group" aria-label="Filter by status" className="flex flex-wrap border border-line-strong">
+                <div role="group" aria-label="Filter by status" data-ground="list-filters" className="flex flex-wrap border border-line-strong">
                   {FILTERS.map((f: Filter) => (
                     <button
                       key={f}

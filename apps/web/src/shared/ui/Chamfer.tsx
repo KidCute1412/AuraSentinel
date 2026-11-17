@@ -1,5 +1,6 @@
 import { useRef, type PointerEvent, type ReactNode } from "react";
 import { cn } from "@/shared/lib/cn";
+import { groundId } from "@/shared/lib/ground";
 
 interface ChamferProps {
   children: ReactNode;
@@ -9,7 +10,7 @@ interface ChamferProps {
   fill?: string;
   /** Registration brackets on the two uncut corners plus a mono serial label. */
   code?: string;
-  /** Lets Aura-kun stand on the top edge of this card. Unique per page. */
+  /** Lets Aura-kun stand on the top edge of this card. Unique per page; defaults to one derived from `code`. */
   ground?: string;
   /** Hover tilt (pointer devices only): card leans toward the cursor, hard shadow slides the other way. */
   tilt?: boolean;
@@ -57,7 +58,7 @@ export function Chamfer({
     <div
       ref={ref}
       className={cn("drop-hard", tilt && "tilt", className)}
-      data-ground={ground}
+      data-ground={ground ?? (code ? groundId("card", code) : undefined)}
       onPointerMove={tilt ? move : undefined}
       onPointerLeave={tilt ? reset : undefined}
     >

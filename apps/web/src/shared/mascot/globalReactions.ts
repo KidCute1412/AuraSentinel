@@ -9,6 +9,7 @@ import { react, touch, useMascot } from "./mascotStore";
  *
  *   danger     hover: guard "think twice." (override with data-aura-line), click: alarm
  *   blocked    hover: small alarm (a blocked row in a feed)
+ *   inspect    hover: leans in and reads (set data-aura-line for what he says); leaves when the pointer does
  *   success    click: happy "clean."
  *   sensitive  focus: Aura-kun covers his eyes until blur (password inputs count automatically)
  *
@@ -214,8 +215,16 @@ export function installGlobalReactions(): () => void {
 
   // --- data-aura elements: hover ------------------------------------------------------------------
   let lastRow: HTMLElement | null = null;
+  let inspectEl: HTMLElement | null = null;
   on("pointerover", (e) => {
     if (e.pointerType !== "mouse") return;
+    // Hover over something worth a look. Passive: never cuts in on a held mood (guard, hug, sleep...).
+    const look = auraOf(e.target, "inspect");
+    if (look !== inspectEl) {
+      if (inspectEl && mood() === "inspect") react("idle", { hold: 0 });
+      inspectEl = look;
+      if (look) react("inspect", { text: look.dataset.auraLine, hold: 6000, passive: true });
+    }
     const danger = auraOf(e.target, "danger");
     if (danger !== dangerEl) {
       leaveDanger();

@@ -3,6 +3,7 @@ import { fromAmount, type JobDto } from "@agentshield/shared";
 import { cn } from "@/shared/lib/cn";
 import { formatTokenAmount } from "@/shared/lib/format";
 import { timeAgo } from "@/shared/lib/time";
+import { groundId } from "@/shared/lib/ground";
 import { Panel } from "@/shared/ui/Panel";
 import { StatusBadge } from "@/shared/ui/StatusBadge";
 
@@ -31,7 +32,7 @@ export function JobHistory({ jobs, selectedId, onSelect, allHref, limit = 6 }: P
       ) : (
         <ul className="-mx-4 -my-4 divide-y divide-line">
           {shown.map((j) => (
-            <li key={j.id}>
+            <li key={j.id} data-ground={groundId("job", j.id.slice(0, 8))} data-aura={j.status === "rejected" || j.status === "reverted" ? "blocked" : undefined}>
               <button
                 type="button"
                 onClick={() => onSelect(j.id)}

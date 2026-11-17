@@ -4,6 +4,7 @@ import { ArrowUpRight, FileCheck2, Gauge, ShieldAlert, TriangleAlert } from "luc
 import { Header } from "@/shared/shell/Header";
 import { Footer } from "@/shared/shell/Footer";
 import { primaryCta } from "@/shared/ui/cta";
+import { groundId } from "@/shared/lib/ground";
 import { Chamfer } from "@/shared/ui/Chamfer";
 import { Stamp } from "@/shared/ui/Stamp";
 import { Reveal } from "@/shared/ui/Reveal";
@@ -30,7 +31,7 @@ function Section({ id, index, label, title, intro, children }: { id?: string; in
 
 function Tile({ label, value, note, tone = "ok" }: { label: string; value: string; note: string; tone?: "ok" | "neutral" }) {
   return (
-    <Chamfer tilt edge={tone === "ok" ? "bg-accent" : "bg-line-strong"} fill={tone === "ok" ? "bg-tint-mint" : "bg-surface"} innerClassName="p-5">
+    <Chamfer tilt ground={groundId("tile", label)} edge={tone === "ok" ? "bg-accent" : "bg-line-strong"} fill={tone === "ok" ? "bg-tint-mint" : "bg-surface"} innerClassName="p-5">
       <dt className="mono-label">{label}</dt>
       <dd className="tabular mt-2 text-4xl font-bold sm:text-5xl">{value}</dd>
       <p className="mt-2 text-sm text-soft">{note}</p>
@@ -57,7 +58,7 @@ function Hero({ proof, offline }: { proof: Proof | null; offline: boolean }) {
           <span className="mono-label">PROOF / Avalanche Fuji · chain 43113</span>
           {offline && <Stamp tone="warn">Server offline</Stamp>}
         </div>
-        <h1 className="mt-4 text-5xl font-black italic uppercase leading-[0.92] tracking-[-0.04em] sm:text-7xl">
+        <h1 data-ground="page-title" className="mt-4 text-5xl font-black italic uppercase leading-[0.92] tracking-[-0.04em] sm:text-7xl">
           Don&apos;t trust us.
           <span className="outline-text block">Check the chain.</span>
         </h1>

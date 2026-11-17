@@ -1,4 +1,7 @@
+import { useEffect } from "react";
 import type { StateDto } from "@agentshield/shared";
+import { ambient } from "@/shared/mascot/auraEvents";
+import { LINES } from "@/shared/mascot/lines";
 import { cn } from "@/shared/lib/cn";
 import { formatPct, formatTokenAmount } from "@/shared/lib/format";
 import { Panel } from "@/shared/ui/Panel";
@@ -17,6 +20,11 @@ export function BudgetBar({ state }: { state: StateDto }) {
   const pct = state.budgetUsedPct;
   const tone = budgetTone(pct);
   const left = dailyCap > spent ? dailyCap - spent : 0n;
+  // Aura-kun notices a budget running out (once a minute at most, only while he is not busy).
+  useEffect(() => {
+    if (pct >= 100) ambient("budget", 60_000, "guard", { text: LINES.budgetGone, hold: 1800 });
+    else if (pct >= 80) ambient("budget", 60_000, "worry", { text: LINES.budgetLow, hold: 1800 });
+  }, [pct]);
   return (
     <Panel title="Daily budget" aside={<span className={cn("tabular text-sm font-bold", TEXT[tone])}>{formatPct(pct)}</span>}>
       <div

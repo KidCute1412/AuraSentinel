@@ -4,6 +4,7 @@ import type { Address } from "@agentshield/shared";
 import { balanceOf, TOKENS } from "@/shared/api/mockEngine";
 import type { VaultView } from "@/shared/api/vaultSource";
 import { cn } from "@/shared/lib/cn";
+import { groundId } from "@/shared/lib/ground";
 import { formatPct, formatTokenAmount } from "@/shared/lib/format";
 import { timeAgo } from "@/shared/lib/time";
 import { useWizardSafe } from "@/shared/session/wizardSafe";
@@ -56,11 +57,11 @@ export function VaultCard({ view, read, status }: { view: VaultView; read: Vault
   const tone = budgetTone(pct);
 
   return (
-    <article aria-label={`Vault ${view.safe}`} className={card}>
+    <article aria-label={`Vault ${view.safe}`} data-ground={groundId("vault", view.safe.slice(2, 10))} className={card}>
       <header className="flex flex-wrap items-center justify-between gap-2">
         <span className="flex flex-wrap items-center gap-2">
           {read.load === "loading" ? <Skeleton className="h-6 w-24" /> : <StatusBadge vault={status.status} />}
-          {view.isDemo && <span className="border border-line-strong px-2 py-0.5 font-mono text-[11px] font-bold uppercase tracking-widest text-soft">Public demo</span>}
+          {view.isDemo && <span data-aura="inspect" data-aura-line="everyone's playground." className="border border-line-strong px-2 py-0.5 font-mono text-[11px] font-bold uppercase tracking-widest text-soft">Public demo</span>}
         </span>
         <AddressChip address={view.safe} />
       </header>
@@ -104,7 +105,7 @@ export function VaultCard({ view, read, status }: { view: VaultView; read: Vault
                   </div>
                 ))}
               </dl>
-              {status.expired && <Hint>Policy expired: the agent is paused until you set a new policy.</Hint>}
+              {status.expired && <span data-aura="inspect" data-aura-line="renew it. i'm idle."><Hint>Policy expired: the agent is paused until you set a new policy.</Hint></span>}
               {status.empty && !status.expired && <Hint>No funds yet: deposit tokens so the agent has something to manage.</Hint>}
               {status.stale && <Hint tone="muted">Showing the last known numbers; the chain did not answer just now.</Hint>}
               <LatestJob view={view} />
@@ -143,7 +144,7 @@ export function SetupCard({ wallet }: { wallet: Address }) {
   const first = firstIncompleteStep(completedSteps(owner, control.guard));
   const notYet = control.facts !== null && !control.facts.safeExists;
   return (
-    <article aria-label="Vault in setup" className={cn(card, "border-accent")}>
+    <article aria-label="Vault in setup" data-ground="vault-setup" className={cn(card, "border-accent")}>
       <header className="flex flex-wrap items-center justify-between gap-2">
         <StatusBadge vault="incomplete" />
         <AddressChip address={control.safe} />

@@ -31,6 +31,8 @@ interface MascotState {
   line: Line | null;
   /** Person chose to hide Aura-kun (remembered in localStorage). */
   hidden: boolean;
+  /** A request to hop over to the element with this `data-ground` (see visit()). `n` makes repeats distinct. */
+  visit: { id: string; n: number } | null;
 }
 
 const HIDE_KEY = "agentshield-aura-hidden";
@@ -47,6 +49,7 @@ export const useMascot = create<MascotState>(() => ({
   shades: false,
   line: null,
   hidden: readHidden(),
+  visit: null,
 }));
 
 const set = useMascot.setState;
@@ -109,6 +112,13 @@ export function toggleShades(): void {
   say(next ? LINES.shadesOn : LINES.shadesOff, true);
 }
 
+let visitN = 0;
+
+/** Ask Aura-kun to hop over to a `data-ground` element (the card where something just happened). Best effort. */
+export function visit(id: string): void {
+  set({ visit: { id, n: ++visitN } });
+}
+
 export function setHidden(hidden: boolean): void {
   set({ hidden });
   try {
@@ -124,5 +134,5 @@ export function resetMascot(): void {
   clearTimeout(lineTimer);
   lastSay = 0;
   lastTouch = Date.now();
-  set({ mood: "idle", shades: false, line: null, hidden: false });
+  set({ mood: "idle", shades: false, line: null, hidden: false, visit: null });
 }

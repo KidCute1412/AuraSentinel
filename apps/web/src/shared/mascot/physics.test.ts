@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { findGroundBelow, stepFall, type Body, type Ground } from "./physics";
+import { findGroundBelow, glidePoint, stepFall, type Body, type Ground } from "./physics";
 
 const bounds = { minX: 48, maxX: 952 };
 const card: Ground = { id: "card", left: 200, right: 600, top: 400 };
@@ -45,5 +45,22 @@ describe("findGroundBelow", () => {
   it("picks the nearest ground below, else the floor", () => {
     expect(findGroundBelow(300, 100, [card], 800)).toEqual({ y: 400, id: "card" });
     expect(findGroundBelow(900, 100, [card], 800)).toEqual({ y: 800, id: null });
+  });
+});
+
+describe("glidePoint", () => {
+  const a = { x: 0, y: 100 };
+  const b = { x: 200, y: 300 };
+  it("starts and ends exactly on the two spots", () => {
+    expect(glidePoint(a, b, 0, 40)).toEqual(a);
+    expect(glidePoint(a, b, 1, 40)).toEqual(b);
+  });
+  it("arcs up in the middle by the given height, and a walk (arc 0) stays on the line", () => {
+    expect(glidePoint(a, b, 0.5, 40).y).toBe(200 - 40);
+    expect(glidePoint(a, b, 0.5, 0)).toEqual({ x: 100, y: 200 });
+  });
+  it("clamps progress outside 0..1", () => {
+    expect(glidePoint(a, b, -1, 10)).toEqual(a);
+    expect(glidePoint(a, b, 2, 10)).toEqual(b);
   });
 });

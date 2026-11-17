@@ -43,7 +43,7 @@ export function AboutPage() {
       <section className="blueprint relative overflow-hidden border-b border-line">
         <div className="mx-auto max-w-6xl px-4 pb-24 pt-20 sm:px-6 lg:pt-28">
           <span className="mono-label">ABOUT / AGENTSHIELD</span>
-          <h1 className="mt-4 text-5xl font-black italic uppercase leading-[0.92] tracking-[-0.04em] sm:text-7xl lg:text-8xl">
+          <h1 data-ground="page-title" className="mt-4 text-5xl font-black italic uppercase leading-[0.92] tracking-[-0.04em] sm:text-7xl lg:text-8xl">
             Give the agent
             <span className="outline-text block">a leash,</span>
             <span className="block">not the keys.</span>
