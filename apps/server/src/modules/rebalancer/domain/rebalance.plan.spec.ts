@@ -101,3 +101,32 @@ describe('planTick: every enabled vault, no duplicates', () => {
     }
   });
 });
+
+describe('planTick: vault cap (REBALANCE_MAX_VAULTS)', () => {
+  const S = (n: number) => `0x${n.toString(16).padStart(40, '0')}`;
+
+  it('the first N eligible vaults (registry order, oldest first) keep their slot; the rest wait', () => {
+    const plan = planTick([vault(S(1)), vault(S(2)), vault(S(3))], 1_234n, 2);
+    expect(plan.map((d) => (d.action === 'skip' ? d.reason : d.action))).toEqual(['swap', 'swap', 'vault-limit']);
+  });
+
+  it('a killed, expired or demo vault holds no slot, so a newer active vault takes it', () => {
+    const plan = planTick(
+      [vault(S(1), { isActive: false }), vault(S(2), { isDemo: true }), vault(S(3), { now: NOW + 86_401n }), vault(S(4)), vault(S(5))],
+      1_234n,
+      1,
+    );
+    expect(plan.map((d) => (d.action === 'skip' ? d.reason : d.action))).toEqual(['policy-inactive', 'demo-vault', 'policy-expired', 'swap', 'vault-limit']);
+  });
+
+  it('a balanced or busy vault still holds its slot (it is managed, just idle this tick)', () => {
+    const balanced = { math: { ...vault(S(1)).math, balanceB: WAVAX(50n) } };
+    const plan = planTick([vault(S(1), balanced), vault(S(2), { hasPendingSwap: true }), vault(S(3))], 1_234n, 2);
+    expect(plan.map((d) => (d.action === 'skip' ? d.reason : d.action))).toEqual(['balanced', 'pending-swap', 'vault-limit']);
+  });
+
+  it('0 means no cap', () => {
+    const plan = planTick([vault(S(1)), vault(S(2)), vault(S(3))], 1_234n, 0);
+    expect(plan.every((d) => d.action === 'swap')).toBe(true);
+  });
+});

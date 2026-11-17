@@ -7,8 +7,9 @@ import { policyTokensIn } from "@/shared/lib/policy";
 import { timeLeft } from "@/shared/lib/time";
 import { Panel } from "@/shared/ui/Panel";
 import { TxButton } from "@/shared/ui/TxButton";
+import { ExpiryChoice, LimitField as Field } from "./LimitField";
 import type { OwnerControl } from "../hooks/useOwnerControl";
-import { EXPIRY_CHOICES, policyDiff, validatePolicy, valuesFromState, type PolicyErrors, type PolicyFormValues } from "../lib/policyForm";
+import { policyDiff, validatePolicy, valuesFromState, type PolicyErrors, type PolicyFormValues } from "../lib/policyForm";
 
 const limitOf = (state: StateDto, token: string) => state.policy.limits.find((l) => l.token.toLowerCase() === token.toLowerCase());
 
@@ -17,30 +18,6 @@ function Row({ label, children }: { label: string; children: React.ReactNode }) 
     <div className="flex items-baseline justify-between gap-4 border-b border-line py-2 last:border-b-0">
       <dt className="mono-label">{label}</dt>
       <dd className="tabular text-right text-sm">{children}</dd>
-    </div>
-  );
-}
-
-const inputCls = "min-h-11 w-full border bg-surface px-3 font-mono text-sm text-fg placeholder:text-muted focus-visible:outline-2";
-
-function Field({ id, label, unit, value, error, onChange }: { id: string; label: string; unit: string; value: string; error?: string; onChange: (v: string) => void }) {
-  return (
-    <div>
-      <label htmlFor={id} className="mono-label">{label}</label>
-      <div className="mt-1 flex items-stretch">
-        <input
-          id={id}
-          inputMode="decimal"
-          autoComplete="off"
-          value={value}
-          onChange={(e) => onChange(e.target.value)}
-          aria-invalid={!!error}
-          aria-describedby={error ? `${id}-err` : undefined}
-          className={cn(inputCls, error ? "border-danger" : "border-line-strong")}
-        />
-        <span className="inline-flex items-center border border-l-0 border-line-strong bg-hover px-3 font-mono text-xs text-soft">{unit}</span>
-      </div>
-      {error && <p id={`${id}-err`} className="mt-1 text-xs text-danger-text">{error}</p>}
     </div>
   );
 }
@@ -135,21 +112,7 @@ export function PolicyPanel({ state, control }: { state: StateDto; control: Owne
             <Field id="wavax-max" label="WAVAX per transaction" unit={TOKENS.WAVAX.symbol} value={values.wavaxMaxPerTx} error={errors.wavaxMaxPerTx} onChange={(v) => set("wavaxMaxPerTx", v)} />
             <Field id="wavax-day" label="WAVAX per day" unit={TOKENS.WAVAX.symbol} value={values.wavaxDailyCap} error={errors.wavaxDailyCap} onChange={(v) => set("wavaxDailyCap", v)} />
           </div>
-          <fieldset>
-            <legend className="mono-label">Expires after</legend>
-            <div className="mt-1 grid grid-cols-4 border border-line-strong">
-              {EXPIRY_CHOICES.map((c) => (
-                <label
-                  key={c.days}
-                  className={cn("flex min-h-11 cursor-pointer items-center justify-center border-r border-line-strong px-2 text-xs font-bold last:border-r-0 has-[:focus-visible]:outline-2", values.expiryDays === c.days ? "bg-ink text-bg" : "hover:bg-hover")}
-                >
-                  <input type="radio" name="expiry" className="sr-only" checked={values.expiryDays === c.days} onChange={() => set("expiryDays", c.days)} />
-                  {c.label}
-                </label>
-              ))}
-            </div>
-            {errors.expiryDays && <p className="mt-1 text-xs text-danger-text">{errors.expiryDays}</p>}
-          </fieldset>
+          <ExpiryChoice value={values.expiryDays} error={errors.expiryDays} onChange={(d) => set("expiryDays", d)} />
 
           {preview?.ok ? (
             <div className="space-y-3 border border-line-strong bg-bg p-3">

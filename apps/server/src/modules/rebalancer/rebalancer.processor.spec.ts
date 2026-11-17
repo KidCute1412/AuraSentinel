@@ -207,4 +207,16 @@ describe('RebalancerProcessor.tick', () => {
     expect(summary.skipped).toEqual([{ safe: SAFE_1, reason: 'enqueue-failed' }]);
     expect(t.redis.keys.size).toBe(0);
   });
+
+  it('trades at most REBALANCE_MAX_VAULTS vaults; the newest one waits and is never quoted', async () => {
+    const t = setup({
+      env: { REBALANCE_MAX_VAULTS: 1 },
+      registry: [{ safe: SAFE_1 }, { safe: SAFE_2 }],
+      vaults: { [SAFE_1]: loaded(reads(SAFE_1)), [SAFE_2]: loaded(reads(SAFE_2)) },
+    });
+    const summary = await t.processor.tick();
+    expect(summary.queued).toEqual(['job-1']);
+    expect(summary.skipped).toEqual([{ safe: SAFE_2, reason: 'vault-limit' }]);
+    expect(t.quotes.amountOut).toHaveBeenCalledTimes(1);
+  });
 });

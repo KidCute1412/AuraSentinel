@@ -25,7 +25,8 @@ export type SkipReason =
   | 'pair-not-whitelisted'
   | 'pending-swap'
   | 'no-quote'
-  | 'balanced';
+  | 'balanced'
+  | 'vault-limit';
 
 export type VaultDecision =
   | { safe: string; action: 'skip'; reason: SkipReason }
@@ -42,21 +43,39 @@ export const REBALANCE_BUCKET_BLOCKS = 10n;
 export const rebalanceJobId = (safe: string, blockNumber: bigint): string =>
   `rebalance:${safe.toLowerCase()}:${blockNumber / REBALANCE_BUCKET_BLOCKS}`;
 
-/** Cheap checks first, so the tick never queues a swap Shield 1 would reject anyway. */
-export function skipReason(v: VaultSnapshot): SkipReason | null {
+/** Whether the agent may trade this vault at all: demo vault, Kill-Switch, expiry, pair. */
+function ineligible(v: VaultSnapshot): SkipReason | null {
   if (v.isDemo) return 'demo-vault';
   if (!v.isActive) return 'policy-inactive';
   if (v.now > v.expiry) return 'policy-expired';
   if (!v.pairWhitelisted) return 'pair-not-whitelisted';
+  return null;
+}
+
+/** Cheap checks first, so the tick never queues a swap Shield 1 would reject anyway. */
+export function skipReason(v: VaultSnapshot): SkipReason | null {
+  const reason = ineligible(v);
+  if (reason) return reason;
   if (v.hasPendingSwap) return 'pending-swap';
   // Pool missing or too thin for the sample (D8): never trade blind.
   if (v.math.priceAInB <= 0n) return 'no-quote';
   return null;
 }
 
-/** One decision per vault for this tick. Pure: the processor reads chain state and enqueues. */
-export function planTick(vaults: readonly VaultSnapshot[], blockNumber: bigint): VaultDecision[] {
+/**
+ * One decision per vault for this tick. Pure: the processor reads chain state and enqueues.
+ *
+ * `maxVaults` caps how many vaults the shared agent manages (its gas pays for every swap, A9): the first eligible
+ * vaults in the order given (the registry's, oldest first) keep their slot; any further eligible vault is skipped
+ * with 'vault-limit'. A killed, expired or demo vault holds no slot. 0 = no cap.
+ */
+export function planTick(vaults: readonly VaultSnapshot[], blockNumber: bigint, maxVaults = 0): VaultDecision[] {
+  let managed = 0;
   return vaults.map((v): VaultDecision => {
+    const out = ineligible(v);
+    if (out) return { safe: v.safe, action: 'skip', reason: out };
+    if (maxVaults > 0 && managed >= maxVaults) return { safe: v.safe, action: 'skip', reason: 'vault-limit' };
+    managed++;
     const reason = skipReason(v);
     if (reason) return { safe: v.safe, action: 'skip', reason };
     const intent = computeRebalance({ ...v.math, recipient: v.safe });
