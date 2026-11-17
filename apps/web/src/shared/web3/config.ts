@@ -48,6 +48,9 @@ const connectors = connectorsForWallets(walletList, { projectId, appName: APP_NA
 export const wagmiConfig = createConfig({
   chains: [FUJI],
   connectors,
+  // viem's default is 4 s, which would add up to 4 s to every measured "Locked after X s" (Fuji blocks are ~2 s).
+  // Same 500 ms the server's TxSender uses, so the Kill-Switch time and /proof are measured the same way.
+  pollingInterval: 500,
   transports: {
     [FUJI.id]: rpcUrl ? fallback([http(rpcUrl), http()]) : http(),
   },
