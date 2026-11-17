@@ -53,3 +53,6 @@ test-results/
 # stray root-level env copies (e.g. received from a teammate): never commit
 /*.env
 /*.env.*
+
+# Crossnote (Markdown preview extension): per-editor settings
+.crossnote/
