@@ -1,6 +1,7 @@
 import { Lock, ShieldOff } from "lucide-react";
 import { useReducer, useRef } from "react";
 import { cn } from "@/shared/lib/cn";
+import { followTx } from "@/shared/mascot/auraEvents";
 import { HoldButton } from "@/shared/ui/HoldButton";
 import { SnowtraceLink } from "@/shared/ui/SnowtraceLink";
 import type { SentTx } from "@/shared/ui/TxButton";
@@ -30,14 +31,20 @@ export function KillSwitch({ isActive, send, canSign = true, notice, size = "ful
 
   const fire = async () => {
     dispatch({ type: "submit", now: performance.now() });
+    const aura = followTx({ danger: true });
+    aura.waiting();
     try {
       const tx = await send();
+      aura.sent();
       hash.current = tx.hash;
       dispatch({ type: "signed", hash: tx.hash, now: performance.now() });
       await tx.wait();
+      aura.confirmed("kill-switch-card");
       dispatch({ type: "confirmed", now: performance.now() });
       onKilled?.();
     } catch (err) {
+      if (isUserRejection(err)) aura.declined();
+      else aura.failed();
       dispatch(isUserRejection(err) ? { type: "rejected" } : { type: "failed", message: describeTxError(err) });
     }
   };
@@ -77,7 +84,7 @@ export function KillSwitch({ isActive, send, canSign = true, notice, size = "ful
   }
 
   return (
-    <section aria-label="Kill-Switch" className={cn("hazard p-2", !isActive && "opacity-90")}>
+    <section id="kill-switch" aria-label="Kill-Switch" data-ground="kill-switch-card" data-aura="danger" data-aura-line="easy... slow hands." className={cn("hazard p-2", !isActive && "opacity-90")}>
       <div className="space-y-4 bg-bg p-4">
         <div>
           <h2 className="mono-label !text-danger-text">Kill-Switch</h2>

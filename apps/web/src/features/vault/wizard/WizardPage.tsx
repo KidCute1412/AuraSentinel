@@ -48,6 +48,7 @@ function Stepper({ done, current }: { done: Record<WizardStep, boolean>; current
           <li key={s}>
             <Link
               to={wizardPath(s)}
+              data-ground={`wizard-step-${s}`}
               aria-current={isCurrent ? "step" : undefined}
               className={cn(
                 "flex min-h-14 items-center gap-3 border px-3 py-2",
@@ -145,7 +146,7 @@ export function WizardPage() {
       <main className="mx-auto max-w-6xl space-y-6 px-4 py-8 sm:px-6">
         <Breadcrumb items={[{ label: "Vaults", to: "/vaults" }, { label: "Create vault" }]} />
         <div>
-          <h1 className="text-3xl">Create vault</h1>
+          <h1 data-ground="page-title" className="text-3xl">Create vault</h1>
           {control.status !== "loading" && first !== null && (
             <p className="mt-1 text-sm text-muted">
               About {confirmationsLeft(control.facts, Math.floor(Date.now() / 1000))} wallet confirmations left. Each one is a Fuji testnet transaction.

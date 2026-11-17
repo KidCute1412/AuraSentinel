@@ -1,5 +1,5 @@
 import { LINES, isMilestone, milestoneLine } from "./lines";
-import { react, useMascot, type Mood } from "./mascotStore";
+import { react, useMascot, visit, type Mood } from "./mascotStore";
 
 const stamps = new Map<string, number>();
 
@@ -53,6 +53,46 @@ export function watchPending(ms = 4000): () => void {
   return () => {
     clearTimeout(t);
     if (useMascot.getState().mood === "worry") react("idle", { hold: 0 });
+  };
+}
+
+/**
+ * A wallet-signed transaction, from click to receipt (TxButton and the Kill-Switch call this; pages never do).
+ * Returns the functions to call at each step. A slow receipt makes Aura-kun nervous until it lands.
+ */
+export function followTx(opts: { cheer?: string; danger?: boolean } = {}) {
+  let stopWorry: (() => void) | undefined;
+  const clear = () => {
+    stopWorry?.();
+    stopWorry = undefined;
+  };
+  return {
+    /** The wallet popup is open. */
+    waiting: () => {
+      clear();
+      stopWorry = watchPending(6000);
+    },
+    /** Broadcast: now it is the chain's turn. */
+    sent: () => {
+      clear();
+      stopWorry = watchPending(5000);
+    },
+    /** `at`: the `data-ground` of the card where it happened; Aura-kun hops over to it. */
+    confirmed: (at?: string | null) => {
+      clear();
+      if (at) visit(at);
+      if (opts.danger) react("guard", { text: LINES.tx.locked, hold: 2200 });
+      else react("cheer", { text: opts.cheer ?? LINES.tx.mined, hold: 1400 });
+    },
+    failed: () => {
+      clear();
+      react("alarm", { text: LINES.tx.failed, hold: 1600 });
+    },
+    /** The person closed the wallet popup: nothing is wrong. */
+    declined: () => {
+      clear();
+      react("idle", { text: LINES.tx.declined, hold: 0 });
+    },
   };
 }
 

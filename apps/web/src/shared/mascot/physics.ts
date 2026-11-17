@@ -72,3 +72,16 @@ export function findGroundBelow(x: number, y: number, grounds: Ground[], floorY:
   }
   return best;
 }
+
+/** Ease in-out, 0..1 -> 0..1. */
+export const ease = (t: number): number => (t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2);
+
+/**
+ * Where a glide (a hop between two standing spots, or a short stroll) is at progress `t` (0..1): straight there with an
+ * eased pace, plus an arc of `arc` px at the middle (0 = a walk, bigger = a hop). Pure, so it is tested without a DOM.
+ */
+export function glidePoint(from: { x: number; y: number }, to: { x: number; y: number }, t: number, arc: number): { x: number; y: number } {
+  const c = Math.min(1, Math.max(0, t));
+  const e = ease(c);
+  return { x: from.x + (to.x - from.x) * e, y: from.y + (to.y - from.y) * e - arc * 4 * c * (1 - c) };
+}

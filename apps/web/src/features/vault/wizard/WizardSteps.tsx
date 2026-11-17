@@ -9,6 +9,8 @@ import { Panel } from "@/shared/ui/Panel";
 import { SnowtraceLink } from "@/shared/ui/SnowtraceLink";
 import { Stamp } from "@/shared/ui/Stamp";
 import { TxButton } from "@/shared/ui/TxButton";
+import { usePageMood } from "@/shared/mascot/usePageMood";
+import { LINES } from "@/shared/mascot/lines";
 import { WalletButton } from "@/shared/web3/WalletButton";
 import { FundsPanel } from "../components/FundsPanel";
 import { ExpiryChoice, LimitField } from "../components/LimitField";
@@ -195,7 +197,7 @@ export function PolicyStep({ control, readOnly }: { control: WizardControl; read
           The limits the agent can never exceed, enforced by your module on every swap. The agent may only swap between USDC and WAVAX through Trader Joe, and the
           proceeds always stay in your Safe.
         </p>
-        <dl className="border border-line bg-bg px-3">
+        <dl data-aura="inspect" data-aura-line="that's my wallet." className="border border-line bg-bg px-3">
           <Address label="Agent (AgentShield)" value={control.agent.agent} />
           <Address label="DEX router (Trader Joe)" value={control.agent.router} />
         </dl>
@@ -211,7 +213,7 @@ export function PolicyStep({ control, readOnly }: { control: WizardControl; read
             </div>
             <ExpiryChoice name="wizard-expiry" value={values.expiryDays} error={errors.expiryDays} onChange={(d) => set("expiryDays", d)} />
             {result.ok && (
-              <p className="border border-line bg-bg px-3 py-2 text-sm text-soft">
+              <p data-aura="inspect" data-aura-line="read it. then sign." className="border border-line bg-bg px-3 py-2 text-sm text-soft">
                 In plain words: the agent can swap at most{" "}
                 <span className="tabular font-bold text-fg">{formatTokenAmount(result.input.usdcMaxPerTx, 6, 2)} USDC</span> per trade and{" "}
                 <span className="tabular font-bold text-fg">{formatTokenAmount(result.input.usdcDailyCap, 6, 2)} USDC</span> per day (WAVAX:{" "}
@@ -270,9 +272,10 @@ export function DoneStep({ control, onOpen, onStartOver }: { control: WizardCont
     return () => clearTimeout(t);
   }, []);
   const canOpen = control.registered || patienceOver;
+  usePageMood("wizard-done", "cheer", LINES.vaultReady);
   return (
     <Panel title="Vault ready" aside={<Stamp tone="ok">Guarded</Stamp>}>
-      <div className="space-y-4">
+      <div id="wizard-done" className="space-y-4">
         <p className="max-w-2xl text-soft">
           Your Safe is guarded by your own module, the policy is active and the vault holds funds. The AgentShield agent can now rebalance it, always within your limits.
         </p>

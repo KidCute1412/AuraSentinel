@@ -2,6 +2,8 @@ import { Check, Copy } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { cn } from "@/shared/lib/cn";
 import { shortAddress } from "@/shared/lib/address";
+import { LINES } from "@/shared/mascot/lines";
+import { react } from "@/shared/mascot/mascotStore";
 
 interface Props {
   address: string;
@@ -20,6 +22,7 @@ export function AddressChip({ address, full, className }: Props) {
     try {
       await navigator.clipboard.writeText(address);
       setCopied(true);
+      react("happy", { text: LINES.copied, hold: 1200 });
       clearTimeout(timer.current);
       timer.current = setTimeout(() => setCopied(false), 1600);
     } catch {

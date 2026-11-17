@@ -1,5 +1,6 @@
 import { useEffect, useReducer, useRef, type ReactNode } from "react";
 import { cn } from "@/shared/lib/cn";
+import { followTx } from "@/shared/mascot/auraEvents";
 import { SnowtraceLink } from "./SnowtraceLink";
 import { describeTxError, isBusy, isUserRejection, txInitial, txReduce } from "./txState";
 
@@ -19,6 +20,8 @@ interface Props {
   disabledReason?: string;
   onConfirmed?: (hash: string) => void;
   className?: string;
+  /** What Aura-kun says when it confirms (short, lowercase). Default "on-chain." */
+  cheer?: string;
 }
 
 const VARIANT = {
@@ -33,9 +36,10 @@ const fmtSeconds = (ms: number) => `${(ms / 1000).toFixed(1)} s`;
  * Every wallet-signed action goes through this: idle -> waiting for wallet -> processing -> confirmed (timed) / error.
  * A rejected signature returns quietly to idle. The component never holds keys; `send` does the signing.
  */
-export function TxButton({ send, children, variant = "primary", disabled, disabledReason, onConfirmed, className }: Props) {
+export function TxButton({ send, children, variant = "primary", disabled, disabledReason, onConfirmed, className, cheer }: Props) {
   const [phase, dispatch] = useReducer(txReduce, txInitial);
   const alive = useRef(true);
+  const box = useRef<HTMLDivElement>(null);
   useEffect(() => {
     alive.current = true;
     return () => {
@@ -45,15 +49,21 @@ export function TxButton({ send, children, variant = "primary", disabled, disabl
 
   const click = async () => {
     dispatch({ type: "submit", now: performance.now() });
+    const aura = followTx({ cheer, danger: variant === "danger" });
+    aura.waiting();
     try {
       const tx = await send();
+      aura.sent();
       if (!alive.current) return;
       dispatch({ type: "signed", hash: tx.hash, now: performance.now() });
       await tx.wait();
+      aura.confirmed(box.current?.closest<HTMLElement>("[data-ground]")?.dataset.ground);
       if (!alive.current) return;
       dispatch({ type: "confirmed", now: performance.now() });
       onConfirmed?.(tx.hash);
     } catch (err) {
+      if (isUserRejection(err)) aura.declined();
+      else aura.failed();
       if (!alive.current) return;
       dispatch(isUserRejection(err) ? { type: "rejected" } : { type: "failed", message: describeTxError(err) });
     }
@@ -64,7 +74,7 @@ export function TxButton({ send, children, variant = "primary", disabled, disabl
   const off = disabled || busy;
 
   return (
-    <div className={cn("inline-flex flex-col items-start gap-2", className)}>
+    <div ref={box} className={cn("inline-flex flex-col items-start gap-2", className)}>
       <button
         type="button"
         onClick={click}

@@ -45,6 +45,20 @@ export const LINES = {
   invalid: "that won't work.",
   success: "clean.",
   external: "careful out there.",
+  // transactions signed in the wallet (TxButton, Kill-Switch)
+  tx: {
+    waiting: "waiting on your wallet.",
+    mined: "on-chain.",
+    failed: "that one failed.",
+    declined: "no worries.",
+    locked: "locked. all quiet.",
+    slow: "block's taking a while...",
+  },
+  copied: "copied. check it twice.",
+  budgetLow: "budget's running low.",
+  budgetGone: "budget's gone. guard up.",
+  emptyList: "so empty here.",
+  vaultReady: "it's alive!",
   // wallet / chain
   wallet: {
     linked: "wallet linked.",

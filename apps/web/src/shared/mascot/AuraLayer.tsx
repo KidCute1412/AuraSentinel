@@ -4,8 +4,9 @@ import { Chamfer } from "@/shared/ui/Chamfer";
 import { AuraKun } from "./AuraKun";
 import { eyesLocked, lookAt } from "./eyes";
 import { LINES, pick } from "./lines";
-import { findGroundBelow, stepFall, type Body, type Ground } from "./physics";
-import { react, touch, useMascot } from "./mascotStore";
+import { cooled } from "./auraEvents";
+import { findGroundBelow, glidePoint, stepFall, type Body, type Ground } from "./physics";
+import { idleForMs, react, touch, useMascot } from "./mascotStore";
 
 const SIZE = 96;
 /** Feet sit this far below the top of the SVG box. */
@@ -13,6 +14,23 @@ const FEET = 84;
 const FLOOR_PAD = 10;
 const HARD_FALL_PX = 420;
 const DRAG_THRESHOLD_PX = 8;
+/** Self-started movement is rare and polite: a hop to where something just happened, a short stroll when idle. */
+const VISIT_COOLDOWN_MS = 20_000;
+const STROLL_COOLDOWN_MS = 40_000;
+const STROLL_AFTER_IDLE_MS = 12_000;
+const STROLL_CHECK_MS = 4_000;
+
+/** Typing in a field or a dialog being open: he keeps still, so nothing moves near what the person is doing. */
+const busyWithForm = (): boolean => {
+  const a = document.activeElement;
+  return (
+    a instanceof HTMLInputElement ||
+    a instanceof HTMLTextAreaElement ||
+    a instanceof HTMLSelectElement ||
+    (a instanceof HTMLElement && a.isContentEditable) ||
+    document.querySelector('[role="dialog"],[aria-modal="true"]') !== null
+  );
+};
 
 type Anchor = { kind: "ground"; id: string; fx: number } | { kind: "viewport"; xf: number };
 
@@ -71,7 +89,7 @@ export function AuraLayer() {
   const boxRef = useRef<HTMLDivElement>(null);
   const pos = useRef({ x: -999, y: -999 });
   const anchor = useRef<Anchor | null>(null);
-  const mode = useRef<"rest" | "drag" | "fall">("rest");
+  const mode = useRef<"rest" | "drag" | "fall" | "walk">("rest");
   const raf = useRef(0);
   const drag = useRef<DragState | null>(null);
   const swallowClick = useRef(false);
@@ -104,7 +122,7 @@ export function AuraLayer() {
     return r ? { x: r.left + SIZE / 2, y: r.top + FEET } : pos.current;
   };
 
-  const settle = (x: number, y: number, id: string | null) => {
+  const settle = (x: number, y: number, id: string | null, quiet = false) => {
     mode.current = "rest";
     const el = id ? groundEl(id) : null;
     if (id && el) {
@@ -115,6 +133,7 @@ export function AuraLayer() {
     }
     place(x, y, anchor.current.kind === "ground" ? "doc" : "viewport");
     setSquash((n) => n + 1);
+    if (quiet) return;
     const fell = y - fallFromY.current;
     if (fell > HARD_FALL_PX && !reduced()) react("stunned", { text: LINES.hard, hold: 1400 });
     else react("happy", { text: pick(LINES.land), hold: 700 });
@@ -149,6 +168,77 @@ export function AuraLayer() {
     };
     raf.current = requestAnimationFrame(step);
   };
+
+  /**
+   * Glide from where he stands to a spot on a ground element: a hop (`arc` > 0) or a walk (0). The target is read
+   * every frame so a scrolling page does not leave him behind. Lands quietly on that ground.
+   */
+  const glide = (groundId: string, targetFx: number, ms: number, arc: number) => {
+    const from = feet();
+    const target = () => {
+      const el = groundEl(groundId);
+      if (!el) return null;
+      const r = el.getBoundingClientRect();
+      return { x: r.left + clamp(targetFx, 0.08, 0.92) * r.width, y: r.top };
+    };
+    if (!target()) return;
+    cancelAnimationFrame(raf.current);
+    mode.current = "walk";
+    place(from.x, from.y);
+    const start = performance.now();
+    const step = (now: number) => {
+      const to = target();
+      if (!to) return startFall(0, 0); // the ground vanished mid-way
+      const t = (now - start) / ms;
+      const p = glidePoint(from, to, t, arc);
+      place(p.x, p.y);
+      if (t >= 1) settle(to.x, to.y, groundId, true);
+      else raf.current = requestAnimationFrame(step);
+    };
+    raf.current = requestAnimationFrame(step);
+  };
+
+  // Something happened on a card (a transaction confirmed there): hop over to it, at most once in a while.
+  const visitReq = useMascot((s) => s.visit);
+  useEffect(() => {
+    if (!visitReq || hidden || reduced() || mode.current !== "rest" || busyWithForm()) return;
+    const g = collectGrounds().find((c) => c.id === visitReq.id);
+    if (!g || !cooled("visit", VISIT_COOLDOWN_MS)) return;
+    const f = feet();
+    const here = f.x > g.left && f.x < g.right;
+    const fx = here ? (f.x - g.left) / (g.right - g.left) : 0.5;
+    if (here && Math.abs(f.y - g.top) < 4) return; // already standing on it
+    glide(g.id, fx, 520, 70);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [visitReq, hidden]);
+
+  // Quiet page and nobody around: a few steps along the card he stands on, then he stays put again.
+  useEffect(() => {
+    if (hidden || reduced()) return;
+    const tick = setInterval(() => {
+      const an = anchor.current;
+      if (mode.current !== "rest" || an?.kind !== "ground" || useMascot.getState().mood !== "idle") return;
+      if (document.hidden || idleForMs() < STROLL_AFTER_IDLE_MS || busyWithForm()) return;
+      const r = resolve(an);
+      if (!r || r.y < 64 || r.y > window.innerHeight || !cooled("stroll", STROLL_COOLDOWN_MS)) return;
+      const toward = an.fx > 0.5 ? -1 : 1;
+      glide(an.id, an.fx + toward * (0.18 + Math.random() * 0.14), 1500, 6);
+    }, STROLL_CHECK_MS);
+    // Any input ends the stroll where he is: he drops to the ground below and the person gets the page back.
+    const stop = () => {
+      if (mode.current === "walk") {
+        cancelAnimationFrame(raf.current);
+        startFall(0, 0);
+      }
+    };
+    const events = ["pointerdown", "keydown", "wheel", "touchstart"] as const;
+    events.forEach((e) => window.addEventListener(e, stop, { passive: true }));
+    return () => {
+      clearInterval(tick);
+      events.forEach((e) => window.removeEventListener(e, stop));
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hidden]);
 
   // Keep Aura-kun standing in the right spot on scroll, resize and layout changes.
   useEffect(() => {
