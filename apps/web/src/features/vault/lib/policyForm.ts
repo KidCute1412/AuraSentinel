@@ -1,7 +1,7 @@
 import { formatUnits, fromAmount, parseUnits, type StateDto } from "@agentshield/shared";
 import { formatTokenAmount } from "@/shared/lib/format";
-import { TOKENS, USDC, WAVAX } from "@/shared/api/mockEngine";
-import type { PolicyInput } from "@/shared/api/mockChain";
+import { TOKENS, tokenAddressIn } from "@/shared/api/mockEngine";
+import type { PolicyInput } from "@/shared/lib/policy";
 
 export interface PolicyFormValues {
   usdcMaxPerTx: string;
@@ -71,8 +71,8 @@ const limitOf = (state: StateDto, token: string) => state.policy.limits.find((l)
 
 /** Prefill the form from the current on-chain policy (plain numbers, no thousands separators). */
 export function valuesFromState(state: StateDto): PolicyFormValues {
-  const usdc = limitOf(state, USDC);
-  const wavax = limitOf(state, WAVAX);
+  const usdc = limitOf(state, tokenAddressIn(state, "USDC"));
+  const wavax = limitOf(state, tokenAddressIn(state, "WAVAX"));
   return {
     usdcMaxPerTx: formatUnits(fromAmount(usdc?.maxPerTx ?? "0"), 6),
     usdcDailyCap: formatUnits(fromAmount(usdc?.dailyCap ?? "0"), 6),
@@ -91,8 +91,8 @@ export interface DiffRow {
 
 /** Before -> after table shown on the "you are about to sign" step. */
 export function policyDiff(state: StateDto, input: PolicyInput, nowSec: number): DiffRow[] {
-  const usdc = limitOf(state, USDC);
-  const wavax = limitOf(state, WAVAX);
+  const usdc = limitOf(state, tokenAddressIn(state, "USDC"));
+  const wavax = limitOf(state, tokenAddressIn(state, "WAVAX"));
   const money = (base: string | undefined, decimals: number, symbol: string) => `${formatTokenAmount(fromAmount(base ?? "0"), decimals, 4)} ${symbol}`;
   const next = (v: bigint, decimals: number, symbol: string) => `${formatTokenAmount(v, decimals, 4)} ${symbol}`;
   const daysLeft = (ts: number) => `${Math.max(0, Math.round((ts - nowSec) / DAY))} days`;

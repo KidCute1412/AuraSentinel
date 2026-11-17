@@ -9,6 +9,7 @@ import { LiveVaultEvents } from "@/shared/api/vaultFeed";
 import { liveViewFromDto } from "@/shared/api/vaultSource";
 import { AGENT, explanation, job, jobDetail, jsonResponse, SAFE, state as liveState } from "@/test/apiFixtures";
 import { FakeEventSource } from "@/test/fakeEventSource";
+import { ChainOnlyVault } from "../layout/ChainOnlyVault";
 import { VaultHeader } from "../layout/VaultHeader";
 import { VaultDashboard } from "../overview/VaultDashboard";
 import { Activity } from "./Activity";
@@ -21,8 +22,29 @@ vi.mock("@/shared/api/dataSource", async (importOriginal) => {
   return { ...actual, DATA_SOURCE: "live", isLive: true, LIVE_DEMO_SAFE: "0x1111111111111111111111111111111111111111" };
 });
 
+// Owner actions read and sign against the chain (shared/web3/moduleChain): no wallet or RPC in tests, so the module
+// is a fixed chain read and the signer is whatever a test sets.
+const OWNER = "0x7777777777777777777777777777777777777777";
+const chainState = vi.hoisted(() => ({ signer: null as string | null, isActive: true }));
+const sendModuleTx = vi.hoisted(() => vi.fn());
+vi.mock("@/shared/web3/moduleChain", () => ({
+  useModuleChain: (module: string | null) => ({
+    data: module
+      ? { owner: "0x7777777777777777777777777777777777777777", policy: { agentSigner: "0x2222222222222222222222222222222222222222", router: "0x9999999999999999999999999999999999999999", expiry: 1_900_000_000, isActive: chainState.isActive }, epoch: 3n }
+      : null,
+    status: module ? "ready" : "loading",
+    refetch: async () => undefined,
+  }),
+  useSigner: () => chainState.signer,
+  useModuleOf: (safe: string | null) => ({ module: safe ? "0x6666666666666666666666666666666666666666" : null, status: safe ? "ready" : "loading" }),
+  sendModuleTx,
+}));
+
+// RainbowKit needs its provider; the offline page only needs to show that a connect button is there.
+vi.mock("@/shared/web3/WalletButton", () => ({ WalletButton: () => <button type="button">Connect wallet</button> }));
+
 // The public demo vault, as GET /vaults/{safe} describes it.
-const view = liveViewFromDto({ safe: SAFE, module: "0x6666666666666666666666666666666666666666", owner: "0x7777777777777777777777777777777777777777", agent: AGENT, isDemo: true });
+const view = liveViewFromDto({ safe: SAFE, module: "0x6666666666666666666666666666666666666666", owner: OWNER, agent: AGENT, isDemo: true });
 const J1 = "7f9c0000-0000-4000-8000-000000000001";
 const J2 = "7f9c0000-0000-4000-8000-000000000002";
 const J3 = "7f9c0000-0000-4000-8000-000000000003";
@@ -86,6 +108,9 @@ const urls = () => fetchMock.mock.calls.map(([u]) => String(u));
 const posts = () => fetchMock.mock.calls.filter(([, init]) => init?.method === "POST");
 
 beforeEach(() => {
+  chainState.signer = null;
+  chainState.isActive = true;
+  sendModuleTx.mockReset();
   FakeEventSource.reset();
   vi.stubGlobal("EventSource", FakeEventSource);
   vi.stubGlobal("fetch", fetchMock);
@@ -247,14 +272,15 @@ describe("live /demo dashboard", () => {
       "/demo",
     );
 
-  it("shows live jobs, says plainly what is not available yet, and never offers simulated owner actions", async () => {
+  it("shows live jobs, says plainly what is not available yet, and keeps the Kill-Switch off for a visitor", async () => {
     demo();
     expect(await screen.findByText("Data: live · Avalanche Fuji")).toBeInTheDocument();
     expect(screen.getByText("Balances and limits are not available yet")).toBeInTheDocument();
     expect(screen.getAllByText(/Not available yet: the server cannot read/)).toHaveLength(3);
-    expect(screen.getByText("Unknown")).toBeInTheDocument(); // header status without chain state
-    expect(screen.queryByText("Hold to Kill-Switch")).toBeNull();
-    expect(screen.getByText(/these controls are off here/)).toBeInTheDocument();
+    // The Kill-Switch flag comes straight from the module, so the header knows it even without GET /state.
+    expect(screen.getByText("Protected")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Hold to Kill-Switch" })).toBeDisabled();
+    expect(screen.getByText(/Only the vault owner can press this/)).toBeInTheDocument();
     // The latest job's verdict comes from GET /jobs/{id}, with its audit trail.
     expect(await screen.findByRole("heading", { name: /Safe: used 13.3% of today's limit/ })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /Run rebalance/ })).toBeEnabled();
@@ -265,12 +291,104 @@ describe("live /demo dashboard", () => {
     serve({ state: () => jsonResponse(liveState) });
     demo();
     expect(await screen.findByText("Protected")).toBeInTheDocument();
-    const budget = screen.getByRole("heading", { name: "Daily budget" }).closest("section")!;
+    const budget = (await screen.findByRole("heading", { name: "Daily budget" })).closest("section")!;
     expect(budget).toHaveTextContent("200 / 1,500 USDC");
     expect(budget).toHaveTextContent("13.3%");
     const policy = screen.getByRole("heading", { name: "Policy" }).closest("section")!;
     expect(policy).toHaveTextContent("500 USDC");
     expect(within(policy).queryByRole("button")).toBeNull();
     expect(screen.queryByText("Balances and limits are not available yet")).toBeNull();
+  });
+});
+
+describe("live owner controls (wallet-signed, straight to the chain)", () => {
+  const ownerPage = () =>
+    renderLive(
+      <>
+        <VaultHeader view={{ ...view, isDemo: false }} role="owner" />
+        <VaultDashboard view={{ ...view, isDemo: false }} role="owner" mode="owner" />
+      </>,
+      `/vaults/${SAFE}`,
+    );
+
+  it("lets the module owner's wallet hold the Kill-Switch, sends revoke to the module and turns red", async () => {
+    serve({ state: () => jsonResponse(liveState) });
+    chainState.signer = OWNER;
+    sendModuleTx.mockResolvedValue({ hash: `0x${"ab".repeat(32)}`, wait: async () => undefined });
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    try {
+      ownerPage();
+      const kill = (await screen.findAllByRole("button", { name: "Hold to Kill-Switch" })).find((b) => !b.hasAttribute("disabled"))!;
+      fireEvent.keyDown(kill, { key: "Enter" });
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(900);
+      });
+      await waitFor(() => expect(sendModuleTx).toHaveBeenCalledWith("0x6666666666666666666666666666666666666666", { functionName: "revoke" }));
+      expect(await screen.findByText(/Locked after/)).toBeInTheDocument();
+    } finally {
+      vi.useRealTimers();
+    }
+    expect(posts()).toHaveLength(0); // never through our API (P2)
+  });
+
+  it("keeps the controls off when the connected wallet is not the module owner", async () => {
+    serve({ state: () => jsonResponse(liveState) });
+    chainState.signer = "0x8888888888888888888888888888888888888888";
+    ownerPage();
+    expect(await screen.findByText(/The connected wallet is not the owner/)).toBeInTheDocument();
+    for (const b of screen.getAllByRole("button", { name: "Hold to Kill-Switch" })) expect(b).toBeDisabled();
+    const policy = screen.getByRole("heading", { name: "Policy" }).closest("section")!;
+    expect(within(policy).queryByRole("button", { name: /Edit policy/ })).toBeNull();
+  });
+
+  it("re-activates a killed vault with setPolicy, keeping the chain's agent and router", async () => {
+    serve({ state: () => jsonResponse({ ...liveState, isActive: false }) });
+    chainState.signer = OWNER;
+    chainState.isActive = false;
+    sendModuleTx.mockResolvedValue({ hash: `0x${"cd".repeat(32)}`, wait: async () => undefined });
+    ownerPage();
+    fireEvent.click(await screen.findByRole("button", { name: "Re-activate with a new policy" }));
+    fireEvent.click(screen.getByRole("button", { name: "Review change" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Sign and re-activate" }));
+    await waitFor(() => expect(sendModuleTx).toHaveBeenCalledTimes(1));
+    const [module, call] = sendModuleTx.mock.calls[0]!;
+    expect(module).toBe("0x6666666666666666666666666666666666666666");
+    expect(call.functionName).toBe("setPolicy");
+    const [policy, tokens, limits] = call.args;
+    expect(policy).toMatchObject({ agentSigner: "0x2222222222222222222222222222222222222222", router: "0x9999999999999999999999999999999999999999", isActive: true });
+    expect(typeof policy.expiry).toBe("bigint");
+    expect(tokens).toEqual(["0x3333333333333333333333333333333333333333", "0x4444444444444444444444444444444444444444"]); // USDC, WAVAX from the chain state
+    for (const l of limits) expect(typeof l.maxPerTx).toBe("bigint");
+    expect(posts()).toHaveLength(0);
+  });
+});
+
+describe("server offline: the vault page reads the chain directly", () => {
+  it("finds the module on-chain and still lets the owner hold the Kill-Switch, with no API call", async () => {
+    chainState.signer = OWNER;
+    sendModuleTx.mockResolvedValue({ hash: `0x${"ef".repeat(32)}`, wait: async () => undefined });
+    renderLive(<ChainOnlyVault safe={SAFE} onRetry={() => undefined} />, `/vaults/${SAFE}`);
+    expect(screen.getByText(/Server offline\./)).toBeInTheDocument();
+    expect(screen.getByText("Protected")).toBeInTheDocument();
+    const kill = screen.getByRole("button", { name: "Hold to Kill-Switch" });
+    expect(kill).toBeEnabled();
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    try {
+      fireEvent.keyDown(kill, { key: "Enter" });
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(900);
+      });
+      await waitFor(() => expect(sendModuleTx).toHaveBeenCalledWith("0x6666666666666666666666666666666666666666", { functionName: "revoke" }));
+    } finally {
+      vi.useRealTimers();
+    }
+    expect(urls().filter((u) => !u.includes("/events"))).toHaveLength(0);
+  });
+
+  it("tells a visitor plainly that only the owner can press it", () => {
+    renderLive(<ChainOnlyVault safe={SAFE} onRetry={() => undefined} />, `/vaults/${SAFE}`);
+    expect(screen.getByRole("button", { name: "Hold to Kill-Switch" })).toBeDisabled();
+    expect(screen.getByText("Connect the owner wallet to use these controls.")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Connect wallet" })).toBeInTheDocument(); // works without the server
   });
 });

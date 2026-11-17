@@ -10,8 +10,10 @@ import { useSession } from "@/shared/session/sessionStore";
 import { NetworkGuard } from "@/shared/ui/NetworkGuard";
 import { Skeleton } from "@/shared/ui/Skeleton";
 import { KillDock } from "../components/KillDock";
+import { useOwnerControl } from "../hooks/useOwnerControl";
 import { SECTION_LABEL, vaultRole, type VaultRole, type VaultSection } from "../guards/access";
 import { Breadcrumb, type Crumb } from "./Breadcrumb";
+import { ChainOnlyVault } from "./ChainOnlyVault";
 import type { VaultContext } from "./context";
 import { RouteNotice } from "./RouteNotice";
 import { VaultHeader } from "./VaultHeader";
@@ -40,11 +42,18 @@ function Problem({ title, children }: { title: string; children: React.ReactNode
   );
 }
 
-/** Phone-only Kill-Switch dock, shown to the owner while the vault is still active. Simulated data only for now. */
+/** Phone-only Kill-Switch dock, shown to the owner (the wallet that can sign) while the vault is still active. */
 function OwnerDock({ view, role }: { view: VaultView; role: VaultRole }) {
   const feed = useVaultFeed(view);
-  if (role !== "owner" || feed.source === "live" || feed.state?.isActive !== true) return null;
-  return <KillDock safe={view.safe} />;
+  const control = useOwnerControl(view, { role });
+  if (!control.canSign || (control.isActive ?? feed.state?.isActive) !== true) return null;
+  return <KillDock send={control.revoke} />;
+}
+
+/** Vault nav; the module owner's connected wallet sees the owner entries (Settings) even before SIWE sign-in. */
+function OwnerNav({ view, role }: { view: VaultView; role: VaultRole }) {
+  const control = useOwnerControl(view, { role });
+  return <VaultNav safe={view.safe} role={control.canSign ? "owner" : role} />;
 }
 
 const sectionOf = (pathname: string, safe: string): VaultSection => {
@@ -81,6 +90,16 @@ export function VaultLayout() {
         <Skeleton className="h-28 w-full" />
         <Skeleton className="h-11 w-full" />
         <Skeleton className="h-64 w-full" />
+      </Frame>
+    );
+  }
+
+  if (isError && isLive) {
+    // The server is down or failing: the owner must still be able to Kill (invariant P2), straight from the chain.
+    return (
+      <Frame>
+        <Breadcrumb items={[{ label: "Vaults", to: "/vaults" }, { label: shortAddress(safe) }]} />
+        <ChainOnlyVault safe={safe} onRetry={() => void refetch()} />
       </Frame>
     );
   }
@@ -123,7 +142,7 @@ export function VaultLayout() {
       <Breadcrumb items={crumbs} />
       <RouteNotice />
       <VaultHeader view={view} role={role} compactKill={section !== "overview"} />
-      <VaultNav safe={safe} role={role} />
+      <OwnerNav view={view} role={role} />
       <Outlet context={context} />
       <OwnerDock view={view} role={role} />
     </Frame>

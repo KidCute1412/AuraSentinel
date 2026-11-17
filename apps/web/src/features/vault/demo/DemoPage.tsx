@@ -10,11 +10,13 @@ import { Breadcrumb } from "../layout/Breadcrumb";
 import { VaultHeader } from "../layout/VaultHeader";
 import { VaultDashboard } from "../overview/VaultDashboard";
 import { KillDock } from "../components/KillDock";
+import { useOwnerControl } from "../hooks/useOwnerControl";
 
-/** Phone Kill-Switch dock. Simulated data only: on live data the owner's wallet flow is not wired yet. */
+/** Phone Kill-Switch dock: anyone in the simulation, only the module owner's wallet on live data. */
 function Dock({ view }: { view: VaultView }) {
   const feed = useVaultFeed(view);
-  return feed.source === "mock" && feed.state?.isActive ? <KillDock safe={view.safe} /> : null;
+  const control = useOwnerControl(view, { role: "anonymous", sandbox: true });
+  return control.canSign && (control.isActive ?? feed.state?.isActive) ? <KillDock send={control.revoke} /> : null;
 }
 
 /** /demo: the public sandbox vault. No wallet, no sign-in. Same dashboard as a real vault, with a guided tour. */

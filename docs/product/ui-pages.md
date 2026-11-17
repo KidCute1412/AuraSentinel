@@ -90,7 +90,9 @@ Wizard `/vaults/new/*`, bước hoàn thành đọc từ chain:
 
 ### 1.1b Vault demo: dùng chung rồi nâng lên bể vault
 
-`/demo` cho khách bấm cả Kill-Switch và đổi Policy. Điều này cần **server giữ khoá owner của vault demo** (ngoại lệ có chủ đích, chỉ cho vault `isDemo` trên testnet; khoá owner của vault thật không bao giờ vào server).
+**Quyết định (2026-11-17, L7):** trên `/demo`, Kill-Switch và đổi Policy **chỉ owner thật của module bấm được** (ký bằng ví trong browser, P2). Khách thấy khối Kill-Switch bị tắt kèm dòng giải thích. Server **không** giữ khoá owner của vault demo, kể cả trên testnet. Khi trình diễn, owner dùng ví deployer trên stage vault. Phương án cũ bên dưới **không làm**.
+
+~~`/demo` cho khách bấm cả Kill-Switch và đổi Policy. Điều này cần server giữ khoá owner của vault demo.~~
 
 - **Giai đoạn 1 (làm trước):** một vault demo dùng chung. Sau khi có người Kill hoặc đổi Policy, server tự đặt lại policy chuẩn sau khoảng 30-60 giây; trang hiện "Demo resets in …". Hạn mức nhỏ, cooldown theo IP, giao dịch của vault xếp hàng tuần tự (tránh trùng nonce).
 - **Giai đoạn 2 (nếu còn thời gian):** bể vault dựng sẵn bằng `pnpm seed`. `/demo` cấp cho mỗi khách một vault trong bể (cookie, khoảng 15 phút), hết giờ hoặc "Start over" thì khôi phục rồi trả về bể; hết chỗ thì hiện "Demo is busy". Giao diện vẫn là một dashboard.
