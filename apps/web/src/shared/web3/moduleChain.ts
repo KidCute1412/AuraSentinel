@@ -74,40 +74,33 @@ export class ChainRevert extends Error {
   }
 }
 
-/** Custom error name inside a viem error, if the chain reverted with one. */
+/** Custom error name (NotOwner, FaucetCooldown) or revert string (Safe "GS013") inside a viem error, if the chain reverted. */
 export function revertReason(err: unknown): string | null {
   if (!(err instanceof BaseError)) return null;
   const reverted = err.walk((e) => e instanceof ContractFunctionRevertedError);
-  return reverted instanceof ContractFunctionRevertedError ? (reverted.data?.errorName ?? reverted.signature ?? "UNKNOWN_REVERT") : null;
+  if (!(reverted instanceof ContractFunctionRevertedError)) return null;
+  const name = reverted.data?.errorName;
+  if (name && name !== "Error") return name;
+  return reverted.reason ?? reverted.signature ?? "UNKNOWN_REVERT";
 }
 
-type ModuleWrite =
-  | { functionName: "revoke"; args?: undefined }
-  | { functionName: "setPolicy"; args: readonly [{ agentSigner: Address; router: Address; expiry: bigint; isActive: boolean }, readonly Address[], readonly { maxPerTx: bigint; dailyCap: bigint }[]] };
-
 /**
- * Sign and send one owner call: wallet on Fuji -> dry run (a revert shows its reason before any gas is spent) ->
- * the wallet popup -> wait for the receipt. Resolves with the hash as soon as it is signed, like every SentTx.
+ * The one path every owner transaction takes: wallet on Fuji -> dry run (`simulate`, so a revert shows its reason
+ * before any gas is spent) -> the wallet popup -> wait for the receipt. Resolves with the hash once signed.
  */
-export async function sendModuleTx(module: Address, call: ModuleWrite): Promise<SentTx> {
+export async function sendSimulated(simulate: (account: Address) => Promise<{ request: unknown }>): Promise<SentTx> {
   const account = getAccount(wagmiConfig);
   if (!account.address) throw new Error("Connect your wallet first.");
   if (account.chainId !== FUJI.id) await switchChain(wagmiConfig, { chainId: FUJI.id });
-
-  const base = { chainId: FUJI.id, address: module, abi: agentPolicyModuleAbi, account: account.address } as const;
-  // Dry run first: a revert shows its reason (NotOwner, InvalidPolicy) before the wallet opens or gas is spent.
-  const dryRun = async <T,>(run: () => Promise<T>): Promise<T> => {
-    try {
-      return await run();
-    } catch (err) {
-      const reason = revertReason(err);
-      throw reason ? new ChainRevert(reason) : err;
-    }
-  };
-  const hash =
-    call.functionName === "revoke"
-      ? await writeContract(wagmiConfig, (await dryRun(() => simulateContract(wagmiConfig, { ...base, functionName: "revoke" }))).request)
-      : await writeContract(wagmiConfig, (await dryRun(() => simulateContract(wagmiConfig, { ...base, functionName: "setPolicy", args: call.args }))).request);
+  let request: unknown;
+  try {
+    ({ request } = await simulate(account.address));
+  } catch (err) {
+    const reason = revertReason(err);
+    throw reason ? new ChainRevert(reason) : err;
+  }
+  // `request` is exactly what simulateContract prepared for this config; its generic type is not worth threading.
+  const hash = await writeContract(wagmiConfig, request as never);
   return {
     hash,
     wait: async () => {
@@ -115,4 +108,18 @@ export async function sendModuleTx(module: Address, call: ModuleWrite): Promise<
       if (receipt.status !== "success") throw new ChainRevert("UNKNOWN_REVERT");
     },
   };
+}
+
+type ModuleWrite =
+  | { functionName: "revoke"; args?: undefined }
+  | { functionName: "setPolicy"; args: readonly [{ agentSigner: Address; router: Address; expiry: bigint; isActive: boolean }, readonly Address[], readonly { maxPerTx: bigint; dailyCap: bigint }[]] };
+
+/** Kill-Switch or setPolicy on the module, signed by its owner. */
+export function sendModuleTx(module: Address, call: ModuleWrite): Promise<SentTx> {
+  return sendSimulated((account) => {
+    const base = { chainId: FUJI.id, address: module, abi: agentPolicyModuleAbi, account } as const;
+    return call.functionName === "revoke"
+      ? simulateContract(wagmiConfig, { ...base, functionName: "revoke" })
+      : simulateContract(wagmiConfig, { ...base, functionName: "setPolicy", args: call.args });
+  });
 }

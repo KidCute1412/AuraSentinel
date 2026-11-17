@@ -5,7 +5,8 @@
  * real wallet or real gas is involved. Skipped unless FORK_RPC_URL is set:
  *
  *   anvil --fork-url <fuji rpc> --port 8546 --chain-id 43113
- *   FORK_RPC_URL=http://127.0.0.1:8546 pnpm --filter web exec vitest run src/shared/web3/moduleChain.fork.test.ts
+ *   FORK_RPC_URL=http://127.0.0.1:8546 pnpm --filter web exec vitest run --no-file-parallelism src/shared/web3/*.fork.test.ts
+ *   (one file at a time: they share the fork, and snapshots / time jumps would cross)
  *
  * Uses the stage vault from packages/contracts/deployments/fuji.json (the fork is thrown away afterwards).
  */
