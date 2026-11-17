@@ -21,6 +21,7 @@ Docs viết bằng tiếng Việt; định danh kỹ thuật giữ tiếng Anh.
 | 5 | [`runbook/setup-and-bringup.md`](./runbook/setup-and-bringup.md) | Dev local bằng 1 lệnh (`start.bat` / `start.sh`), chạy khi chưa có contract, lỗi thường gặp | Ngày đầu, dựng máy dev |
 | 5a | [`runbook/production.md`](./runbook/production.md) | Chạy cả hệ bằng `docker-compose.prod.yml` (1 lệnh), env, sự cố | Trước demo, khi dựng máy chạy thật |
 | 7 | [`research/poc-results.md`](./research/poc-results.md) | Kết quả các POC (danh sách ở [`../poc/`](../poc/README.md)) | Trước khi chốt thiết kế một phần rủi ro |
+| 5b | [`runbook/security-report.md`](./runbook/security-report.md) | Kết quả L10: `seed --verify` trên prod, mối đe doạ T1–T7 và bằng chứng, gitleaks, Slither, phát hiện (RPC 429, finality đo thật) | Trước khi nộp và trước demo |
 | 6 | [`runbook/demo.md`](./runbook/demo.md) | Checklist trước giờ thi, kịch bản 3 phút, xử lý sự cố | Tuần 3, rehearsal |
 
 ## Khi các file lệch nhau

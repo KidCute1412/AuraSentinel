@@ -16,7 +16,7 @@
 | Biến | Lấy từ |
 |---|---|
 | `POSTGRES_PASSWORD` | Tự đặt |
-| `FUJI_RPC_URLS`, `FORK_URL` | RPC Fuji riêng đứng đầu, public RPC làm fallback |
+| `FUJI_RPC_URLS`, `FORK_URL` | RPC Fuji riêng đứng đầu, rồi **nhiều** public RPC làm fallback (mặc định: PublicNode, dRPC, RPC chính thức). Chỉ 1 RPC chính thức là không đủ: nó trả Cloudflare 429 cho Docker (L10, `security-report.md` F1) |
 | `AGENT_PRIVATE_KEY` | Key **session** của ví agent (L4 bước 0). Nạp ~0.5 AVAX Fuji cho gas |
 | `SAFE_ADDRESS`, `POLICY_MODULE_ADDRESS` | `publicSafe`, `publicModule` trong `fuji.json` |
 | `TOKEN_A_ADDRESS`, `TOKEN_B_ADDRESS` | `usdc`, `wavax` |
@@ -31,6 +31,14 @@ docker compose -f infra/docker-compose.prod.yml --env-file infra/.env.prod up -d
 ```
 
 Mở `http://localhost:8080` (đổi bằng `WEB_PORT`). Chỉ cổng web được mở ra máy; postgres, redis, anvil, api nằm trong mạng nội bộ của compose.
+
+Kiểm tra (chỉ đọc, L10), phải ra `0 FAIL`:
+
+```bash
+pnpm seed --verify --api http://localhost:8080 --web http://localhost:8080 --env infra/.env.prod
+```
+
+> ⚠️ Chỉ một worker được ký bằng key agent (P4). Đang chạy prod thì tắt worker của stack dev (`start.bat`), nếu không hai bên tranh nonce.
 
 | Service | Vai trò |
 |---|---|

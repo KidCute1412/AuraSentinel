@@ -4,7 +4,7 @@
 
 ## 1. Trước giờ thi (T-60 → T-10 phút)
 
-- [ ] `docker compose up` sạch, `pnpm seed --verify` toàn `PASS`
+- [ ] `docker compose up` sạch, `pnpm seed --verify --api http://localhost:8080 --web http://localhost:8080 --env infra/.env.prod` ra `0 FAIL` (WARN đọc kỹ: gas agent, ngân sách ngày, hạn policy). Báo cáo đầy đủ: [`security-report.md`](./security-report.md)
 - [ ] **Demo mode bật:** rebalancer scheduler đã `pause` (`POST /admin/rebalancer/pause`); chỉ bấm tay
 - [ ] Safe có đủ MockUSDC; agent EOA có AVAX trả gas
 - [ ] Policy đang `isActive`, `spentToday = 0` (lưu ý `dayId` theo UTC: 00:00 UTC = 7h sáng VN)
