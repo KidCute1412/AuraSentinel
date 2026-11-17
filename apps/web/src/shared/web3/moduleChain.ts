@@ -7,14 +7,15 @@ import { parseAddressEnv } from "@/shared/api/dataSource";
 import type { ModuleChainState } from "@/shared/lib/policy";
 import type { SentTx } from "@/shared/ui/TxButton";
 import { FUJI, wagmiConfig } from "./config";
+import { FUJI_DEPLOYMENT } from "./deployments";
 
 /**
  * Owner actions straight against the chain (invariant P2): reads come from the module itself and every write is
  * signed in the owner's wallet. Nothing here talks to our server, so the Kill-Switch keeps working with it off.
  */
 
-/** AgentShieldFactory on Fuji (public address, packages/contracts/deployments/fuji.json). Finds a module without the API. */
-export const FACTORY_ADDRESS: Address | null = parseAddressEnv(import.meta.env.VITE_FACTORY_ADDRESS);
+/** AgentShieldFactory on Fuji: VITE_FACTORY_ADDRESS, else the committed deployment. Finds a module without the API. */
+export const FACTORY_ADDRESS: Address | null = parseAddressEnv(import.meta.env.VITE_FACTORY_ADDRESS) ?? FUJI_DEPLOYMENT.factory;
 
 /** How often the module is re-read while a page is open; Avalanche blocks are ~2 s. */
 const CHAIN_POLL_MS = 4_000;
