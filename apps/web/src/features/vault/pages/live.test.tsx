@@ -5,12 +5,14 @@ import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { JobDetailDto, JobDto } from "@agentshield/shared";
 import { JOB_POLL_MS } from "@/shared/api/hooks";
-import { LiveVaultEvents } from "@/shared/api/vaultFeed";
+import { LiveVaultEvents, useVaultFeed } from "@/shared/api/vaultFeed";
 import { liveViewFromDto } from "@/shared/api/vaultSource";
 import { AGENT, explanation, job, jobDetail, jsonResponse, SAFE, state as liveState } from "@/test/apiFixtures";
 import { FakeEventSource } from "@/test/fakeEventSource";
 import { ChainOnlyVault } from "../layout/ChainOnlyVault";
 import { VaultHeader } from "../layout/VaultHeader";
+import { FundsPanel } from "../components/FundsPanel";
+import { useFundsControl } from "../hooks/useFundsControl";
 import { VaultDashboard } from "../overview/VaultDashboard";
 import { Activity } from "./Activity";
 import { JobDetail } from "./JobDetail";
@@ -27,6 +29,30 @@ vi.mock("@/shared/api/dataSource", async (importOriginal) => {
 const OWNER = "0x7777777777777777777777777777777777777777";
 const chainState = vi.hoisted(() => ({ signer: null as string | null, isActive: true }));
 const sendModuleTx = vi.hoisted(() => vi.fn());
+// Fund moves (L8): Safe owners and wallet balances come from a fixed chain read; the sends are spies.
+const fundsChain = vi.hoisted(() => ({ owners: ["0x7777777777777777777777777777777777777777"], threshold: 1n }));
+const sendDeposit = vi.hoisted(() => vi.fn());
+const sendWithdraw = vi.hoisted(() => vi.fn());
+const sendFaucet = vi.hoisted(() => vi.fn());
+vi.mock("@/shared/web3/fundsChain", () => ({
+  useFundsChain: (safe: string | null) => ({
+    owners: safe ? fundsChain.owners : null,
+    threshold: safe ? fundsChain.threshold : null,
+    // USDC: 900 in the wallet, faucet ready; WAVAX: 2 in the wallet, faucet on cooldown for an hour.
+    tokens: safe
+      ? [
+          { wallet: 900_000_000n, faucetAmount: 5_000_000_000n, faucetCooldown: 3_600n, lastFaucetAt: 0n },
+          { wallet: 2n * 10n ** 18n, faucetAmount: 200n * 10n ** 18n, faucetCooldown: 3_600n, lastFaucetAt: BigInt(Math.floor(Date.now() / 1000)) },
+        ]
+      : null,
+    status: safe ? "ready" : "loading",
+    refetch: async () => undefined,
+  }),
+  sendDeposit,
+  sendWithdraw,
+  sendFaucet,
+}));
+
 vi.mock("@/shared/web3/moduleChain", () => ({
   useModuleChain: (module: string | null) => ({
     data: module
@@ -111,6 +137,9 @@ beforeEach(() => {
   chainState.signer = null;
   chainState.isActive = true;
   sendModuleTx.mockReset();
+  for (const f of [sendDeposit, sendWithdraw, sendFaucet]) f.mockReset();
+  fundsChain.owners = ["0x7777777777777777777777777777777777777777"];
+  fundsChain.threshold = 1n;
   FakeEventSource.reset();
   vi.stubGlobal("EventSource", FakeEventSource);
   vi.stubGlobal("fetch", fetchMock);
@@ -392,3 +421,82 @@ describe("server offline: the vault page reads the chain directly", () => {
     expect(screen.getByRole("button", { name: "Connect wallet" })).toBeInTheDocument(); // works without the server
   });
 });
+
+describe("live funds (L8): deposit, withdraw and faucet, wallet-signed", () => {
+  const ownerPage = () =>
+    renderLive(<VaultDashboard view={{ ...view, isDemo: false }} role="owner" mode="owner" />, `/vaults/${SAFE}`);
+  const funds = async () => (await screen.findByRole("heading", { name: "Funds" })).closest("section")!;
+  const done = { hash: `0x${"aa".repeat(32)}`, wait: async () => undefined };
+
+  it("deposit: sends the real USDC address to the Safe, in base units, never through our API", async () => {
+    serve({ state: () => jsonResponse(liveState) });
+    chainState.signer = OWNER;
+    sendDeposit.mockResolvedValue(done);
+    ownerPage();
+    const panel = await funds();
+    expect(within(panel).getByText(/900 USDC/)).toBeInTheDocument(); // wallet balance from the chain
+    fireEvent.change(within(panel).getByLabelText("Amount"), { target: { value: "25.5" } });
+    fireEvent.click(within(panel).getByRole("button", { name: "Sign and deposit" }));
+    await waitFor(() => expect(sendDeposit).toHaveBeenCalledWith("0x3333333333333333333333333333333333333333", SAFE, 25_500_000n));
+    expect(posts()).toHaveLength(0);
+  });
+
+  it("deposit more than the wallet holds is refused before signing", async () => {
+    serve({ state: () => jsonResponse(liveState) });
+    chainState.signer = OWNER;
+    ownerPage();
+    const panel = await funds();
+    fireEvent.change(within(panel).getByLabelText("Amount"), { target: { value: "901" } });
+    expect(within(panel).getByText("Not enough USDC in your wallet")).toBeInTheDocument();
+    expect(within(panel).getByRole("button", { name: "Sign and deposit" })).toBeDisabled();
+  });
+
+  it("withdraw: a Safe transaction for the vault's own balance; always to the signing wallet", async () => {
+    serve({ state: () => jsonResponse(liveState) });
+    chainState.signer = OWNER;
+    sendWithdraw.mockResolvedValue(done);
+    ownerPage();
+    const panel = await funds();
+    fireEvent.click(within(panel).getByRole("tab", { name: "withdraw" }));
+    expect(within(panel).getByText(/2,800 USDC/)).toBeInTheDocument(); // the vault balance from /state
+    expect(within(panel).getByText("Withdrawals always go to the wallet that signs them.")).toBeInTheDocument();
+    fireEvent.change(within(panel).getByLabelText("Amount"), { target: { value: "100" } });
+    fireEvent.click(within(panel).getByRole("button", { name: "Sign and withdraw" }));
+    await waitFor(() => expect(sendWithdraw).toHaveBeenCalledWith(SAFE, "0x3333333333333333333333333333333333333333", 100_000_000n));
+  });
+
+  it("faucet: ready token can be claimed, a token on cooldown says when", async () => {
+    serve({ state: () => jsonResponse(liveState) });
+    chainState.signer = OWNER;
+    sendFaucet.mockResolvedValue(done);
+    ownerPage();
+    const panel = await funds();
+    fireEvent.click(within(panel).getByRole("button", { name: "Get 5,000 USDC" }));
+    await waitFor(() => expect(sendFaucet).toHaveBeenCalledWith("0x3333333333333333333333333333333333333333"));
+    expect(within(panel).getByRole("button", { name: "Get 200 WAVAX" })).toBeDisabled();
+    expect(within(panel).getByText(/Next WAVAX drip in (1 h|59 min)\./)).toBeInTheDocument();
+  });
+
+  it("a wallet that does not own the Safe sees no fund controls on the dashboard", async () => {
+    serve({ state: () => jsonResponse(liveState) });
+    chainState.signer = "0x8888888888888888888888888888888888888888";
+    ownerPage();
+    expect(await screen.findByRole("heading", { name: "Policy" })).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Funds" })).toBeNull();
+  });
+
+  it("a multi-signature Safe is explained instead of offering a withdrawal that would fail", async () => {
+    serve({ state: () => jsonResponse(liveState) });
+    chainState.signer = OWNER;
+    fundsChain.threshold = 2n;
+    renderLive(<FundsPanelForTest />, `/vaults/${SAFE}`);
+    expect(await screen.findByText(/needs 2 owner signatures/)).toBeInTheDocument();
+  });
+});
+
+/** The Funds panel alone, fed by the live hook (the dashboard hides it when the wallet cannot act). */
+function FundsPanelForTest() {
+  const state = useVaultFeed({ ...view, isDemo: false }).state;
+  const control = useFundsControl({ ...view, isDemo: false }, state, { role: "owner" });
+  return state ? <FundsPanel control={control} /> : null;
+}

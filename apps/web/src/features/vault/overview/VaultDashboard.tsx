@@ -19,6 +19,7 @@ import { RedTeamPanel } from "../components/RedTeamPanel";
 import { TourCard } from "../components/TourCard";
 import { VaultNotices } from "../components/VaultNotices";
 import { VerdictCard } from "../components/VerdictCard";
+import { useFundsControl } from "../hooks/useFundsControl";
 import { useOwnerControl, type OwnerControl } from "../hooks/useOwnerControl";
 import { tourProgress } from "../lib/tour";
 
@@ -48,8 +49,8 @@ function Incomplete({ view, role }: { view: VaultView; role: VaultRole }) {
 /**
  * The Overview: "is this vault safe right now?" on one screen. Policy and Kill-Switch on the left, balances, budget
  * and the verdict of the selected job in the middle, the red-team tools on the right (stacked in that order on phones).
- * Policy and Kill-Switch are signed in the owner's wallet straight to the chain (useOwnerControl); deposit and withdraw
- * are still simulated only (L8), so they stay off on live data.
+ * Policy, Kill-Switch, deposit and withdraw are all signed in the owner's wallet straight to the chain
+ * (useOwnerControl, useFundsControl).
  */
 export function VaultDashboard({ view, role, mode }: Props) {
   const feed = useVaultFeed(view);
@@ -64,6 +65,7 @@ export function VaultDashboard({ view, role, mode }: Props) {
   // Policy + Kill-Switch: the module owner's wallet on live data; the simulation lets the sandbox visitor "sign".
   const control = useOwnerControl(view, { role, sandbox: demo });
   const canSign = control.canSign;
+  const funds = useFundsControl(view, feed.state, { role });
   const jobsReady = feed.jobsStatus === "ready";
   const selectedJobId = selectedId ?? feed.jobs[0]?.id;
   const selected = useJobDetail(view, selectedJobId);
@@ -119,8 +121,8 @@ export function VaultDashboard({ view, role, mode }: Props) {
               <OwnerKill control={control} fallbackActive={state?.isActive} onKilled={() => setKilledHere(true)} />
             </div>
           )}
-          {/* Deposit / withdraw are not wired to the chain yet (L8): simulation only. */}
-          {role === "owner" && !demo && !live && canSign && state && <FundsPanel safe={view.safe} state={state} />}
+          {/* Not on the public sandbox: only a vault's own owner moves its funds. */}
+          {!demo && state && funds.canAct && <FundsPanel control={funds} />}
         </div>
 
         {/* Column 2: what is happening */}

@@ -5,11 +5,13 @@ import { Panel } from "@/shared/ui/Panel";
 import { Skeleton } from "@/shared/ui/Skeleton";
 import { KillSwitch } from "../components/KillSwitch";
 import { StatePending } from "../components/LivePlaceholders";
+import { BalancesPanel } from "../components/BalancesPanel";
+import { FundsPanel } from "../components/FundsPanel";
 import { PolicyPanel } from "../components/PolicyPanel";
+import { useFundsControl } from "../hooks/useFundsControl";
 import { useOwnerControl } from "../hooks/useOwnerControl";
 import { decideSection, sectionPath } from "../guards/access";
 import { useVaultContext } from "../layout/context";
-import { Placeholder } from "./Placeholder";
 import { VaultDashboard } from "../overview/VaultDashboard";
 import { Activity } from "./Activity";
 import { JobDetail } from "./JobDetail";
@@ -34,9 +36,19 @@ export function PolicyPage() {
     </div>
   );
 }
-export const FundsPage = () => (
-  <Placeholder code="VLT / FUNDS" title="Funds" blurb="Balances per token, deposit and withdraw (owner) and transfer history." />
-);
+/** Balances, and for the owner: deposit, withdraw and test tokens, all signed in the wallet. */
+export function FundsPage() {
+  const { view, role } = useVaultContext();
+  const feed = useVaultFeed(view);
+  const funds = useFundsControl(view, feed.state, { role });
+  if (!feed.state) return <StatePending title="Vault balances" status={feed.stateStatus} />;
+  return (
+    <div className="grid grid-cols-[minmax(0,1fr)] gap-6 lg:grid-cols-2">
+      <BalancesPanel state={feed.state} lastChange={feed.lastChange} />
+      <FundsPanel control={funds} />
+    </div>
+  );
+}
 export function RedTeamPage() {
   const { view, role } = useVaultContext();
   return <RedTeam view={view} role={role} />;

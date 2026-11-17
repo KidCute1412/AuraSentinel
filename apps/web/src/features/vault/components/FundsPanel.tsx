@@ -1,25 +1,73 @@
 import { useState } from "react";
-import { formatUnits, fromAmount, type StateDto } from "@agentshield/shared";
-import { moveFundsTx, WALLET_BALANCES } from "@/shared/api/mockChain";
-import { balanceOf, TOKENS, type TokenSymbol } from "@/shared/api/mockEngine";
+import { formatUnits } from "@agentshield/shared";
+import type { TokenSymbol } from "@/shared/api/mockEngine";
 import { cn } from "@/shared/lib/cn";
 import { formatTokenAmount } from "@/shared/lib/format";
 import { Panel } from "@/shared/ui/Panel";
 import { TxButton } from "@/shared/ui/TxButton";
+import type { FundsControl, FundsToken } from "../hooks/useFundsControl";
 import { parseLimit } from "../lib/policyForm";
 
 type Direction = "deposit" | "withdraw";
 
-/** Move tokens between the owner's wallet and the vault. Owner only; both directions are signed in the wallet. */
-export function FundsPanel({ safe, state }: { safe: string; state: StateDto }) {
+const waitText = (availableAt: number): string => {
+  const mins = Math.max(1, Math.ceil((availableAt - Date.now() / 1000) / 60));
+  if (mins < 60) return `in ${mins} min`;
+  return mins % 60 === 0 ? `in ${mins / 60} h` : `in ${Math.floor(mins / 60)} h ${mins % 60} min`;
+};
+
+/** Test tokens for the owner's wallet: one drip per token per cooldown (MockUSDC / MockWAVAX on Fuji). */
+function Faucet({ tokens, control }: { tokens: FundsToken[]; control: FundsControl }) {
+  const withFaucet = tokens.filter((t) => t.faucetAmount !== null && t.faucetAmount > 0n);
+  if (withFaucet.length === 0) return null;
+  return (
+    <div className="mt-5 space-y-3 border-t border-line pt-4">
+      <div>
+        <h3 className="mono-label">Test tokens</h3>
+        <p className="mt-1 text-xs text-muted">Free testnet tokens for your wallet, then deposit them. Not real money.</p>
+      </div>
+      <div className="flex flex-wrap gap-3">
+        {withFaucet.map((t) => {
+          const waiting = t.faucetAvailableAt > 0;
+          return (
+            <TxButton
+              key={t.symbol}
+              variant="secondary"
+              send={control.faucet(t.symbol)}
+              disabled={waiting}
+              disabledReason={waiting ? `Next ${t.symbol} drip ${waitText(t.faucetAvailableAt)}.` : undefined}
+            >
+              Get {formatTokenAmount(t.faucetAmount!, t.decimals, 2)} {t.symbol}
+            </TxButton>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Move tokens between the owner's wallet and the vault. Both directions are signed in the owner's wallet and sent
+ * straight to the chain: deposit is a token transfer, withdraw a Safe transaction that always pays the signing owner.
+ */
+export function FundsPanel({ control }: { control: FundsControl }) {
   const [direction, setDirection] = useState<Direction>("deposit");
   const [symbol, setSymbol] = useState<TokenSymbol>("USDC");
   const [amount, setAmount] = useState("");
-  const token = TOKENS[symbol];
-  const available = direction === "deposit" ? WALLET_BALANCES[symbol] : balanceOf(state, symbol);
+
+  if (!control.canAct) {
+    return (
+      <Panel title="Funds">
+        <p className="text-sm text-soft">{control.notice ?? "Reading the vault's owners from the chain…"}</p>
+      </Panel>
+    );
+  }
+
+  const token = control.tokens.find((t) => t.symbol === symbol)!;
+  const available = direction === "deposit" ? token.wallet : token.vault;
   const parsed = amount === "" ? null : parseLimit(amount, token.decimals);
   const value = parsed && "value" in parsed ? parsed.value : null;
-  const tooMuch = value !== null && value > available;
+  const tooMuch = value !== null && available !== null && value > available;
   const error = parsed && "error" in parsed ? parsed.error : tooMuch ? `Not enough ${symbol} ${direction === "deposit" ? "in your wallet" : "in the vault"}` : null;
 
   return (
@@ -54,8 +102,8 @@ export function FundsPanel({ safe, state }: { safe: string; state: StateDto }) {
             }}
             className="mt-1 min-h-11 w-full border border-line-strong bg-surface px-3 font-mono text-sm"
           >
-            {(Object.keys(TOKENS) as TokenSymbol[]).map((s) => (
-              <option key={s} value={s}>{s}</option>
+            {control.tokens.map((t) => (
+              <option key={t.symbol} value={t.symbol}>{t.symbol}</option>
             ))}
           </select>
         </div>
@@ -73,7 +121,12 @@ export function FundsPanel({ safe, state }: { safe: string; state: StateDto }) {
               aria-describedby={error ? "funds-err" : "funds-hint"}
               className={cn("min-h-11 w-full border bg-surface px-3 font-mono text-sm", error ? "border-danger" : "border-line-strong")}
             />
-            <button type="button" onClick={() => setAmount(formatUnits(available, token.decimals))} className="border border-l-0 border-line-strong bg-hover px-3 font-mono text-xs font-bold hover:bg-line">
+            <button
+              type="button"
+              disabled={available === null}
+              onClick={() => available !== null && setAmount(formatUnits(available, token.decimals))}
+              className="border border-l-0 border-line-strong bg-hover px-3 font-mono text-xs font-bold hover:bg-line disabled:opacity-50"
+            >
               Max
             </button>
           </div>
@@ -81,7 +134,8 @@ export function FundsPanel({ safe, state }: { safe: string; state: StateDto }) {
             <p id="funds-err" className="mt-1 text-xs text-danger-text">{error}</p>
           ) : (
             <p id="funds-hint" className="mt-1 text-xs text-muted">
-              {direction === "deposit" ? "In your wallet" : "In the vault"}: <span className="tabular text-soft">{formatTokenAmount(available, token.decimals, 4)} {symbol}</span>
+              {direction === "deposit" ? "In your wallet" : "In the vault"}:{" "}
+              <span className="tabular text-soft">{available === null ? "reading…" : `${formatTokenAmount(available, token.decimals, 4)} ${symbol}`}</span>
             </p>
           )}
         </div>
@@ -89,18 +143,21 @@ export function FundsPanel({ safe, state }: { safe: string; state: StateDto }) {
           <p className="border border-line bg-bg px-3 py-2 text-xs text-soft">
             You will {direction === "deposit" ? "send" : "receive"} <span className="tabular font-bold text-fg">{formatTokenAmount(value, token.decimals, 6)} {symbol}</span>{" "}
             {direction === "deposit" ? "to the vault" : "from the vault to your wallet"}. Vault balance after:{" "}
-            <span className="tabular text-fg">{formatTokenAmount(fromAmount(state.balances.find((b) => b.symbol === symbol)?.amount ?? "0") + (direction === "deposit" ? value : -value), token.decimals, 4)} {symbol}</span>
+            <span className="tabular text-fg">{formatTokenAmount(token.vault + (direction === "deposit" ? value : -value), token.decimals, 4)} {symbol}</span>
           </p>
         )}
         <TxButton
-          send={moveFundsTx(safe, direction, symbol, value ?? 0n)}
+          send={direction === "deposit" ? control.deposit(symbol, value ?? 0n) : control.withdraw(symbol, value ?? 0n)}
           disabled={value === null || !!error}
           disabledReason={value === null ? "Enter an amount to continue." : undefined}
           onConfirmed={() => setAmount("")}
         >
           {direction === "deposit" ? "Sign and deposit" : "Sign and withdraw"}
         </TxButton>
+        {direction === "withdraw" && <p className="text-xs text-muted">Withdrawals always go to the wallet that signs them.</p>}
       </div>
+
+      <Faucet tokens={control.tokens} control={control} />
     </Panel>
   );
 }
