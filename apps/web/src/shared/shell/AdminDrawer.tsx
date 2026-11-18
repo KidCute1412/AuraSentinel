@@ -1,4 +1,5 @@
 import { useEffect, useId, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { ArrowUpRight, Pause, Play, Settings2, TriangleAlert, X } from "lucide-react";
 import type { Role } from "@agentshield/shared";
 import { useRebalancerStatus, useSetRebalancerPaused } from "@/shared/api";
@@ -44,12 +45,14 @@ export function AdminDrawer({ role }: { role: SessionRole | null | undefined }) 
         onClick={() => setOpen(true)}
         aria-haspopup="dialog"
         aria-expanded={open}
-        className="inline-flex h-10 items-center gap-2 rounded-none border border-line-strong px-3 font-mono text-xs font-bold uppercase tracking-widest hover:bg-hover"
+        aria-label="Admin panel"
+        className="inline-flex h-10 min-w-10 items-center justify-center gap-2 rounded-none border border-line-strong px-2.5 font-mono text-xs font-bold uppercase tracking-widest hover:bg-hover sm:px-3"
       >
         <Settings2 aria-hidden className="size-4" />
-        Admin
+        <span className="hidden sm:inline">Admin</span>
       </button>
-      {open && (
+      {/* Portaled: the sticky header keeps a transform from its entry animation, which would trap a fixed overlay inside it. */}
+      {open && createPortal(
         <div className="fixed inset-0 z-50">
           <div aria-hidden className="absolute inset-0 bg-bg/80" onClick={close} />
           <aside
@@ -77,7 +80,8 @@ export function AdminDrawer({ role }: { role: SessionRole | null | undefined }) 
               </section>
             </div>
           </aside>
-        </div>
+        </div>,
+        document.body,
       )}
     </>
   );

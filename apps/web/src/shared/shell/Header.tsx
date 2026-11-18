@@ -5,7 +5,10 @@ import { toggleShades, touch } from "@/shared/mascot/mascotStore";
 import { cn } from "@/shared/lib/cn";
 import { useSession } from "@/shared/session/sessionStore";
 import { DropdownMenu, menuItemClass } from "@/shared/ui/DropdownMenu";
+import { isLive } from "@/shared/api/dataSource";
+import { useSession as useServerSession } from "@/shared/api";
 import { AccountMenu } from "./AccountMenu";
+import { AdminDrawer } from "./AdminDrawer";
 import { ThemeToggle } from "@/shared/theme/ThemeToggle";
 
 /** `mobileOnly` rows duplicate a link the bar already shows from the `sm` breakpoint up. */
@@ -15,6 +18,12 @@ const NAV: { to: string; label: string; icon: LucideIcon; mobileOnly?: boolean }
   { to: "/proof", label: "Proof", icon: FileCheck2 },
   { to: "/about", label: "About", icon: Info },
 ];
+
+/** The admin drawer, for a wallet the server lists in ADMIN_ADDRESSES (role from the SIWE session, never the client). */
+function AdminEntry() {
+  const { data } = useServerSession();
+  return <AdminDrawer role={data?.role} />;
+}
 
 export function Header() {
   const { pathname } = useLocation();
@@ -73,6 +82,7 @@ export function Header() {
         </div>
 
         <div className="order-2 ml-auto flex items-center gap-2 sm:order-3 sm:gap-3">
+          {isLive && wallet && <AdminEntry />}
           <ThemeToggle />
           {wallet ? <AccountMenu wallet={wallet} /> : <Link to="/signin" className="inline-flex h-10 items-center px-2 font-bold text-fg hover:text-accent-text">Sign in</Link>}
         </div>
