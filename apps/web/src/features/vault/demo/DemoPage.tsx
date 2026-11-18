@@ -9,7 +9,6 @@ import { cn } from "@/shared/lib/cn";
 import { NetworkGuard } from "@/shared/ui/NetworkGuard";
 import { Skeleton } from "@/shared/ui/Skeleton";
 import { Breadcrumb } from "../layout/Breadcrumb";
-import { VaultHeader } from "../layout/VaultHeader";
 import { VaultDashboard } from "../overview/VaultDashboard";
 import { KillDock } from "../components/KillDock";
 import { useOwnerControl } from "../hooks/useOwnerControl";
@@ -59,6 +58,7 @@ export function DemoPage() {
   const { data: view, isPending, isError } = useVaultView(demoSafe);
   const [params, setParams] = useSearchParams();
   const mode: Mode = params.get("mode") === "free" ? "free" : "guided";
+  const free = mode === "free";
   const setMode = (m: Mode) => {
     const next = new URLSearchParams(params);
     if (m === "guided") next.delete("mode");
@@ -71,17 +71,23 @@ export function DemoPage() {
       <Header />
       <NetworkGuard />
       <section className="blueprint border-b border-line">
-        <div className="mx-auto max-w-6xl px-4 pb-8 pt-6 sm:px-6 sm:pt-8">
+        {/* Free play is for people who already know the idea: the hero shrinks so the moves sit on the first screen. */}
+        <div className={cn("mx-auto max-w-6xl px-4 sm:px-6", free ? "pb-5 pt-4" : "pb-8 pt-6 sm:pt-8")}>
           <Breadcrumb items={[{ label: "Demo" }]} />
-          <div className="mt-4 flex flex-wrap items-end justify-between gap-6">
+          <div className={cn("flex flex-wrap items-end justify-between", free ? "mt-2 gap-4" : "mt-4 gap-6")}>
             <div className="max-w-2xl">
               <span className="mono-label">Live sandbox · test money only</span>
-              <h1 data-ground="page-title" className="mt-2 text-4xl font-black uppercase italic leading-[0.92] tracking-[-0.04em] sm:text-6xl">
+              <h1
+                data-ground="page-title"
+                className={cn("mt-2 font-black uppercase italic leading-[0.92] tracking-[-0.04em]", free ? "text-3xl sm:text-4xl" : "text-4xl sm:text-6xl")}
+              >
                 Try to <span className="outline-text">break</span> it.
               </h1>
-              <p className="mt-3 text-base text-soft sm:text-lg">
-                An AI agent trades this vault around the clock. It can trade, but it can never take the money. See for yourself: no wallet needed.
-              </p>
+              {!free && (
+                <p className="mt-3 text-base text-soft sm:text-lg">
+                  An AI agent trades this vault around the clock. It can trade, but it can never take the money. See for yourself: no wallet needed.
+                </p>
+              )}
             </div>
             <ModeSwitch mode={mode} onChange={setMode} />
           </div>
@@ -116,7 +122,6 @@ export function DemoPage() {
                   <GuidedDemo view={view} onFreePlay={() => setMode("free")} />
                 ) : (
                   <>
-                    <VaultHeader view={view} role="anonymous" sandbox />
                     <VaultDashboard view={view} role="anonymous" mode="demo" />
                     <Dock view={view} />
                   </>

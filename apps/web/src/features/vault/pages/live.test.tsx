@@ -293,13 +293,8 @@ describe("live red-team page", () => {
 
 describe("live /demo dashboard", () => {
   const demo = () =>
-    renderLive(
-      <>
-        <VaultHeader view={view} role="anonymous" sandbox />
-        <VaultDashboard view={view} role="anonymous" mode="demo" />
-      </>,
-      "/demo",
-    );
+    // Free play renders the vault header itself, under "Watch the vault".
+    renderLive(<VaultDashboard view={view} role="anonymous" mode="demo" />, "/demo");
 
   it("shows live jobs, says plainly what is not available yet, and keeps the Kill-Switch off for a visitor", async () => {
     demo();
@@ -312,6 +307,9 @@ describe("live /demo dashboard", () => {
     expect(screen.getByText(/Only the vault owner can press this/)).toBeInTheDocument();
     // The latest job's verdict comes from GET /jobs/{id}, with its audit trail.
     expect(await screen.findByRole("heading", { name: /Safe: used 13.3% of today's limit/ })).toBeInTheDocument();
+    // Free play opens on the attacks; the normal trade is one tab away.
+    expect(screen.getByRole("button", { name: /Over-withdraw/ })).toBeEnabled();
+    fireEvent.click(screen.getByRole("tab", { name: "Normal trade" }));
     expect(screen.getByRole("button", { name: /Run rebalance/ })).toBeEnabled();
     expect(screen.queryByText(/simulated/i)).toBeNull();
   });

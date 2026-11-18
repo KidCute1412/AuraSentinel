@@ -251,7 +251,12 @@ Mỗi reason code → câu tiếng Việt từ `shared/errors.ts` (Q1); UI khôn
   4. **Emergency stop**: bản mock dùng Kill-Switch giữ-để-xác-nhận thật. Bản **live**: vault demo dùng chung nên **không** cho khách bấm. Thay vào đó là khối hazard giải thích chỉ ví owner ký được, nút "Got it" để hoàn thành bước, và link tạo vault riêng. Nhờ vậy hướng dẫn không bao giờ kẹt ở 3/4.
 
   Bước nào làm ở Free play trong cùng lần ghé (`lib/tour.ts` `tourProgress`) cũng được tính. Xong 4 bước thì có màn tổng kết "You tried to break it. It held." kèm CTA tạo vault, Free play, Start over. Cooldown của vault dùng chung hiện bằng lời thân thiện ("Someone else just ran a test…", nút đếm ngược "Your turn in Ns"), không báo như lỗi. Aura-kun nhảy tới thẻ bước và phản ứng theo kết quả.
-- **Free play**: dashboard 3 cột như §4 cho giám khảo hoặc người muốn thử mọi thứ (4 attack, prompt injection, history). Thẻ "Try it in 4 steps" cũ đã bỏ vì Guided thay nó.
+- **Free play**: cho giám khảo hoặc người muốn thử mọi thứ. Bố cục theo vòng "bấm → đọc kết quả" để màn đầu (1320×778) chứa cả nút lẫn verdict, không phải cuộn:
+  - Hero thu gọn (bỏ đoạn mô tả, h1 nhỏ hơn) vì người vào Free play đã biết ý tưởng.
+  - **01 Pick a move** (cột trái): `RedTeamPanel layout="tabs"`, một thẻ với 3 tab Attacks (mặc định, 4 attack lưới 2×2) / Prompt injection / Normal trade, bên dưới là Recent jobs (4 dòng).
+  - **02 Read the verdict** (cột phải, sticky trên desktop): VerdictCard của job vừa bấm hoặc job chọn trong Recent jobs. Trên điện thoại verdict nằm dưới, bấm xong tự cuộn tới.
+  - **03 Watch the vault**: header vault (`VaultHeaderBar`, không tạo thêm query observer), Budget + Balances, Policy, Kill-Switch.
+  - Trang `/vaults/:safe` (owner) và trang Red team giữ nguyên bố cục cũ. Thẻ "Try it in 4 steps" cũ đã bỏ vì Guided thay nó.
 
 ---
 

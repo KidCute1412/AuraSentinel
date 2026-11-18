@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import { useVaultFeed } from "@/shared/api/vaultFeed";
 import type { VaultView } from "@/shared/api/vaultSource";
 import { AddressChip } from "@/shared/ui/AddressChip";
@@ -28,14 +29,20 @@ interface Props {
   sandbox?: boolean;
 }
 
-/** Identity + state of the vault, shown on every page of it. */
-export function VaultHeader({ view, role, compactKill, sandbox }: Props) {
-  const feed = useVaultFeed(view);
-  const control = useOwnerControl(view, { role, sandbox });
-  // The Kill-Switch flag straight from the module wins over the server's snapshot (P1), and survives the server being down.
-  const isActive = control.isActive ?? feed.state?.isActive;
-  // Live data without a readable state: say "unknown" rather than claim the vault is protected.
-  const status = feed.source === "live" && isActive === undefined ? "unknown" : vaultStatus(view, isActive);
+/**
+ * The header's status. The Kill-Switch flag straight from the module wins over the server's snapshot (P1), and
+ * survives the server being down; live data without a readable state says "unknown" rather than claim "protected".
+ */
+export function headerStatus(view: VaultView, source: "live" | "mock", moduleActive: boolean | null | undefined, stateActive: boolean | undefined): VaultStatus {
+  const isActive = moduleActive ?? stateActive;
+  return source === "live" && isActive === undefined ? "unknown" : vaultStatus(view, isActive);
+}
+
+/**
+ * The header's look, without data hooks: for a page that already holds the vault feed and owner control (Free play),
+ * so mounting it does not add query observers (a new observer on a failed read would restart it and loop).
+ */
+export function VaultHeaderBar({ view, status, roleText, children }: { view: VaultView; status: VaultStatus; roleText: string; children?: ReactNode }) {
   return (
     <header className="flex flex-col gap-4 border border-line bg-surface p-4 shadow-hard sm:flex-row sm:items-center sm:justify-between sm:p-5">
       <div className="min-w-0 space-y-3">
@@ -53,10 +60,21 @@ export function VaultHeader({ view, role, compactKill, sandbox }: Props) {
             </span>
           )}
           <SnowtraceLink kind="address" value={view.safe} />
-          <span className="font-mono text-xs uppercase tracking-widest text-muted">{sandbox ? "Public sandbox" : control.canSign ? ROLE_TEXT.owner : ROLE_TEXT[role]}</span>
+          <span className="font-mono text-xs uppercase tracking-widest text-muted">{roleText}</span>
         </div>
       </div>
+      {children}
+    </header>
+  );
+}
 
+/** Identity + state of the vault, shown on every page of it. */
+export function VaultHeader({ view, role, compactKill, sandbox }: Props) {
+  const feed = useVaultFeed(view);
+  const control = useOwnerControl(view, { role, sandbox });
+  const status = headerStatus(view, feed.source, control.isActive, feed.state?.isActive);
+  return (
+    <VaultHeaderBar view={view} status={status} roleText={sandbox ? "Public sandbox" : control.canSign ? ROLE_TEXT.owner : ROLE_TEXT[role]}>
       {compactKill && control.canSign && status === "active" && (
         <div className="hazard hidden p-1.5 lg:block">
           <div className="bg-bg px-3 py-2">
@@ -64,6 +82,6 @@ export function VaultHeader({ view, role, compactKill, sandbox }: Props) {
           </div>
         </div>
       )}
-    </header>
+    </VaultHeaderBar>
   );
 }

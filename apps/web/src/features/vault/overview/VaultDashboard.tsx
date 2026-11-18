@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { useJobDetail, useVaultFeed } from "@/shared/api/vaultFeed";
 import type { VaultView } from "@/shared/api/vaultSource";
@@ -20,6 +20,18 @@ import { VaultNotices } from "../components/VaultNotices";
 import { VerdictCard } from "../components/VerdictCard";
 import { useFundsControl } from "../hooks/useFundsControl";
 import { useOwnerControl, type OwnerControl } from "../hooks/useOwnerControl";
+import { headerStatus, VaultHeaderBar } from "../layout/VaultHeader";
+
+/** Free play's three numbered parts, so a newcomer reads the page in order: press, read, watch. */
+function StepLabel({ n, title, hint }: { n: string; title: string; hint: string }) {
+  return (
+    <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+      <span className="bg-ink px-1.5 py-0.5 font-mono text-xs font-bold text-bg">{n}</span>
+      <h2 className="text-lg font-black uppercase leading-none tracking-[-0.02em]">{title}</h2>
+      <p className="text-sm text-muted">{hint}</p>
+    </div>
+  );
+}
 
 interface Props {
   view: VaultView;
@@ -53,6 +65,7 @@ function Incomplete({ view, role }: { view: VaultView; role: VaultRole }) {
 export function VaultDashboard({ view, role, mode }: Props) {
   const feed = useVaultFeed(view);
   const [selectedId, setSelectedId] = useState<string | undefined>();
+  const verdictRef = useRef<HTMLDivElement>(null);
 
   const live = feed.source === "live";
   const demo = mode === "demo";
@@ -92,6 +105,68 @@ export function VaultDashboard({ view, role, mode }: Props) {
   const { state } = feed;
   const jobHref = (id: string) => (demo ? undefined : `${sectionPath(view.safe, "activity")}/${id}`);
 
+  const verdict = selected.job ? (
+    <VerdictCard job={selected.job} detailsTo={jobHref(selected.job.id)} />
+  ) : selectedJobId && selected.status === "loading" ? (
+    <Skeleton className="h-72 w-full" />
+  ) : (
+    <Panel title="Verdict">
+      <p className="text-sm text-muted">The verdict for a job shows up here, with the reason and the full pipeline.</p>
+    </Panel>
+  );
+
+  if (demo) {
+    /*
+     * Free play: the loop "press a move, read the verdict" fits on the first screen. Moves and recent jobs on the
+     * left, the verdict beside them (sticky on desktop), then the vault itself, read from the chain.
+     */
+    const started = (id: string) => {
+      setSelectedId(id);
+      // Phones: the verdict sits below the moves, so bring it up.
+      requestAnimationFrame(() => {
+        const el = verdictRef.current;
+        if (el && el.getBoundingClientRect().top > window.innerHeight * 0.6) {
+          const reduce = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ?? true;
+          el.scrollIntoView?.({ block: "start", behavior: reduce ? "auto" : "smooth" });
+        }
+      });
+    };
+    return (
+      <div className="space-y-6">
+        <VaultNotices state={state} stateStatus={feed.stateStatus} source={feed.source} />
+
+        <div className="grid grid-cols-[minmax(0,1fr)] gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)]">
+          <div className="space-y-3">
+            <StepLabel n="01" title="Pick a move" hint={live ? "Runs for real on Avalanche Fuji. Presses are rate-limited." : "A simulation: nothing real moves."} />
+            <RedTeamPanel view={view} canAct={canAct} onStarted={started} layout="tabs" />
+            <JobHistory jobs={feed.jobs} selectedId={selectedJobId} onSelect={setSelectedId} limit={4} />
+          </div>
+          <div ref={verdictRef} className="scroll-mt-20 space-y-3 lg:sticky lg:top-20 lg:self-start">
+            <StepLabel n="02" title="Read the verdict" hint="Decided by rules, never by the AI." />
+            {verdict}
+          </div>
+        </div>
+
+        <section aria-label="The vault right now" className="space-y-3">
+          <StepLabel n="03" title="Watch the vault" hint="Read from the blockchain. Trades and the Kill-Switch change it." />
+          <VaultHeaderBar view={view} status={headerStatus(view, feed.source, control.isActive, state?.isActive)} roleText="Public sandbox" />
+          <div className="grid grid-cols-[minmax(0,1fr)] gap-6 md:grid-cols-2 lg:grid-cols-3">
+            <div className="space-y-6">
+              {state ? <BudgetBar state={state} /> : <StatePending title="Daily budget" status={feed.stateStatus} />}
+              {state ? <BalancesPanel state={state} lastChange={feed.lastChange} /> : <StatePending title="Vault balances" status={feed.stateStatus} />}
+            </div>
+            {state ? <PolicyPanel state={state} control={control} /> : <StatePending title="Policy" status={feed.stateStatus} />}
+            {(canSign || live) && (
+              <div className={cn(canSign && "hidden lg:block")}>
+                <OwnerKill control={control} fallbackActive={state?.isActive} />
+              </div>
+            )}
+          </div>
+        </section>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
       <VaultNotices state={state} stateStatus={feed.stateStatus} source={feed.source} />
@@ -99,13 +174,6 @@ export function VaultDashboard({ view, role, mode }: Props) {
       <div className="grid grid-cols-[minmax(0,1fr)] gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.35fr)_minmax(0,1fr)]">
         {/* Column 1: owner controls */}
         <div className="space-y-6">
-          {demo && (
-            <p className="border-l-4 border-line-strong bg-tint-sky px-3 py-2 text-xs text-soft">
-              {live
-                ? "Live sandbox on Avalanche Fuji: anyone can run a rebalance or an attack here. Presses are rate-limited."
-                : "Sandbox: a shared demo owner signs for you here. On your own vault you sign in your wallet."}
-            </p>
-          )}
           {state ? <PolicyPanel state={state} control={control} /> : <StatePending title="Policy" status={feed.stateStatus} />}
           {(canSign || live) && (
             <div className={cn(canSign && "hidden lg:block")}>
@@ -113,23 +181,15 @@ export function VaultDashboard({ view, role, mode }: Props) {
             </div>
           )}
           {/* Not on the public sandbox: only a vault's own owner moves its funds. */}
-          {!demo && state && funds.canAct && <FundsPanel control={funds} />}
+          {state && funds.canAct && <FundsPanel control={funds} />}
         </div>
 
         {/* Column 2: what is happening */}
         <div className="space-y-6">
           {state ? <BudgetBar state={state} /> : <StatePending title="Daily budget" status={feed.stateStatus} />}
           {state ? <BalancesPanel state={state} lastChange={feed.lastChange} /> : <StatePending title="Vault balances" status={feed.stateStatus} />}
-          {selected.job ? (
-            <VerdictCard job={selected.job} detailsTo={jobHref(selected.job.id)} />
-          ) : selectedJobId && selected.status === "loading" ? (
-            <Skeleton className="h-72 w-full" />
-          ) : (
-            <Panel title="Verdict">
-              <p className="text-sm text-muted">The verdict for a job shows up here, with the reason and the full pipeline.</p>
-            </Panel>
-          )}
-          <JobHistory jobs={feed.jobs} selectedId={selectedJobId} onSelect={setSelectedId} allHref={demo ? undefined : sectionPath(view.safe, "activity")} />
+          {verdict}
+          <JobHistory jobs={feed.jobs} selectedId={selectedJobId} onSelect={setSelectedId} allHref={sectionPath(view.safe, "activity")} />
         </div>
 
         {/* Column 3: red team */}
