@@ -234,7 +234,7 @@ describe("vault wizard (L9), live build", () => {
     expect(screen.queryByRole("button", { name: "Sign and create Safe" })).toBeNull();
   });
 
-  it("step 3: prefilled with the demo limits, names the AgentShield agent, sends base units", async () => {
+  it("step 3: prefilled with the demo limits, names the AuraSentinel agent, sends base units", async () => {
     useWizardSafe.getState().setSafe(SAFE);
     chain.facts = atPolicy();
     sends.initialPolicy.mockResolvedValue(tx(atFund));
@@ -280,7 +280,7 @@ describe("vault wizard (L9), live build", () => {
     renderAt("/vaults/new");
     const open = await screen.findByRole("button", { name: "Open your vault" });
     expect(open).toBeDisabled();
-    expect(screen.getByText(/Waiting for AgentShield to pick up the new vault/)).toBeInTheDocument();
+    expect(screen.getByText(/Waiting for AuraSentinel to pick up the new vault/)).toBeInTheDocument();
 
     registered = true;
     await act(async () => {

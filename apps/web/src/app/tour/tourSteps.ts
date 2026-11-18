@@ -49,7 +49,7 @@ export const DEMO_TOUR_STEPS: readonly TourStep[] = [
     id: "kill-switch",
     anchor: "kill-switch",
     title: "The owner can always lock it",
-    body: "The Kill-Switch is a transaction the owner signs in their own wallet. The agent is locked on-chain at once, even while the AgentShield server is down.",
+    body: "The Kill-Switch is a transaction the owner signs in their own wallet. The agent is locked on-chain at once, even while the AuraSentinel server is down.",
   },
 ];
 

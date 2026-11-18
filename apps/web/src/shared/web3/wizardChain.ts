@@ -19,7 +19,7 @@ import { ChainRevert, FACTORY_ADDRESS, revertReason, sendSimulated } from "./mod
 
 const POLL_MS = 4_000;
 
-/** The shared AgentShield agent and the deployment's DEX and tokens: what a new vault's policy names. */
+/** The shared AuraSentinel agent and the deployment's DEX and tokens: what a new vault's policy names. */
 export const WIZARD_AGENT: WizardAgent = {
   agent: FUJI_DEPLOYMENT.agent,
   router: FUJI_DEPLOYMENT.router,
@@ -143,7 +143,7 @@ export async function sendCreateSafe(saltNonce: bigint): Promise<SentSafe> {
 
 /** Step 2a: AgentShieldFactory.deployModule(safe). The caller must own the Safe and becomes the module owner. */
 export const sendDeployModule = (safe: Address): Promise<SentTx> => {
-  if (!FACTORY_ADDRESS) return Promise.reject(new UserFacingError("The AgentShield factory is not configured for this build."));
+  if (!FACTORY_ADDRESS) return Promise.reject(new UserFacingError("The AuraSentinel factory is not configured for this build."));
   const factory = FACTORY_ADDRESS;
   return sendSimulated((account) =>
     simulateContract(wagmiConfig, { chainId: FUJI.id, account, address: factory, abi: agentShieldFactoryAbi, functionName: "deployModule", args: [safe] }),
@@ -156,7 +156,7 @@ export const sendEnableModule = (safe: Address, module: Address): Promise<SentTx
     simulateContract(wagmiConfig, { chainId: FUJI.id, account, address: safe, abi: safeAbi, functionName: "execTransaction", args: enableModuleArgs(safe, module, account) }),
   );
 
-/** Step 3: the first policy, naming the AgentShield agent and the deployment's router and tokens. */
+/** Step 3: the first policy, naming the AuraSentinel agent and the deployment's router and tokens. */
 export const sendInitialPolicy = (module: Address, input: PolicyInput, agent: WizardAgent = WIZARD_AGENT): Promise<SentTx> =>
   sendSimulated((account) =>
     simulateContract(wagmiConfig, { chainId: FUJI.id, account, address: module, abi: agentPolicyModuleAbi, functionName: "setPolicy", args: initialPolicyArgs(input, agent, account) }),

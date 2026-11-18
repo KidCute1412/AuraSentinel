@@ -56,7 +56,7 @@ export function AccountMenu({ wallet }: { wallet: Wallet }) {
       <ConfirmDialog
         open={confirming}
         title="Sign out?"
-        body="This ends your session on this device and disconnects your wallet from AgentShield. Your funds and vaults are not affected. You can sign in again any time."
+        body="This ends your session on this device and disconnects your wallet from AuraSentinel. Your funds and vaults are not affected. You can sign in again any time."
         confirmLabel="Sign out"
         onCancel={() => setConfirming(false)}
         onConfirm={() => {

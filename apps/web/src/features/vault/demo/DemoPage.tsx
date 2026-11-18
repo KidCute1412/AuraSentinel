@@ -31,7 +31,7 @@ export function DemoPage() {
       <main className="mx-auto max-w-6xl space-y-6 px-4 pb-28 pt-8 sm:px-6 lg:pb-10">
         <Breadcrumb items={[{ label: "Demo" }]} />
         <div>
-          <h1 className="text-3xl">Try AgentShield</h1>
+          <h1 className="text-3xl">Try AuraSentinel</h1>
           <p className="mt-1 max-w-2xl text-soft">
             This is a live sandbox vault. Make the agent trade, then try to break it. Nothing here is real money.
           </p>

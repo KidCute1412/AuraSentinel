@@ -4,7 +4,7 @@ import { createSiweMessage } from "viem/siwe";
 import { useSignMessage } from "wagmi";
 import { ApiError, createSession, queryKeys, requestNonce } from "@/shared/api";
 
-export const SIWE_STATEMENT = "Sign in to AgentShield. This does not move funds.";
+export const SIWE_STATEMENT = "Sign in to AuraSentinel. This does not move funds.";
 const VALID_FOR_MS = 5 * 60_000;
 
 /** EIP-4361 message for the connected wallet. The server checks domain, chain, validity window and the single-use nonce. */

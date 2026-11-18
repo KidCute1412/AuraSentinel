@@ -17,7 +17,6 @@ import { react, touch, useMascot } from "./mascotStore";
  */
 
 const ADDRESS = /0x[0-9a-fA-F]{8,}/;
-const AWAY_TITLE = "come back...";
 
 const safe =
   <A extends unknown[]>(fn: (...a: A) => void) =>
@@ -89,26 +88,16 @@ export function installGlobalReactions(): () => void {
 
   // --- tab: leaving and coming back ---------------------------------------------------------------
   let awayAt = 0;
-  let savedTitle: string | null = null;
   on("visibilitychange", () => {
     if (document.hidden) {
       awayAt = Date.now();
-      if (!isHidden() && savedTitle === null) {
-        savedTitle = document.title;
-        document.title = AWAY_TITLE;
-      }
       return;
     }
-    if (savedTitle !== null && document.title === AWAY_TITLE) document.title = savedTitle;
-    savedTitle = null;
     const away = Date.now() - awayAt;
     if (!awayAt || away < 4000 || isHidden()) return;
     awayAt = 0;
     touch();
     react("happy", { text: away > 60_000 ? LINES.backLong : LINES.back, hold: 1500 });
-  });
-  cleanups.push(() => {
-    if (savedTitle !== null && document.title === AWAY_TITLE) document.title = savedTitle;
   });
 
   // --- network ------------------------------------------------------------------------------------

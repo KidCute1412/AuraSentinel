@@ -198,7 +198,7 @@ export function PolicyStep({ control, readOnly }: { control: WizardControl; read
           proceeds always stay in your Safe.
         </p>
         <dl data-aura="inspect" data-aura-line="that's my wallet." className="border border-line bg-bg px-3">
-          <Address label="Agent (AgentShield)" value={control.agent.agent} />
+          <Address label="Agent (AuraSentinel)" value={control.agent.agent} />
           <Address label="DEX router (Trader Joe)" value={control.agent.router} />
         </dl>
         {readOnly ? (
@@ -277,7 +277,7 @@ export function DoneStep({ control, onOpen, onStartOver }: { control: WizardCont
     <Panel title="Vault ready" aside={<Stamp tone="ok">Guarded</Stamp>}>
       <div id="wizard-done" className="space-y-4">
         <p className="max-w-2xl text-soft">
-          Your Safe is guarded by your own module, the policy is active and the vault holds funds. The AgentShield agent can now rebalance it, always within your limits.
+          Your Safe is guarded by your own module, the policy is active and the vault holds funds. The AuraSentinel agent can now rebalance it, always within your limits.
         </p>
         <dl>
           <Address label="Safe" value={safe} />
@@ -302,8 +302,8 @@ export function DoneStep({ control, onOpen, onStartOver }: { control: WizardCont
         {!control.registered && (
           <p role="status" className="text-xs text-muted">
             {patienceOver
-              ? "AgentShield has not picked up the vault yet. You can open it anyway: balances and the Kill-Switch are read straight from the chain."
-              : "Waiting for AgentShield to pick up the new vault (usually a few seconds)…"}
+              ? "AuraSentinel has not picked up the vault yet. You can open it anyway: balances and the Kill-Switch are read straight from the chain."
+              : "Waiting for AuraSentinel to pick up the new vault (usually a few seconds)…"}
           </p>
         )}
       </div>

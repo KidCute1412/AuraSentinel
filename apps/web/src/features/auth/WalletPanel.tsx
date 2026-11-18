@@ -21,8 +21,8 @@ const STEPS: { id: Step; label: string }[] = [
 ];
 const ORDER: Step[] = ["connect", "sign", "verify", "done"];
 
-const SIWE = (address: string, domain = "agentshield.app") =>
-  `${domain} wants you to sign in with your Avalanche account:\n${address}\n\nSign in to AgentShield. This does not move funds.\n\nChain ID: 43113 (Fuji)\nNonce: 8f3a91c2`;
+const SIWE = (address: string, domain = "aurasentinel.app") =>
+  `${domain} wants you to sign in with your Avalanche account:\n${address}\n\nSign in to AuraSentinel. This does not move funds.\n\nChain ID: 43113 (Fuji)\nNonce: 8f3a91c2`;
 
 /** Mock rule until Safe.getOwners is wired: MetaMask plays a brand-new wallet, Core a returning owner. */
 export const isNewWallet = (w: WalletId): boolean => w === "metamask";

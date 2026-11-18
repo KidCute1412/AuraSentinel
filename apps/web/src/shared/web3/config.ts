@@ -3,10 +3,10 @@ import { coreWallet, injectedWallet, metaMaskWallet, walletConnectWallet } from 
 import { createConfig, fallback, http } from "wagmi";
 import { avalancheFuji } from "wagmi/chains";
 
-/** The only chain AgentShield runs on (D14: Fuji testnet). */
+/** The only chain AuraSentinel runs on (D14: Fuji testnet). */
 export const FUJI = avalancheFuji;
 
-export const APP_NAME = "AgentShield";
+export const APP_NAME = "AuraSentinel";
 
 type CreateWalletFn = WalletList[number]["wallets"][number];
 

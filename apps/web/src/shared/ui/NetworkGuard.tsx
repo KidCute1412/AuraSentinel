@@ -16,7 +16,7 @@ export function NetworkGuard() {
       <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-3 px-4 py-2 text-sm font-bold sm:px-6">
         <span className="inline-flex items-center gap-2">
           <TriangleAlert aria-hidden className="size-4" />
-          Your wallet is on the wrong network. AgentShield runs on Avalanche Fuji.
+          Your wallet is on the wrong network. AuraSentinel runs on Avalanche Fuji.
         </span>
         <button
           type="button"
