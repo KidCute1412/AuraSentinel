@@ -35,9 +35,9 @@ export function Header() {
     <div className="sticky top-0 z-40 border-b border-line bg-bg animate-hero-drop">
       {/* Left = where to go, right = settings then identity (wallet outermost). On phones the menu button moves to the far right. */}
       <nav aria-label="Main" className="mx-auto flex h-14 max-w-6xl items-center gap-2 px-4 sm:gap-3 sm:px-6">
-        <Link to="/" onClick={onLogo} aria-label="AgentShield home" className="order-1 inline-flex shrink-0 items-center gap-2.5 font-mono text-sm font-bold uppercase tracking-widest sm:mr-3">
+        <Link to="/" onClick={onLogo} aria-label="AuraSentinel home" className="order-1 inline-flex shrink-0 items-center gap-2.5 font-mono text-sm font-bold uppercase tracking-widest sm:mr-3">
           <img src="/favicon.svg" alt="" aria-hidden="true" width={28} height={28} className="h-7 w-7 shrink-0" />
-          <span className="hidden min-[430px]:inline">AgentShield</span>
+          <span className="hidden min-[430px]:inline">AuraSentinel</span>
         </Link>
 
         <div className="order-3 flex items-center gap-1 sm:order-2">
