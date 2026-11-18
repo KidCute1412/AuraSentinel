@@ -8,9 +8,7 @@ import { EventBus } from '../../core/redis/event-bus';
 import { SIMULATOR, type SimulatorPort } from '../simulation/simulator.port';
 import { VaultRegistryService } from '../vault/vault-registry.service';
 import { jsonArgs, nextRange, toServerEvent, type DecodedLog } from './domain/indexer';
-import { IndexerRepository } from './indexer.repository';
-
-const CURSOR = 'indexer';
+import { INDEXER_CURSOR as CURSOR, IndexerRepository } from './indexer.repository';
 const MODULE_EVENTS = POLICY_MODULE_ABI.filter((x): x is Extract<(typeof POLICY_MODULE_ABI)[number], AbiEvent> => x.type === 'event');
 const MODULE_DEPLOYED = FACTORY_ABI[0];
 

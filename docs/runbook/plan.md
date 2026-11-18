@@ -77,7 +77,7 @@ Cột **Kết luận** điền trong buổi họp. Không chốt được trong 
 | D13 | 1 agent EOA dùng chung mọi vault, 1 queue swap concurrency 1 (P4); session key riêng từng vault để roadmap | **Chốt:** nói rõ trong pitch: key lộ bị chặn bởi cap và Kill của từng vault |
 | D14 | Chạy `docker-compose.prod.yml` (web, api, worker, pg, redis, anvil) local trên laptop, không VPS/domain; owner key không lên server | **Chốt:** compose chạy lại được trên máy khác + video demo làm dự phòng |
 | D15 | Vault demo: maxPerTx 500, dailyCap 1.500 USDC; hết budget → UI giải thích "Shield 2 đang chặn"; Lộc reset bằng setPolicy ký trên browser; rebalancer tắt cho vault demo | **Chốt (sửa):** vault demo công khai giữ 500/1.500 + cooldown; thêm **vault sân khấu** riêng cho demo trực tiếp, reset ngay trước giờ diễn |
-| D16 | Routes web: `/` landing · `/demo` · `/vaults/new` · `/vaults/:safe` · `/proof` | **Chốt (sửa):** admin là drawer trong dashboard (chỉ role admin), không có route `/admin` |
+| D16 | Routes web: `/` landing · `/demo` · `/vaults/new` · `/vaults/:safe` · `/proof` | **Chốt (sửa 18/11):** thêm `/admin` (Ops console, chỉ role admin): preflight Demo Day, rebalancer, hoạt động mọi vault. Trước đó là drawer trong dashboard; tách trang vì nội dung vận hành nhiều |
 
 Bốn mục ❓ trong `contracts.md` (whitelist tách mapping?, nonReentrant, ...): Lộc chốt trong L1.
 

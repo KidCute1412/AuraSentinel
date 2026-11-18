@@ -11,6 +11,7 @@ import { AccessGate } from "@/features/auth/AccessGate";
 import { LandingPage } from "@/features/landing/LandingPage";
 import { AboutPage } from "@/features/about/AboutPage";
 import { ProofPage } from "@/features/proof/ProofPage";
+import { AdminPage } from "@/features/admin/AdminPage";
 import { NotFoundPage } from "@/features/not-found/NotFoundPage";
 import { DemoPage } from "@/features/vault/demo/DemoPage";
 import { VaultRoutes } from "@/features/vault/routes";
@@ -37,6 +38,7 @@ export function App() {
             <Route path="/vaults/*" element={<VaultRoutes />} />
             <Route path="/vault" element={<Navigate to="/vaults" replace />} />
             <Route path="/proof" element={<ProofPage />} />
+            <Route path="/admin" element={<AdminPage />} />
             <Route path="/signin" element={<AccessGate />} />
             <Route path="/signup" element={<Navigate to="/signin" replace />} />
             <Route path="/about" element={<AboutPage />} />

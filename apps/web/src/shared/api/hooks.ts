@@ -1,13 +1,18 @@
 import { JOB_TERMINAL_STATUSES, type CreateAttackRequest } from "@agentshield/shared";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { applyServerEvent } from "./cache";
 import {
   createAttack,
   createRebalanceJob,
+  getAdminJobs,
+  getAdminOverview,
   getJob,
   getJobs,
+  getPreflight,
   getRebalancerStatus,
+  runRebalancerTick,
+  type AdminJobFilter,
   getSession,
   getVaultState,
   setRebalancerPaused,
@@ -39,8 +44,8 @@ export function useJobs(safe: string | null | undefined) {
 
 /** While a job runs, poll this often as a safety net in case the SSE stream is down. */
 export const JOB_POLL_MS = 2_000;
-/** Admin drawer, while open: the rebalancer's last run and the agent's gas. */
-export const ADMIN_POLL_MS = 10_000;
+/** Admin console: how often the rebalancer, preflight and overview refresh while the page is open. */
+export const ADMIN_POLL_MS = 15_000;
 
 /**
  * One job with its audit trail. With `pollWhileRunning` it also refetches every JOB_POLL_MS until the job reaches a
@@ -61,8 +66,8 @@ export function useJob(id: string | null | undefined, options: { pollWhileRunnin
 }
 
 /** SIWE session (owner/admin only, D12). Guests get `{ address: null, role: null }`. */
-export function useSession() {
-  return useQuery({ queryKey: queryKeys.session, queryFn: ({ signal }) => getSession(signal), staleTime: 60_000 });
+export function useSession({ enabled = true }: { enabled?: boolean } = {}) {
+  return useQuery({ queryKey: queryKeys.session, queryFn: ({ signal }) => getSession(signal), staleTime: 60_000, enabled });
 }
 
 /**
@@ -115,7 +120,6 @@ export function useLaunchAttack(safe: string) {
 
 /** GET /admin/rebalancer. Only call it for admins (the server answers 401/403 otherwise). */
 export function useRebalancerStatus(enabled: boolean) {
-  // While the drawer is open, last run and gas stay current.
   return useQuery({
     queryKey: queryKeys.adminRebalancer,
     queryFn: ({ signal }) => getRebalancerStatus(signal),
@@ -129,6 +133,58 @@ export function useSetRebalancerPaused() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (paused: boolean) => setRebalancerPaused(paused),
-    onSuccess: (status) => qc.setQueryData(queryKeys.adminRebalancer, status),
+    onSuccess: (status) => {
+      qc.setQueryData(queryKeys.adminRebalancer, status);
+      void qc.invalidateQueries({ queryKey: queryKeys.adminPreflight });
+    },
+  });
+}
+
+/** POST /admin/rebalancer/ticks: one tick now; the rebalancer status and overview follow. */
+export function useRunTick() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: runRebalancerTick,
+    onSuccess: () => {
+      // The worker needs a moment to run it.
+      setTimeout(() => {
+        void qc.invalidateQueries({ queryKey: queryKeys.adminRebalancer });
+        void qc.invalidateQueries({ queryKey: queryKeys.adminOverview });
+      }, 2_000);
+    },
+  });
+}
+
+/** GET /admin/preflight. Admins only. */
+export function usePreflight(enabled: boolean) {
+  return useQuery({
+    queryKey: queryKeys.adminPreflight,
+    queryFn: ({ signal }) => getPreflight(signal),
+    enabled,
+    refetchInterval: enabled ? ADMIN_POLL_MS : false,
+  });
+}
+
+/** GET /admin/overview. Admins only. */
+export function useAdminOverview(enabled: boolean) {
+  return useQuery({
+    queryKey: queryKeys.adminOverview,
+    queryFn: ({ signal }) => getAdminOverview(signal),
+    enabled,
+    refetchInterval: enabled ? ADMIN_POLL_MS : false,
+  });
+}
+
+/** Admin jobs page size. */
+export const ADMIN_JOBS_PAGE = 20;
+
+/** GET /admin/jobs?filter=: every vault's jobs, newest first, a page at a time. */
+export function useAdminJobs(filter: AdminJobFilter, enabled: boolean) {
+  return useInfiniteQuery({
+    queryKey: queryKeys.adminJobs(filter),
+    queryFn: ({ signal, pageParam }) => getAdminJobs(filter, { limit: ADMIN_JOBS_PAGE, cursor: pageParam }, signal),
+    initialPageParam: undefined as string | undefined,
+    getNextPageParam: (last) => last.nextCursor ?? undefined,
+    enabled,
   });
 }

@@ -301,7 +301,30 @@ describe.skipIf(!DEPLOYMENT)('e2e: rebalance and attacks through the whole pipel
         body: JSON.stringify({ paused }),
       }).then((r) => r.json() as Promise<Json>);
     expect(await patch(true)).toMatchObject({ paused: true, agent: { lowGas: false } });
+    // A paused queue would hold a manual tick until Resume: refused instead.
+    const tick = () => withCookie(admin.cookie, '/api/v1/admin/rebalancer/ticks', { method: 'POST' });
+    expect((await tick()).status).toBe(409);
     expect(await patch(false)).toMatchObject({ paused: false });
+    expect((await tick()).status).toBe(202);
+  });
+
+  it('admin console reads: preflight, overview and jobs of every vault, admin only', async () => {
+    const paths = ['/api/v1/admin/preflight', '/api/v1/admin/overview', '/api/v1/admin/jobs?filter=blocked'];
+    for (const path of paths) expect((await get(path)).status).toBe(401);
+    const owner = await signIn(OWNER);
+    for (const path of paths) expect((await withCookie(owner.cookie, path)).status).toBe(403);
+
+    const admin = await signIn(ADMIN);
+    const json = (path: string) => withCookie(admin.cookie, path).then(async (r) => ({ status: r.status, body: (await r.json()) as Json }));
+    const preflight = await json('/api/v1/admin/preflight');
+    expect(preflight.status).toBe(200);
+    expect(preflight.body).toMatchObject({ status: expect.stringMatching(/^(ok|warn|fail)$/) });
+    expect((preflight.body.checks as { id: string }[]).map((c) => c.id)).toContain('services');
+    const overview = await json('/api/v1/admin/overview');
+    expect(overview.status).toBe(200);
+    expect((overview.body.queues as { name: string }[]).map((q) => q.name)).toEqual(['swap', 'attack', 'rebalance']);
+    expect((await json('/api/v1/admin/jobs?filter=failed&limit=5')).status).toBe(200);
+    expect((await json('/api/v1/admin/jobs?filter=nope')).status).toBe(400);
   });
 
   it('Bull Board (queue retry/delete) is admin-only on every path it answers', async () => {

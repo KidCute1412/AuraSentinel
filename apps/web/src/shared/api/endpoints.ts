@@ -15,7 +15,7 @@ import {
   type JobStatus,
 } from "@agentshield/shared";
 import { z } from "zod";
-import { RebalancerStatusDto } from "./adminSchemas";
+import { AdminOverviewDto, PreflightDto, RebalancerStatusDto, RunTickResponse } from "./adminSchemas";
 import { apiRequest, apiUrl } from "./client";
 
 /** Endpoints from api.md §2. Owner actions (setPolicy, Kill-Switch) never go through the API (P2). */
@@ -74,9 +74,29 @@ export const createRebalanceJob = (safe: string, body: CreateJobRequest) =>
 export const createAttack = (safe: string, body: CreateAttackRequest) =>
   apiRequest(`/vaults/${safe}/attacks`, CreateAttackResponse, { method: "POST", json: CreateAttackRequest.parse(body) });
 
-/** #15: scheduler state for the admin drawer (AdminGuard on the server). */
+/** #15: scheduler state for the admin console (AdminGuard on the server). */
 export const getRebalancerStatus = (signal?: AbortSignal) => apiRequest("/admin/rebalancer", RebalancerStatusDto, { signal });
 
 /** #16: Demo mode on/off. Idempotent; returns the same resource as #15. */
 export const setRebalancerPaused = (paused: boolean) =>
   apiRequest("/admin/rebalancer", RebalancerStatusDto, { method: "PATCH", json: { paused } });
+
+/** #15b: one rebalancer tick now. 409 REBALANCER_PAUSED while Demo mode is on. */
+export const runRebalancerTick = () => apiRequest("/admin/rebalancer/ticks", RunTickResponse, { method: "POST" });
+
+/** #19: Demo Day preflight, every check decided by the server's fixed rules. */
+export const getPreflight = (signal?: AbortSignal) => apiRequest("/admin/preflight", PreflightDto, { signal });
+
+/** #20: queues, last 24 h of jobs, the vault registry. */
+export const getAdminOverview = (signal?: AbortSignal) => apiRequest("/admin/overview", AdminOverviewDto, { signal });
+
+/** The admin console's job filters: blocked = rejected by Shield 1 or reverted by Shield 2; failed = infrastructure. */
+export type AdminJobFilter = "all" | "blocked" | "failed";
+
+/** #21: jobs of every vault, newest first. */
+export function getAdminJobs(filter: AdminJobFilter, params: { limit?: number; cursor?: string } = {}, signal?: AbortSignal) {
+  const q = new URLSearchParams({ filter });
+  if (params.limit !== undefined) q.set("limit", String(params.limit));
+  if (params.cursor) q.set("cursor", params.cursor);
+  return apiRequest(`/admin/jobs?${q.toString()}`, JobListDto, { signal });
+}

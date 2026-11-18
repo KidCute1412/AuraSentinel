@@ -3,6 +3,9 @@ import { eq } from 'drizzle-orm';
 import { DRIZZLE, type Database } from '../../core/database/database.module';
 import { chainCursor, chainEvents } from '../../core/database/schema';
 
+/** Cursor id of the vault indexer (its last fully indexed block). */
+export const INDEXER_CURSOR = 'indexer';
+
 /** Sole owner of `chain_events` and `chain_cursor`. */
 @Injectable()
 export class IndexerRepository {

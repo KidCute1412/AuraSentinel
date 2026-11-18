@@ -62,6 +62,20 @@ export class JobsService {
     return { items, nextCursor: rows.length > q.limit ? (items.at(-1)?.id ?? null) : null };
   }
 
+  /** Admin console: jobs since `since` by status, plus how many were attacks. */
+  async countsSince(since: Date): Promise<{ total: number; attacks: number; byStatus: Partial<Record<JobStatus, number>> }> {
+    const rows = await this.repo.countsSince(since);
+    const byStatus: Partial<Record<JobStatus, number>> = {};
+    let total = 0;
+    let attacks = 0;
+    for (const r of rows) {
+      byStatus[r.status] = (byStatus[r.status] ?? 0) + r.n;
+      total += r.n;
+      if (r.attack) attacks += r.n;
+    }
+    return { total, attacks, byStatus };
+  }
+
   /** GET /proof: on-chain reverts (Shield 2 evidence). */
   reverted(limit = 20) {
     return this.repo.reverted(limit);
