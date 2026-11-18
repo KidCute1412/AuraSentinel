@@ -127,6 +127,8 @@ Khách dùng vault demo không cần đăng nhập (D12). Owner và admin ký m�
 | Owner (có trong `Safe.getOwners()` trên chain, cache 30s) | Thêm `POST /jobs`, `/attacks` trên vault của mình. Không phải owner → `403 NOT_OWNER` |
 | Admin (`ADMIN_ADDRESSES`) | Drawer Admin (`/api/v1/admin/rebalancer`: tạm dừng rebalancer = Demo mode) và Bull Board (`/api/v1/admin/queues`) |
 
+- Đổi `ADMIN_ADDRESSES` thì restart `api` (env chỉ đọc lúc khởi động). Role tính lại ở mỗi `GET /auth/session`, nên sau đó chỉ cần reload trang, không phải ký lại.
+
 - `SESSION_SECRET` bắt buộc ở production (`openssl rand -hex 32`); đổi nó là đăng xuất tất cả.
 - Phiên chỉ chứng minh **địa chỉ ví**. Role tính lại từ chain và allowlist mỗi request; setPolicy/Kill-Switch vẫn ký trong browser (P2).
 - `SIWE_DOMAINS` để trống khi chạy sau nginx (Host được giữ cả cổng). Dev qua Vite: `localhost:5173`.

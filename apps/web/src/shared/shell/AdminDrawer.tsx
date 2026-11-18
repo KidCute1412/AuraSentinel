@@ -3,8 +3,12 @@ import { createPortal } from "react-dom";
 import { ArrowUpRight, Pause, Play, Settings2, TriangleAlert, X } from "lucide-react";
 import type { Role } from "@agentshield/shared";
 import { useRebalancerStatus, useSetRebalancerPaused } from "@/shared/api";
-import { API_BASE, API_V1 } from "@/shared/api/client";
+import { zeroAddress } from "viem";
+import { API_BASE, API_V1, ApiError } from "@/shared/api/client";
 import { formatTokenAmount } from "@/shared/lib/format";
+import { timeAgo } from "@/shared/lib/time";
+import { AddressChip } from "@/shared/ui/AddressChip";
+import { SnowtraceLink } from "@/shared/ui/SnowtraceLink";
 
 /** Session role from the server (`Role` in @agentshield/shared). */
 export type SessionRole = Role;
@@ -87,22 +91,43 @@ export function AdminDrawer({ role }: { role: SessionRole | null | undefined }) 
   );
 }
 
+/** A failed admin call in words: a lost admin role (expired cookie, wallet removed from the list) is not a network fault. */
+function adminError(error: Error, what: string): string {
+  if (error instanceof ApiError && (error.status === 401 || error.status === 403)) {
+    return "Your session is not an admin any more. Reload, or sign in again.";
+  }
+  return `${what}: ${error.message}`;
+}
+
 /** Demo mode (pause the 24/7 rebalancer while presenting) and the agent's gas balance. */
 function RebalancerControls() {
   const status = useRebalancerStatus(true);
   const toggle = useSetRebalancerPaused();
   const s = status.data;
+  const agentKnown = s && s.agent.address.toLowerCase() !== zeroAddress;
 
   return (
     <>
       <section>
         <span className="mono-label">Demo mode · rebalancer</span>
         {status.isPending && <div aria-hidden className="mt-3 h-10 animate-pulse bg-hover" />}
-        {status.isError && <p className="mt-2 text-sm text-soft">Cannot reach the admin API: {status.error.message}</p>}
+        {status.isError && !s && <p role="alert" className="mt-2 text-sm text-soft">{adminError(status.error, "Cannot reach the admin API")}</p>}
         {s && (
           <>
-            <p className="mt-2 font-mono text-sm">
-              {s.paused ? "PAUSED" : "RUNNING"} · every {Math.round(s.intervalMs / 1000)}s
+            <div className="mt-2 flex flex-wrap items-center gap-2">
+              {s.paused ? (
+                <span className="border border-warn px-2 py-0.5 font-mono text-[11px] font-bold uppercase tracking-widest text-warn">Demo mode on</span>
+              ) : (
+                <span className="border border-line-strong px-2 py-0.5 font-mono text-[11px] font-bold uppercase tracking-widest text-accent-text">Running</span>
+              )}
+              <span className="font-mono text-sm text-soft">every {Math.round(s.intervalMs / 1000)}s</span>
+            </div>
+            <p className="mt-2 text-sm text-soft">
+              {s.paused ? "The agent makes no trades on its own. Moves pressed by hand still run." : "The agent rebalances every vault on its own."}
+            </p>
+            <p className="mt-1 font-mono text-xs text-muted">
+              Last run:{" "}
+              {s.lastTickAt ? <time dateTime={s.lastTickAt} title={new Date(s.lastTickAt).toLocaleString("en-US")}>{timeAgo(s.lastTickAt)}</time> : "never"}
             </p>
             <button
               type="button"
@@ -114,21 +139,32 @@ function RebalancerControls() {
               {s.paused ? <Play aria-hidden className="size-4" /> : <Pause aria-hidden className="size-4" />}
               {s.paused ? "Resume rebalancer" : "Pause rebalancer"}
             </button>
-            {toggle.isError && <p className="mt-2 text-sm text-soft">Could not change it: {toggle.error.message}</p>}
+            {toggle.isError && <p role="alert" className="mt-2 text-sm text-soft">{adminError(toggle.error, "Could not change it")}</p>}
           </>
         )}
       </section>
       <section>
-        <span className="mono-label">Agent gas</span>
+        <span className="mono-label">Agent</span>
         {s ? (
-          <p className="mt-2 flex items-center gap-2 font-mono text-sm tabular">
-            {formatTokenAmount(BigInt(s.agent.avaxBalance), 18)} AVAX
-            {s.agent.lowGas && (
-              <span className="inline-flex items-center gap-1 font-bold text-warn">
-                <TriangleAlert aria-hidden className="size-4" /> Low gas
-              </span>
+          <>
+            {agentKnown ? (
+              <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1">
+                <AddressChip address={s.agent.address} />
+                <SnowtraceLink kind="address" value={s.agent.address} />
+              </div>
+            ) : (
+              <p className="mt-2 text-sm text-soft">Unknown: the demo vault's module could not be read.</p>
             )}
-          </p>
+            <p className="mt-2 flex items-center gap-2 font-mono text-sm tabular">
+              {formatTokenAmount(BigInt(s.agent.avaxBalance), 18, 4)} AVAX
+              {s.agent.lowGas && (
+                <span className="inline-flex items-center gap-1 font-bold text-warn">
+                  <TriangleAlert aria-hidden className="size-4" /> Low gas
+                </span>
+              )}
+            </p>
+            <p className="mt-1 text-xs text-muted">Low gas = below the server's AGENT_MIN_GAS_WEI; trades are refused until it is topped up.</p>
+          </>
         ) : (
           <p className="mt-2 text-sm text-soft">No data yet.</p>
         )}

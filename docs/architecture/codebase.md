@@ -154,9 +154,9 @@ apps/server/
 │     │  ├─ domain/
 │     │  │  ├─ rebalance.math.ts       # computeRebalance(balances, prices, policy) → SwapIntent | null
 │     │  │  └─ rebalance.math.spec.ts
-│     │  ├─ rebalancer.scheduler.ts    # upsertJobScheduler 15s, pause/resume
+│     │  ├─ rebalancer.scheduler.ts    # upsertJobScheduler 15s (Demo mode pause queue, xem modules/admin)
 │     │  ├─ rebalancer.processor.ts    # tick → đọc chain → math → enqueue swap
-│     │  ├─ rebalancer.controller.ts   # POST /rebalance, /admin/rebalancer/pause|resume
+│     │  ├─ rebalancer.controller.ts   # POST /rebalance
 │     │  └─ rebalancer.module.ts
 │     │
 │     ├─ auditor/                 # WORKER 2 — orchestration Shield 1

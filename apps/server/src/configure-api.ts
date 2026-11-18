@@ -48,6 +48,25 @@ export const SECURITY_HEADERS: Readonly<Record<string, string>> = {
   'Content-Security-Policy': "default-src 'none'; frame-ancestors 'none'",
 };
 
+/** Paths of the Bull Board UI, the one HTML page the API serves (admins only, see configureApi). */
+export const ADMIN_UI_PATHS = ['/admin/queues', '/api/v1/admin/queues'] as const;
+
+/**
+ * CSP for the Bull Board page: its own bundled scripts and styles (plus inline styles and its Google font), nothing
+ * else. With the JSON-only policy above the page answers 200 but renders blank.
+ */
+export const ADMIN_UI_CSP =
+  "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; " +
+  "font-src 'self' data: https://fonts.gstatic.com; img-src 'self' data:; connect-src 'self'; " +
+  "base-uri 'self'; form-action 'self'; frame-ancestors 'none'";
+
+const isAdminUi = (path: string) => ADMIN_UI_PATHS.some((p) => path === p || path.startsWith(`${p}/`));
+
+/** The security headers for one request: the JSON policy everywhere, the Bull Board policy on its pages. */
+export function securityHeaders(path: string): Readonly<Record<string, string>> {
+  return isAdminUi(path) ? { ...SECURITY_HEADERS, 'Content-Security-Policy': ADMIN_UI_CSP } : SECURITY_HEADERS;
+}
+
 /**
  * HTTP setup shared by main.api.ts and the e2e test, so tests exercise the exact production
  * routing: every route under /api/v1 (api.md §1, the SPA owns bare paths) except the
@@ -62,8 +81,8 @@ export function configureApi(app: INestApplication, opts: { corsOrigins?: readon
   express.set('trust proxy', 'loopback, linklocal, uniquelocal');
   // Behind the web's Vercel proxy (public IPs): only with the shared secret, see trustWebProxy.
   app.use(trustWebProxy(app.get<Env>(ENV, { strict: false })?.WEB_PROXY_SECRET));
-  app.use((_req: Request, res: Response, next: NextFunction) => {
-    for (const [k, v] of Object.entries(SECURITY_HEADERS)) res.setHeader(k, v);
+  app.use((req: Request, res: Response, next: NextFunction) => {
+    for (const [k, v] of Object.entries(securityHeaders(req.path))) res.setHeader(k, v);
     next();
   });
 
@@ -72,7 +91,7 @@ export function configureApi(app: INestApplication, opts: { corsOrigins?: readon
   // can answer on, here, before it registers: admins only.
   const sessions = app.get(SessionService, { strict: false });
   const ownership = app.get(OwnershipService, { strict: false });
-  app.use(['/admin/queues', '/api/v1/admin/queues'], (req: Request, res: Response, next: NextFunction) => {
+  app.use([...ADMIN_UI_PATHS], (req: Request, res: Response, next: NextFunction) => {
     const address = sessions.address(req);
     if (address && ownership.isAdmin(address)) return next();
     const p = address ? problem('NOT_ADMIN', 'Admins only') : problem('UNAUTHENTICATED', 'Sign in with an admin wallet');
