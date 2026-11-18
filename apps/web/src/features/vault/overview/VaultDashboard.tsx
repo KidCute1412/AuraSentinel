@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from "react";
+import { useState } from "react";
 import { Link } from "react-router-dom";
 import { useJobDetail, useVaultFeed } from "@/shared/api/vaultFeed";
 import type { VaultView } from "@/shared/api/vaultSource";
@@ -16,12 +16,10 @@ import { KillSwitch } from "../components/KillSwitch";
 import { StatePending } from "../components/LivePlaceholders";
 import { PolicyPanel } from "../components/PolicyPanel";
 import { RedTeamPanel } from "../components/RedTeamPanel";
-import { TourCard } from "../components/TourCard";
 import { VaultNotices } from "../components/VaultNotices";
 import { VerdictCard } from "../components/VerdictCard";
 import { useFundsControl } from "../hooks/useFundsControl";
 import { useOwnerControl, type OwnerControl } from "../hooks/useOwnerControl";
-import { tourProgress } from "../lib/tour";
 
 interface Props {
   view: VaultView;
@@ -55,8 +53,6 @@ function Incomplete({ view, role }: { view: VaultView; role: VaultRole }) {
 export function VaultDashboard({ view, role, mode }: Props) {
   const feed = useVaultFeed(view);
   const [selectedId, setSelectedId] = useState<string | undefined>();
-  const [killedHere, setKilledHere] = useState(false);
-  const visitStart = useRef(Date.now());
 
   const live = feed.source === "live";
   const demo = mode === "demo";
@@ -69,10 +65,6 @@ export function VaultDashboard({ view, role, mode }: Props) {
   const jobsReady = feed.jobsStatus === "ready";
   const selectedJobId = selectedId ?? feed.jobs[0]?.id;
   const selected = useJobDetail(view, selectedJobId);
-  const tour = useMemo(
-    () => (demo && jobsReady ? tourProgress(feed.jobs, view.safe, visitStart.current, killedHere) : null),
-    [demo, jobsReady, feed.jobs, view.safe, killedHere],
-  );
 
   if (!(view.chain.moduleEnabled && view.chain.policyActive)) return <Incomplete view={view} role={role} />;
   if (feed.jobsStatus === "unavailable") {
@@ -103,7 +95,6 @@ export function VaultDashboard({ view, role, mode }: Props) {
   return (
     <div className="space-y-6">
       <VaultNotices state={state} stateStatus={feed.stateStatus} source={feed.source} />
-      {tour && <TourCard steps={tour} />}
 
       <div className="grid grid-cols-[minmax(0,1fr)] gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.35fr)_minmax(0,1fr)]">
         {/* Column 1: owner controls */}
@@ -118,7 +109,7 @@ export function VaultDashboard({ view, role, mode }: Props) {
           {state ? <PolicyPanel state={state} control={control} /> : <StatePending title="Policy" status={feed.stateStatus} />}
           {(canSign || live) && (
             <div className={cn(canSign && "hidden lg:block")}>
-              <OwnerKill control={control} fallbackActive={state?.isActive} onKilled={() => setKilledHere(true)} />
+              <OwnerKill control={control} fallbackActive={state?.isActive} />
             </div>
           )}
           {/* Not on the public sandbox: only a vault's own owner moves its funds. */}

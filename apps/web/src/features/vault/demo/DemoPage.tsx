@@ -1,9 +1,11 @@
+import { useSearchParams } from "react-router-dom";
 import { Footer } from "@/shared/shell/Footer";
 import { Header } from "@/shared/shell/Header";
 import { isLive } from "@/shared/api/dataSource";
 import { useDemoSafe, useVaultView } from "@/shared/api/useVaultView";
 import { LiveVaultEvents, useVaultFeed } from "@/shared/api/vaultFeed";
 import type { VaultView } from "@/shared/api/vaultSource";
+import { cn } from "@/shared/lib/cn";
 import { NetworkGuard } from "@/shared/ui/NetworkGuard";
 import { Skeleton } from "@/shared/ui/Skeleton";
 import { Breadcrumb } from "../layout/Breadcrumb";
@@ -11,6 +13,7 @@ import { VaultHeader } from "../layout/VaultHeader";
 import { VaultDashboard } from "../overview/VaultDashboard";
 import { KillDock } from "../components/KillDock";
 import { useOwnerControl } from "../hooks/useOwnerControl";
+import { GuidedDemo } from "./GuidedDemo";
 
 /** Phone Kill-Switch dock: anyone in the simulation, only the module owner's wallet on live data. */
 function Dock({ view }: { view: VaultView }) {
@@ -19,23 +22,73 @@ function Dock({ view }: { view: VaultView }) {
   return control.canSign && (control.isActive ?? feed.state?.isActive) ? <KillDock send={control.revoke} /> : null;
 }
 
-/** /demo: the public sandbox vault. No wallet, no sign-in. Same dashboard as a real vault, with a guided tour. */
+type Mode = "guided" | "free";
+const MODES: { id: Mode; label: string; hint: string }[] = [
+  { id: "guided", label: "Guided", hint: "4 steps, about a minute" },
+  { id: "free", label: "Free play", hint: "Every control, every attack" },
+];
+
+/** Guided (default) or Free play, kept in the URL (?mode=free) so a link opens the same view. */
+function ModeSwitch({ mode, onChange }: { mode: Mode; onChange: (m: Mode) => void }) {
+  return (
+    <div role="tablist" aria-label="Demo mode" className="inline-grid grid-cols-2 border border-line-strong bg-surface">
+      {MODES.map((m) => (
+        <button
+          key={m.id}
+          type="button"
+          role="tab"
+          aria-selected={mode === m.id}
+          onClick={() => onChange(m.id)}
+          className={cn("min-h-11 border-r border-line-strong px-4 py-1.5 text-left last:border-r-0", mode === m.id ? "bg-ink text-bg" : "hover:bg-hover")}
+        >
+          <span className="block text-sm font-bold">{m.label}</span>
+          <span className={cn("hidden font-mono text-[11px] sm:block", mode === m.id ? "opacity-80" : "text-muted")}>{m.hint}</span>
+        </button>
+      ))}
+    </div>
+  );
+}
+
+/**
+ * /demo: the public sandbox vault, no wallet and no sign-in. Guided walks a newcomer through four steps with the
+ * result under each button; Free play is the full vault dashboard.
+ */
 export function DemoPage() {
   const demo = useDemoSafe();
   const demoSafe = demo.data ?? null;
   const { data: view, isPending, isError } = useVaultView(demoSafe);
+  const [params, setParams] = useSearchParams();
+  const mode: Mode = params.get("mode") === "free" ? "free" : "guided";
+  const setMode = (m: Mode) => {
+    const next = new URLSearchParams(params);
+    if (m === "guided") next.delete("mode");
+    else next.set("mode", m);
+    setParams(next, { replace: true });
+  };
+
   return (
     <div className="min-h-screen bg-bg text-fg">
       <Header />
       <NetworkGuard />
-      <main className="mx-auto max-w-6xl space-y-6 px-4 pb-28 pt-8 sm:px-6 lg:pb-10">
-        <Breadcrumb items={[{ label: "Demo" }]} />
-        <div>
-          <h1 className="text-3xl">Try AuraSentinel</h1>
-          <p className="mt-1 max-w-2xl text-soft">
-            This is a live sandbox vault. Make the agent trade, then try to break it. Nothing here is real money.
-          </p>
+      <section className="blueprint border-b border-line">
+        <div className="mx-auto max-w-6xl px-4 pb-8 pt-6 sm:px-6 sm:pt-8">
+          <Breadcrumb items={[{ label: "Demo" }]} />
+          <div className="mt-4 flex flex-wrap items-end justify-between gap-6">
+            <div className="max-w-2xl">
+              <span className="mono-label">Live sandbox · test money only</span>
+              <h1 data-ground="page-title" className="mt-2 text-4xl font-black uppercase italic leading-[0.92] tracking-[-0.04em] sm:text-6xl">
+                Try to <span className="outline-text">break</span> it.
+              </h1>
+              <p className="mt-3 text-base text-soft sm:text-lg">
+                An AI agent trades this vault around the clock. It can trade, but it can never take the money. See for yourself: no wallet needed.
+              </p>
+            </div>
+            <ModeSwitch mode={mode} onChange={setMode} />
+          </div>
         </div>
+      </section>
+
+      <main className="mx-auto max-w-6xl space-y-6 px-4 pb-28 pt-8 sm:px-6 lg:pb-10">
         {demo.isError ? (
           <p role="alert" className="border-l-4 border-danger bg-tint-pink px-3 py-2">The demo could not load. Refresh the page to try again.</p>
         ) : demo.isPending ? (
@@ -59,9 +112,15 @@ export function DemoPage() {
             {view && (
               <>
                 {isLive && <LiveVaultEvents safe={view.safe} />}
-                <VaultHeader view={view} role="anonymous" sandbox />
-                <VaultDashboard view={view} role="anonymous" mode="demo" />
-                <Dock view={view} />
+                {mode === "guided" ? (
+                  <GuidedDemo view={view} onFreePlay={() => setMode("free")} />
+                ) : (
+                  <>
+                    <VaultHeader view={view} role="anonymous" sandbox />
+                    <VaultDashboard view={view} role="anonymous" mode="demo" />
+                    <Dock view={view} />
+                  </>
+                )}
               </>
             )}
           </>

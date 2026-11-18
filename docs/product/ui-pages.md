@@ -240,9 +240,18 @@ Owner được xác định **on-chain** (`Safe.getOwners`), backend chỉ kiể
 
 Mỗi reason code → câu tiếng Việt từ `shared/errors.ts` (Q1); UI không tự dịch.
 
-### 4.6 Guided tour (chỉ `/demo`)
+### 4.6 Hai chế độ của `/demo`: Guided (mặc định) và Free play
 
-4 bước tooltip: ① Run Rebalance → ② Over-withdraw → ③ Bypass ⚡ → ④ Kill-Switch. Có `Bỏ qua`; cắt được theo kế hoạch (thay bằng hướng dẫn tĩnh).
+**Cập nhật 2026-11-18:** `/demo` có hero "Try to break it." và nút chuyển chế độ, lưu trong URL (`?mode=free`). Mục tiêu: người không rành blockchain biết ngay phải bấm gì trước.
+
+- **Guided** (`features/vault/demo/GuidedDemo.tsx`, logic thuần ở `guided.ts`). Bên trái là dải 4 bước, mỗi lần chỉ hiện **một thẻ bước**: câu chuyện bằng lời thường, khung "What should happen", **nút ngay trong bước**, và **kết quả hiện ngay dưới nút**. Kết quả gồm stamp, một câu giải thích, nút "See every check" (pipeline Shield 1 → 2) và link Snowtrace. Có `Next step`, `Skip this step`, `Back`. Bên phải là vault thật: "The agent's rules" (4 quy tắc đọc từ policy on-chain), Daily budget, Balances, cập nhật live sau mỗi lần bấm.
+  1. **Normal trade**: rebalance 200 USDC. Số tiền tự giảm theo hạn mức ngày còn lại (USDC chẵn), để bước "bình thường" thật sự hợp lệ trên vault công khai.
+  2. **Take too much**: attack over-withdraw → Shield 1 chặn, không có tx.
+  3. **Hack around**: attack bypass → contract revert on-chain, link tx thất bại.
+  4. **Emergency stop**: bản mock dùng Kill-Switch giữ-để-xác-nhận thật. Bản **live**: vault demo dùng chung nên **không** cho khách bấm. Thay vào đó là khối hazard giải thích chỉ ví owner ký được, nút "Got it" để hoàn thành bước, và link tạo vault riêng. Nhờ vậy hướng dẫn không bao giờ kẹt ở 3/4.
+
+  Bước nào làm ở Free play trong cùng lần ghé (`lib/tour.ts` `tourProgress`) cũng được tính. Xong 4 bước thì có màn tổng kết "You tried to break it. It held." kèm CTA tạo vault, Free play, Start over. Cooldown của vault dùng chung hiện bằng lời thân thiện ("Someone else just ran a test…", nút đếm ngược "Your turn in Ns"), không báo như lỗi. Aura-kun nhảy tới thẻ bước và phản ứng theo kết quả.
+- **Free play**: dashboard 3 cột như §4 cho giám khảo hoặc người muốn thử mọi thứ (4 attack, prompt injection, history). Thẻ "Try it in 4 steps" cũ đã bỏ vì Guided thay nó.
 
 ---
 
