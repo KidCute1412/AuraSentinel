@@ -1,17 +1,13 @@
 import { Link } from "react-router-dom";
-import { fromAmount, type JobDto } from "@agentshield/shared";
+import type { JobDto } from "@agentshield/shared";
 import { cn } from "@/shared/lib/cn";
-import { formatTokenAmount } from "@/shared/lib/format";
+import { jobLabel } from "@/shared/lib/jobLabel";
 import { timeAgo } from "@/shared/lib/time";
 import { groundId } from "@/shared/lib/ground";
 import { Panel } from "@/shared/ui/Panel";
 import { StatusBadge } from "@/shared/ui/StatusBadge";
 
-export function jobLabel(j: Pick<JobDto, "intent" | "origin">): string {
-  const amount = j.intent && j.intent.amountIn !== "0" ? ` · ${formatTokenAmount(fromAmount(j.intent.amountIn), 6)} USDC` : "";
-  if (j.origin === "redteam") return `Attack${amount}`;
-  return `Rebalance${amount}`;
-}
+export { jobLabel };
 
 interface Props {
   jobs: JobDto[];

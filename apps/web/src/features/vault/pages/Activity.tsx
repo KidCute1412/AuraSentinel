@@ -1,16 +1,14 @@
-import { Check, ChevronLeft, ChevronRight, ChevronRightSquare } from "lucide-react";
+import { Check } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
-import { reasonTitle } from "@/shared/api/mockEngine";
 import { JOBS_PAGE_SIZE } from "@/shared/api/hooks";
 import { useVaultFeed } from "@/shared/api/vaultFeed";
 import type { VaultView } from "@/shared/api/vaultSource";
 import { cn } from "@/shared/lib/cn";
-import { timeAgo } from "@/shared/lib/time";
+import { JobList } from "@/shared/ui/JobList";
+import { Pager } from "@/shared/ui/Pager";
 import { Panel } from "@/shared/ui/Panel";
 import { Skeleton } from "@/shared/ui/Skeleton";
-import { StatusBadge } from "@/shared/ui/StatusBadge";
-import { jobLabel } from "../components/JobHistory";
 import { canRunJobs, sectionPath, type VaultRole } from "../guards/access";
 import { activityParams, filterJobs, hasFilter, parseActivityFilter, type ActivityFilter, type ActivityStatus, type ActivityType } from "../lib/activity";
 
@@ -114,45 +112,22 @@ export function Activity({ view, role }: { view: VaultView; role: VaultRole }) {
           </button>
         </div>
       ) : (
-        <ul className="-mx-4 divide-y divide-line">
-          {page.items.map((j) => (
-            <li key={j.id} className={cn(known !== null && !known.has(j.id) && "animate-feed-in")}>
-              <Link to={jobHref(j.id)} className="group flex min-h-16 items-center justify-between gap-3 px-4 py-3 hover:bg-hover">
-                <span className="min-w-0">
-                  <span className="block truncate font-bold">{jobLabel(j)}</span>
-                  <span className="mt-0.5 block truncate text-sm text-soft">
-                    <time dateTime={j.createdAt} title={new Date(j.createdAt).toLocaleString("en-US")}>{timeAgo(j.createdAt)}</time>
-                    {j.reasonCode && (
-                      <>
-                        <span className="mx-1.5 text-muted">·</span>
-                        <span className="font-mono text-xs text-danger-text">{j.reasonCode}</span>
-                        <span className="hidden sm:inline"> {reasonTitle(j.reasonCode)}</span>
-                      </>
-                    )}
-                  </span>
-                </span>
-                <span className="flex shrink-0 items-center gap-2">
-                  <StatusBadge job={j.status} />
-                  <ChevronRightSquare aria-hidden className="size-4 text-muted group-hover:text-fg" />
-                </span>
-              </Link>
-            </li>
-          ))}
-        </ul>
+        <div className="-mx-4 mt-4">
+          <JobList jobs={page.items} href={(j) => jobHref(j.id)} known={known} />
+        </div>
       )}
 
       {page.pageCount > 1 && (
-        <nav aria-label="Pages" className="mt-4 flex items-center justify-between gap-3 border-t border-line pt-4">
-          <button type="button" disabled={page.page <= 1} onClick={() => go({ ...filter, page: page.page - 1 })} className="inline-flex min-h-10 items-center gap-1 border border-line-strong px-3 font-bold hover:bg-hover disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent">
-            <ChevronLeft aria-hidden className="size-4" /> Newer
-          </button>
-          <span className="tabular font-mono text-xs text-soft">
-            Page {page.page} of {page.pageCount}
-          </span>
-          <button type="button" disabled={page.page >= page.pageCount} onClick={() => go({ ...filter, page: page.page + 1 })} className="inline-flex min-h-10 items-center gap-1 border border-line-strong px-3 font-bold hover:bg-hover disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent">
-            Older <ChevronRight aria-hidden className="size-4" />
-          </button>
-        </nav>
+        <div className="mt-4 border-t border-line pt-4">
+          <Pager
+            page={page.page}
+            pageCount={page.pageCount}
+            hasNewer={page.page > 1}
+            hasOlder={page.page < page.pageCount}
+            onNewer={() => go({ ...filter, page: page.page - 1 })}
+            onOlder={() => go({ ...filter, page: page.page + 1 })}
+          />
+        </div>
       )}
       {feed.hasMoreJobs && (
         <p className="mt-4 border-t border-line pt-3 font-mono text-xs text-muted">Showing the latest {JOBS_PAGE_SIZE} jobs. Older jobs are kept on the server.</p>

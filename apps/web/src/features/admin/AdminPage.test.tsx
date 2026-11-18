@@ -147,6 +147,33 @@ describe("AdminPage console", () => {
     expect(screen.getByText("Visitors only")).toBeInTheDocument();
   });
 
+  it("pages recent jobs ten at a time with Older / Newer, grouped by day", async () => {
+    serve("admin");
+    const page1 = Array.from({ length: 10 }, (_, i) => job({ id: `00000000-0000-4000-8000-${String(i).padStart(12, "0")}`, createdAt: new Date().toISOString() }));
+    const page2 = [job({ id: "00000000-0000-4000-8000-000000000099", reasonCode: "ExceedsPerTxCap", status: "rejected" })];
+    const base = fetchMock.getMockImplementation()!;
+    fetchMock.mockImplementation(async (input, init) => {
+      const url = String(input);
+      if (url.includes("/admin/jobs")) {
+        const cursor = new URL(url, "http://x").searchParams.get("cursor");
+        return jsonResponse(cursor ? { items: page2, nextCursor: null } : { items: page1, nextCursor: page1[9]!.id });
+      }
+      return base(input, init);
+    });
+    renderPage();
+    const older = await screen.findByRole("button", { name: /older/i });
+    expect(screen.getByRole("button", { name: /newer/i })).toBeDisabled();
+    expect(screen.getByText("Page 1")).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "Today" })).toBeInTheDocument();
+    fireEvent.click(older);
+    expect(await screen.findByText("ExceedsPerTxCap")).toBeInTheDocument();
+    expect(screen.getByText("Page 2")).toBeInTheDocument();
+    expect(fetchMock.mock.calls.some(([u]) => String(u).includes(`cursor=${page1[9]!.id}`))).toBe(true);
+    expect(screen.getByRole("button", { name: /older/i })).toBeDisabled();
+    fireEvent.click(screen.getByRole("button", { name: /newer/i }));
+    expect(await screen.findByText("Page 1")).toBeInTheDocument();
+  });
+
   it("filters recent jobs with the Failed tab", async () => {
     serve("admin");
     renderPage();

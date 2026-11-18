@@ -139,7 +139,7 @@ export function VaultDashboard({ view, role, mode }: Props) {
           <div className="space-y-3">
             <StepLabel n="01" title="Pick a move" hint={live ? "Runs for real on Avalanche Fuji. Presses are rate-limited." : "A simulation: nothing real moves."} />
             <RedTeamPanel view={view} canAct={canAct} onStarted={started} layout="tabs" />
-            <JobHistory jobs={feed.jobs} selectedId={selectedJobId} onSelect={setSelectedId} limit={4} />
+            <JobHistory jobs={feed.jobs} selectedId={selectedJobId} onSelect={setSelectedId} limit={4} allHref={live ? sectionPath(view.safe, "activity") : undefined} />
           </div>
           <div ref={verdictRef} className="scroll-mt-20 space-y-3 lg:sticky lg:top-20 lg:self-start">
             <StepLabel n="02" title="Read the verdict" hint="Decided by rules, never by the AI." />

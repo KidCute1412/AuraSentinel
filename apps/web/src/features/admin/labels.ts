@@ -1,5 +1,4 @@
-import { fromAmount, type CheckStatus, type JobDto } from "@agentshield/shared";
-import { formatTokenAmount } from "@/shared/lib/format";
+import type { CheckStatus } from "@agentshield/shared";
 
 /** Why the rebalancer left a vault alone on its last tick, in words (server: rebalancer.processor TickSkip). */
 const SKIP_REASONS: Record<string, string> = {
@@ -26,13 +25,6 @@ export const VERDICT: Record<CheckStatus, { tone: "ok" | "warn" | "danger"; labe
   warn: { tone: "warn", label: "Check" },
   fail: { tone: "danger", label: "Not ready" },
 };
-
-/** What a job was, in one line. */
-export function jobTitle(j: Pick<JobDto, "intent" | "origin" | "kind">): string {
-  const amount = j.intent && j.intent.amountIn !== "0" ? ` · ${formatTokenAmount(fromAmount(j.intent.amountIn), 6)} USDC` : "";
-  if (j.kind === "attack" || j.origin === "redteam") return `Attack${amount}`;
-  return `${j.origin === "rebalancer" ? "Auto rebalance" : "Rebalance"}${amount}`;
-}
 
 /** 892857142 -> "893M": a swap count can be huge on a quiet testnet. */
 export const compactCount = (n: number): string => new Intl.NumberFormat("en-US", { notation: "compact", maximumFractionDigits: 1 }).format(n);

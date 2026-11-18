@@ -1,5 +1,5 @@
 import { JOB_TERMINAL_STATUSES, type CreateAttackRequest } from "@agentshield/shared";
-import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { applyServerEvent } from "./cache";
 import {
@@ -175,16 +175,16 @@ export function useAdminOverview(enabled: boolean) {
   });
 }
 
-/** Admin jobs page size. */
-export const ADMIN_JOBS_PAGE = 20;
+/** Admin jobs page size: one screen of rows, the pager does the rest. */
+export const ADMIN_JOBS_PAGE = 10;
 
-/** GET /admin/jobs?filter=: every vault's jobs, newest first, a page at a time. */
-export function useAdminJobs(filter: AdminJobFilter, enabled: boolean) {
-  return useInfiniteQuery({
-    queryKey: queryKeys.adminJobs(filter),
-    queryFn: ({ signal, pageParam }) => getAdminJobs(filter, { limit: ADMIN_JOBS_PAGE, cursor: pageParam }, signal),
-    initialPageParam: undefined as string | undefined,
-    getNextPageParam: (last) => last.nextCursor ?? undefined,
+/** GET /admin/jobs?filter=&cursor=: one page of every vault's jobs, newest first. The previous page stays on screen while the next loads. */
+export function useAdminJobs(filter: AdminJobFilter, cursor: string | undefined, enabled: boolean) {
+  return useQuery({
+    queryKey: [...queryKeys.adminJobs(filter), cursor ?? "first"],
+    queryFn: ({ signal }) => getAdminJobs(filter, { limit: ADMIN_JOBS_PAGE, cursor }, signal),
+    placeholderData: keepPreviousData,
+    refetchInterval: enabled && !cursor ? ADMIN_POLL_MS : false,
     enabled,
   });
 }

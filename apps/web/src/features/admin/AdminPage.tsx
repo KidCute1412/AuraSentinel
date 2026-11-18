@@ -3,7 +3,6 @@ import { Link } from "react-router-dom";
 import { ArrowUpRight, CheckCircle2, KeyRound, Pause, Play, RefreshCw, TriangleAlert, XOctagon, Zap } from "lucide-react";
 import { fromAmount, type CheckStatus, type PreflightCheck, type RebalancerStatusDto } from "@agentshield/shared";
 import {
-  ADMIN_JOBS_PAGE,
   API_BASE,
   API_V1,
   ApiError,
@@ -29,9 +28,10 @@ import { primaryCta } from "@/shared/ui/cta";
 import { Reveal } from "@/shared/ui/Reveal";
 import { Skeleton } from "@/shared/ui/Skeleton";
 import { SnowtraceLink } from "@/shared/ui/SnowtraceLink";
+import { JobList } from "@/shared/ui/JobList";
+import { Pager } from "@/shared/ui/Pager";
 import { Stamp } from "@/shared/ui/Stamp";
-import { StatusBadge } from "@/shared/ui/StatusBadge";
-import { compactCount, jobTitle, seconds, skipReason, VERDICT } from "./labels";
+import { compactCount, seconds, skipReason, VERDICT } from "./labels";
 
 const UNKNOWN = "—";
 const secondaryBtn =
@@ -549,16 +549,23 @@ function Activity() {
 
 function RecentJobs() {
   const [filter, setFilter] = useState<AdminJobFilter>("all");
-  const jobs = useAdminJobs(filter, true);
+  // Cursors of the pages walked so far: the last one is the page on screen (undefined = newest).
+  const [cursors, setCursors] = useState<(string | undefined)[]>([undefined]);
+  const cursor = cursors.at(-1);
+  const jobs = useAdminJobs(filter, cursor, true);
   const tabs = useRef<(HTMLButtonElement | null)[]>([]);
-  const items = jobs.data?.pages.flatMap((p) => p.items) ?? [];
+  const items = jobs.data?.items ?? [];
 
+  const pick = (f: AdminJobFilter) => {
+    setFilter(f);
+    setCursors([undefined]);
+  };
   // Roving focus: arrow keys move between the filters.
   const onKey = (e: KeyboardEvent<HTMLButtonElement>, i: number) => {
     if (e.key !== "ArrowRight" && e.key !== "ArrowLeft") return;
     e.preventDefault();
     const next = (i + (e.key === "ArrowRight" ? 1 : FILTERS.length - 1)) % FILTERS.length;
-    setFilter(FILTERS[next]!.id);
+    pick(FILTERS[next]!.id);
     tabs.current[next]?.focus();
   };
 
@@ -575,7 +582,7 @@ function RecentJobs() {
             aria-selected={filter === f.id}
             aria-controls="admin-jobs-panel"
             tabIndex={filter === f.id ? 0 : -1}
-            onClick={() => setFilter(f.id)}
+            onClick={() => pick(f.id)}
             onKeyDown={(e) => onKey(e, i)}
             className={cn("min-h-11 font-bold", filter === f.id ? "bg-ink text-bg" : "text-soft hover:bg-hover hover:text-fg")}
           >
@@ -583,54 +590,34 @@ function RecentJobs() {
           </button>
         ))}
       </div>
-      <div role="tabpanel" id="admin-jobs-panel" aria-labelledby={`admin-jobs-tab-${filter}`}>
+      <div role="tabpanel" id="admin-jobs-panel" aria-labelledby={`admin-jobs-tab-${filter}`} aria-busy={jobs.isFetching}>
         {jobs.isPending ? (
           <div className="space-y-2 p-5">
             {[0, 1, 2].map((i) => (
               <Skeleton key={i} className="h-12 w-full" />
             ))}
           </div>
-        ) : jobs.isError ? (
+        ) : jobs.isError && !jobs.data ? (
           <p role="alert" className="px-5 py-5 text-soft">
             {errorText(jobs.error, "Could not load the jobs")}
           </p>
         ) : items.length === 0 ? (
           <p className="px-5 py-5 text-soft">{filter === "all" ? "No job yet." : filter === "blocked" ? "Nothing blocked yet." : "No failed job. Good."}</p>
         ) : (
-          <ul className="divide-y divide-line">
-            {items.map((j) => (
-              <li
-                key={j.id}
-                data-aura={j.status === "rejected" || j.status === "reverted" ? "blocked" : undefined}
-                className="grid gap-x-4 gap-y-1 px-5 py-3 sm:grid-cols-[12rem_minmax(0,1fr)]"
-              >
-                <span className="flex flex-wrap items-center gap-2 sm:block">
-                  <time dateTime={j.createdAt} title={new Date(j.createdAt).toLocaleString("en-US")} className="mono-label block">
-                    {timeAgo(j.createdAt)}
-                  </time>
-                  <StatusBadge job={j.status} className="whitespace-nowrap sm:-ml-2 sm:mt-1" />
-                </span>
-                <span className="min-w-0">
-                  <Link to={`/vaults/${j.vault}/activity/${j.id}`} className="inline-flex items-center gap-1 font-bold hover:text-accent-text hover:underline">
-                    {jobTitle(j)}
-                    <ArrowUpRight aria-hidden className="size-4" />
-                  </Link>
-                  <span className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-soft">
-                    <AddressChip address={j.vault} />
-                    {j.reasonCode && <code className="break-all font-mono text-xs">{j.reasonCode}</code>}
-                  </span>
-                </span>
-              </li>
-            ))}
-          </ul>
-        )}
-        {jobs.hasNextPage && (
-          <div className="border-t border-line px-5 pt-4">
-            <button type="button" onClick={() => void jobs.fetchNextPage()} disabled={jobs.isFetchingNextPage} className={secondaryBtn}>
-              {jobs.isFetchingNextPage ? "Loading…" : `Load ${ADMIN_JOBS_PAGE} more`}
-            </button>
+          <div className={cn(jobs.isPlaceholderData && "opacity-60")}>
+            <JobList jobs={items} href={(j) => `/vaults/${j.vault}/activity/${j.id}`} showVault />
           </div>
         )}
+        <div className="px-5 pt-4 empty:hidden">
+          <Pager
+            page={cursors.length}
+            hasNewer={cursors.length > 1}
+            hasOlder={!!jobs.data?.nextCursor && !jobs.isPlaceholderData}
+            onNewer={() => setCursors((c) => c.slice(0, -1))}
+            onOlder={() => jobs.data?.nextCursor && setCursors((c) => [...c, jobs.data!.nextCursor!])}
+            busy={jobs.isFetching}
+          />
+        </div>
       </div>
     </Chamfer>
   );

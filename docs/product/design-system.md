@@ -86,6 +86,7 @@ Không dùng màu ngoài bảng này. Không gradient pastel; gradient duy nhấ
 - **Kill-Switch:** nút danger cố định, nằm riêng một khối, không gần nút khác để tránh bấm nhầm; sau khi bấm hiện finality (~1,5 s) mono.
 - **Vault before/after:** hai cột bằng nhau, số mono tabular, delta `ok`/`danger`, địa chỉ rút gọn mono + link Snowtrace.
 - **Activity / job timeline:** hàng timeline: cột trái mono nhãn thời gian/trạng thái, phải tiêu đề đậm; tx revert có link Snowtrace.
+- **Lịch sử job (mọi danh sách):** không danh sách nào dài vô hạn. Widget trên dashboard (`JobHistory`) chỉ hiện 4–6 job mới nhất + link "View all N" sang trang Activity. Danh sách đầy đủ (Activity, `/admin`) dùng `shared/ui/JobList` + `shared/ui/Pager`: 10 job một trang, nút `Newer` / `Older`, không infinite scroll, không "Load more" cộng dồn; job gom theo ngày (`Today`, `Yesterday`, `Mon, Nov 16`, kèm số job), mỗi job **một dòng** gọn: tiêu đề đậm, giờ `HH:MM:SS` mono (+ vault nếu danh sách trộn nhiều vault), mã lý do chặn, badge trạng thái bên phải; cả dòng là link sang trang job. Lọc bằng chip/tab đặt trên danh sách, đổi bộ lọc thì về trang 1.
 - **Red-team buttons:** nút secondary, kết quả hiện flash viền 200ms (`ok` blocked đúng / `danger` lọt).
 - **Giọng văn trạng thái:** kiểu báo cáo an ninh, mono uppercase: `STATUS: PROTECTED`, `LAST ATTACK BLOCKED · 2s ago`, `KILL-SWITCH ARMED`.
 - Số tiền: luôn base units → format bằng helper shared (bigint), hiển thị mono; không float.
