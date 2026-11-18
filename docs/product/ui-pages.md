@@ -308,7 +308,7 @@ Chỉ đọc; không cần ví.
 
 ## 7. Drawer Admin (D16)
 
-Không phải route riêng. Nút "Admin" nằm ở header chung (`shared/shell/Header.tsx`), chỉ hiện khi dữ liệu live, đã đăng nhập và `GET /auth/session` trả role `admin`; mở drawer ở mọi trang: trạng thái rebalancer (`Running` / `Demo mode on`, chu kỳ, lần chạy cuối), `Pause/Resume` (Demo mode; nút bấm tay vẫn chạy), địa chỉ agent + Snowtrace, số dư gas (cảnh báo dưới `AGENT_MIN_GAS_WEI`), link Bull Board, `/api/health`. Mở drawer thì tự làm mới 10s/lần; mất quyền (401/403) thì báo phiên không còn là admin. Lý do: admin cần bật Demo mode ngay lúc đứng ở dashboard khi trình diễn.
+Không phải route riêng. Nút "Admin" nằm ở header chung (`shared/shell/AdminEntry.tsx`), chỉ hiện trên `/demo` và `/vaults/*` khi dữ liệu live và `GET /auth/session` trả role `admin`; drawer có: trạng thái rebalancer (`Running` / `Demo mode on`, chu kỳ, lần chạy cuối), `Pause/Resume` (Demo mode; nút bấm tay vẫn chạy), địa chỉ agent + Snowtrace, số dư gas (cảnh báo dưới `AGENT_MIN_GAS_WEI`), link Bull Board, `/api/health`. Mở drawer thì tự làm mới 10s/lần; mất quyền (401/403) thì báo phiên không còn là admin. Lý do: admin cần bật Demo mode ngay lúc đứng ở dashboard khi trình diễn.
 
 ---
 

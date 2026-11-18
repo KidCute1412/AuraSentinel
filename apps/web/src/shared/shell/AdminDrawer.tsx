@@ -13,25 +13,47 @@ import { SnowtraceLink } from "@/shared/ui/SnowtraceLink";
 /** Session role from the server (`Role` in @agentshield/shared). */
 export type SessionRole = Role;
 
+const FOCUSABLE = 'a[href], button:not([disabled]), [tabindex]:not([tabindex="-1"])';
+
 /**
  * Admin drawer (D16: no /admin route). Renders nothing unless the session role is `admin`.
  * The role must come from the server session (A9, SIWE + allowlist); there is no client-side way to become admin.
  * Demo mode and the agent's gas come from GET/PATCH /admin/rebalancer (api.md #15, #16), fetched only while open.
+ * The panel is rendered into document.body: the header animates with a transform, and a `fixed` child of a
+ * transformed ancestor is positioned against that ancestor instead of the viewport.
  */
 export function AdminDrawer({ role }: { role: SessionRole | null | undefined }) {
   const [open, setOpen] = useState(false);
   const titleId = useId();
   const triggerRef = useRef<HTMLButtonElement>(null);
   const closeRef = useRef<HTMLButtonElement>(null);
+  const panelRef = useRef<HTMLElement>(null);
 
   useEffect(() => {
     if (!open) return;
     closeRef.current?.focus();
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setOpen(false);
+      if (e.key === "Escape") {
+        e.preventDefault();
+        setOpen(false);
+        triggerRef.current?.focus();
+      } else if (e.key === "Tab" && panelRef.current) {
+        // Modal: Tab and Shift+Tab cycle inside the panel.
+        const items = [...panelRef.current.querySelectorAll<HTMLElement>(FOCUSABLE)];
+        const first = items[0];
+        const last = items[items.length - 1];
+        if (!first || !last) return;
+        if (e.shiftKey && document.activeElement === first) {
+          e.preventDefault();
+          last.focus();
+        } else if (!e.shiftKey && document.activeElement === last) {
+          e.preventDefault();
+          first.focus();
+        }
+      }
     };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
   }, [open]);
 
   if (role !== "admin") return null;
@@ -50,43 +72,44 @@ export function AdminDrawer({ role }: { role: SessionRole | null | undefined }) 
         aria-haspopup="dialog"
         aria-expanded={open}
         aria-label="Admin panel"
-        className="inline-flex h-10 min-w-10 items-center justify-center gap-2 rounded-none border border-line-strong px-2.5 font-mono text-xs font-bold uppercase tracking-widest hover:bg-hover sm:px-3"
+        className="inline-flex h-10 min-w-10 items-center justify-center gap-2 rounded-none border border-line-strong px-2.5 font-mono text-xs font-bold uppercase tracking-widest text-fg hover:bg-hover sm:px-3"
       >
         <Settings2 aria-hidden className="size-4" />
-        <span className="hidden sm:inline">Admin</span>
+        <span aria-hidden className="hidden sm:inline">Admin</span>
       </button>
-      {/* Portaled: the sticky header keeps a transform from its entry animation, which would trap a fixed overlay inside it. */}
-      {open && createPortal(
-        <div className="fixed inset-0 z-50">
-          <div aria-hidden className="absolute inset-0 bg-bg/80" onClick={close} />
-          <aside
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby={titleId}
-            className="absolute right-0 top-0 flex h-full w-full max-w-sm flex-col border-l border-line-strong bg-surface shadow-hard"
-          >
-            <div className="flex items-center justify-between border-b border-line px-5 py-4">
-              <h2 id={titleId} className="text-xl font-extrabold">Admin panel</h2>
-              <button ref={closeRef} type="button" onClick={close} aria-label="Close admin panel" className="inline-flex size-10 items-center justify-center hover:bg-hover">
-                <X aria-hidden className="size-5" />
-              </button>
-            </div>
-            <div className="flex-1 space-y-6 overflow-y-auto px-5 py-5">
-              <RebalancerControls />
-              <section className="space-y-2">
-                <span className="mono-label">Tools</span>
-                <a href={`${API_V1}/admin/queues`} target="_blank" rel="noreferrer" className="flex items-center gap-1 font-bold text-accent-text hover:underline">
-                  Bull Board <ArrowUpRight aria-hidden className="size-4" />
-                </a>
-                <a href={`${API_BASE}/health`} target="_blank" rel="noreferrer" className="flex items-center gap-1 font-bold text-accent-text hover:underline">
-                  Health check <ArrowUpRight aria-hidden className="size-4" />
-                </a>
-              </section>
-            </div>
-          </aside>
-        </div>,
-        document.body,
-      )}
+      {open &&
+        createPortal(
+          <div className="fixed inset-0 z-[65]">
+            <div aria-hidden className="absolute inset-0 bg-bg/80" onClick={close} />
+            <aside
+              ref={panelRef}
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby={titleId}
+              className="absolute right-0 top-0 flex h-full w-full max-w-sm flex-col border-l border-line-strong bg-surface shadow-hard animate-feed-in"
+            >
+              <div className="flex items-center justify-between border-b border-line px-5 py-4">
+                <h2 id={titleId} className="text-xl font-extrabold">Admin panel</h2>
+                <button ref={closeRef} type="button" onClick={close} aria-label="Close admin panel" className="inline-flex size-10 items-center justify-center hover:bg-hover">
+                  <X aria-hidden className="size-5" />
+                </button>
+              </div>
+              <div className="flex-1 space-y-6 overflow-y-auto px-5 py-5">
+                <RebalancerControls />
+                <section className="space-y-2">
+                  <span className="mono-label">Tools</span>
+                  <a href={`${API_V1}/admin/queues`} target="_blank" rel="noreferrer" className="flex min-h-10 items-center gap-1 font-bold text-accent-text hover:underline">
+                    Bull Board <ArrowUpRight aria-hidden className="size-4" />
+                  </a>
+                  <a href={`${API_BASE}/health`} target="_blank" rel="noreferrer" className="flex min-h-10 items-center gap-1 font-bold text-accent-text hover:underline">
+                    Health check <ArrowUpRight aria-hidden className="size-4" />
+                  </a>
+                </section>
+              </div>
+            </aside>
+          </div>,
+          document.body,
+        )}
     </>
   );
 }
@@ -123,7 +146,9 @@ function RebalancerControls() {
               <span className="font-mono text-sm text-soft">every {Math.round(s.intervalMs / 1000)}s</span>
             </div>
             <p className="mt-2 text-sm text-soft">
-              {s.paused ? "The agent makes no trades on its own. Moves pressed by hand still run." : "The agent rebalances every vault on its own."}
+              {s.paused
+                ? "The rebalancer creates no jobs, so the stage vault only moves when you press a button."
+                : "The rebalancer is trading on every enabled vault. Pause it before presenting."}
             </p>
             <p className="mt-1 font-mono text-xs text-muted">
               Last run:{" "}
@@ -155,7 +180,7 @@ function RebalancerControls() {
             ) : (
               <p className="mt-2 text-sm text-soft">Unknown: the demo vault's module could not be read.</p>
             )}
-            <p className="mt-2 flex items-center gap-2 font-mono text-sm tabular">
+            <p className="mt-2 flex flex-wrap items-center gap-2 font-mono text-sm tabular">
               {formatTokenAmount(BigInt(s.agent.avaxBalance), 18, 4)} AVAX
               {s.agent.lowGas && (
                 <span className="inline-flex items-center gap-1 font-bold text-warn">

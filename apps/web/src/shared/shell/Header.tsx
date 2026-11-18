@@ -5,10 +5,8 @@ import { toggleShades, touch } from "@/shared/mascot/mascotStore";
 import { cn } from "@/shared/lib/cn";
 import { useSession } from "@/shared/session/sessionStore";
 import { DropdownMenu, menuItemClass } from "@/shared/ui/DropdownMenu";
-import { isLive } from "@/shared/api/dataSource";
-import { useSession as useServerSession } from "@/shared/api";
 import { AccountMenu } from "./AccountMenu";
-import { AdminDrawer } from "./AdminDrawer";
+import { AdminEntry } from "./AdminEntry";
 import { ThemeToggle } from "@/shared/theme/ThemeToggle";
 
 /** `mobileOnly` rows duplicate a link the bar already shows from the `sm` breakpoint up. */
@@ -18,12 +16,6 @@ const NAV: { to: string; label: string; icon: LucideIcon; mobileOnly?: boolean }
   { to: "/proof", label: "Proof", icon: FileCheck2 },
   { to: "/about", label: "About", icon: Info },
 ];
-
-/** The admin drawer, for a wallet the server lists in ADMIN_ADDRESSES (role from the SIWE session, never the client). */
-function AdminEntry() {
-  const { data } = useServerSession();
-  return <AdminDrawer role={data?.role} />;
-}
 
 export function Header() {
   const { pathname } = useLocation();
@@ -43,9 +35,9 @@ export function Header() {
     <div className="sticky top-0 z-40 border-b border-line bg-bg animate-hero-drop">
       {/* Left = where to go, right = settings then identity (wallet outermost). On phones the menu button moves to the far right. */}
       <nav aria-label="Main" className="mx-auto flex h-14 max-w-6xl items-center gap-2 px-4 sm:gap-3 sm:px-6">
-        <Link to="/" onClick={onLogo} aria-label="AuraSentinel home" className="order-1 inline-flex shrink-0 items-center gap-2.5 font-mono text-sm font-bold uppercase tracking-widest sm:mr-3">
+        <Link to="/" onClick={onLogo} aria-label="AgentShield home" className="order-1 inline-flex shrink-0 items-center gap-2.5 font-mono text-sm font-bold uppercase tracking-widest sm:mr-3">
           <img src="/favicon.svg" alt="" aria-hidden="true" width={28} height={28} className="h-7 w-7 shrink-0" />
-          <span className="hidden min-[430px]:inline">AuraSentinel</span>
+          <span className="hidden min-[430px]:inline">AgentShield</span>
         </Link>
 
         <div className="order-3 flex items-center gap-1 sm:order-2">
@@ -82,7 +74,7 @@ export function Header() {
         </div>
 
         <div className="order-2 ml-auto flex items-center gap-2 sm:order-3 sm:gap-3">
-          {isLive && wallet && <AdminEntry />}
+          <AdminEntry />
           <ThemeToggle />
           {wallet ? <AccountMenu wallet={wallet} /> : <Link to="/signin" className="inline-flex h-10 items-center px-2 font-bold text-fg hover:text-accent-text">Sign in</Link>}
         </div>
