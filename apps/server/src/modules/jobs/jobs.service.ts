@@ -1,4 +1,4 @@
-import type { Explanation, JobDetailDto, JobDto, JobListDto } from '@agentshield/shared';
+import type { CheckRow, Explanation, JobDetailDto, JobDto, JobListDto } from '@agentshield/shared';
 import { Injectable } from '@nestjs/common';
 import { EventBus } from '../../core/redis/event-bus';
 import type { JobStatus } from '../../core/types';
@@ -37,9 +37,9 @@ export class JobsService {
     return dto;
   }
 
-  /** One Shield verdict for GET /jobs/{id}.audit (precheck, simulation, invariant, onchain). */
-  recordShield(jobId: string, shield: Shield, result: 'pass' | 'fail', reason: string | null = null) {
-    return this.repo.appendAudit(jobId, shield, { result, reason });
+  /** One Shield verdict for GET /jobs/{id}.audit, with the rule table behind it (shown on the job page as evidence). */
+  recordShield(jobId: string, shield: Shield, result: 'pass' | 'fail', reason: string | null = null, checks: readonly CheckRow[] = []) {
+    return this.repo.appendAudit(jobId, shield, { result, reason, checks });
   }
 
   /**

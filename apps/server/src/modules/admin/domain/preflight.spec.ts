@@ -9,7 +9,7 @@ const AVAX = (milli: number) => BigInt(milli) * 10n ** 15n;
 /** Everything ready for the stage. */
 const ready = (): PreflightInput => ({
   now: NOW,
-  services: { ok: true, value: { postgres: true, redis: true, rpc: true, worker: true } },
+  services: { ok: true, value: { postgres: true, redis: true, rpc: true, worker: true, anvil: true } },
   gas: { ok: true, value: { balance: AVAX(50), maxFeePerGas: 160n } },
   minGasWei: AVAX(20),
   gasUsedPerSwap: 350_000n,
@@ -35,7 +35,7 @@ describe('evaluatePreflight', () => {
   it('takes the worst check as the overall status', () => {
     const warn = { ...ready(), paused: { ok: true, value: false } } as PreflightInput;
     expect(evaluatePreflight(warn).status).toBe('warn');
-    const fail = { ...warn, services: { ok: true, value: { postgres: true, redis: true, rpc: true, worker: false } } } as PreflightInput;
+    const fail = { ...warn, services: { ok: true, value: { postgres: true, redis: true, rpc: true, worker: false, anvil: true } } } as PreflightInput;
     const r = evaluatePreflight(fail);
     expect(r.status).toBe('fail');
     expect(byId(fail, 'services').detail).toBe('Down: worker.');

@@ -227,11 +227,17 @@ JobDto + `precheck`, `sim`, `audit`:
   "sim": { "ok": true, "deltaSafeTokenOut": "900000000000000000", "deltaSafeTokenIn": "-200000000",
            "attackerBalance": "0", "allowanceAfter": "0" },
   "audit": [
-    { "shield": "precheck", "result": "pass", "reason": null, "ts": "…" },
+    { "shield": "precheck", "result": "fail", "reason": "ExceedsPerTxCap", "ts": "…",
+      "checks": [
+        { "id": "per-trade-cap", "pass": false, "reasonCode": "ExceedsPerTxCap",
+          "actual": { "type": "amount", "amount": "2000000000", "token": "0xUSDC…", "symbol": "USDC", "decimals": 6 },
+          "limit":  { "type": "amount", "amount": "500000000",  "token": "0xUSDC…", "symbol": "USDC", "decimals": 6 } } ] },
     { "shield": "simulation", "result": "pass", "reason": null, "ts": "…" },
     { "shield": "invariant", "result": "pass", "reason": null, "ts": "…" },
     { "shield": "onchain", "result": "pass", "reason": null, "ts": "…" } ] }
 ```
+`audit[].checks`: bảng luật đằng sau kết quả của từng lớp, theo đúng thứ tự đã kiểm (`auditor/domain/checks.ts`; verdict của precheck và invariants được suy ra từ chính bảng này nên không thể lệch). Mỗi dòng: `id`, `pass`, `reasonCode` (null khi pass), `actual` và `limit` là `CheckValue` có kiểu (`amount` base units + token/symbol/decimals, có thể âm cho delta mô phỏng · `address` · `bool` · `time` unix · `text`). Job ghi trước khi có bảng thì `checks: []`.
+
 `JobDto.kind` ∈ `swap` · `attack`; `origin` ∈ `rebalancer` · `manual` · `redteam`.
 `id` là UUID duy nhất toàn hệ thống nên không cần lồng dưới `/vaults/{safe}`; `JobDto.vault` cho biết vault.
 

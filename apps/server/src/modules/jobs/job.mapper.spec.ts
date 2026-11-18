@@ -69,4 +69,16 @@ describe('toJobDetail', () => {
   it('treats a missing result as fail (fail closed)', () => {
     expect(toAuditEntries([audit('invariant', null)])[0]!.result).toBe('fail');
   });
+
+  it('passes the rule table through; old rows and malformed tables give an empty one', () => {
+    const checks = [{ id: 'per-trade-cap', pass: false, reasonCode: 'ExceedsPerTxCap', actual: { type: 'text', value: '2000' }, limit: null }];
+    const [withTable, old, broken] = toAuditEntries([
+      audit('precheck', { result: 'fail', reason: 'ExceedsPerTxCap', checks }, 1),
+      audit('simulation', { result: 'pass', reason: null }, 2),
+      audit('invariant', { result: 'pass', reason: null, checks: [{ id: 'x' }] }, 3),
+    ]);
+    expect(withTable!.checks).toEqual(checks);
+    expect(old!.checks).toEqual([]);
+    expect(broken!.checks).toEqual([]);
+  });
 });

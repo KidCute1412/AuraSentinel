@@ -5,6 +5,7 @@ import { ENV } from '../../core/config/config.module';
 import type { Env } from '../../core/config/env.schema';
 import { QUEUES } from '../../core/queue/queue.constants';
 import { TX_SENDER, type TxResult, type TxSenderPort } from '../execution/tx-sender.port';
+import { onchainChecks } from '../auditor/domain/checks';
 import { JobsService } from '../jobs/jobs.service';
 import { VaultRegistryService } from '../vault/vault-registry.service';
 import { buildOnchainCall } from './onchain-calls';
@@ -65,11 +66,11 @@ export class RedteamProcessor extends WorkerHost {
 
     if (tx.status === 'reverted') {
       const reason = tx.revertReason ?? 'UNKNOWN_REVERT';
-      await this.jobs.recordShield(jobId, 'onchain', 'fail', reason);
+      await this.jobs.recordShield(jobId, 'onchain', 'fail', reason, onchainChecks({ ...tx, revertReason: reason }));
       await this.jobs.transition(jobId, 'reverted', { txHash: tx.txHash, reasonCode: reason });
     } else {
       this.log.error(`SECURITY: attack ${scenario} (${jobId}) was NOT reverted on-chain: ${tx.txHash}`);
-      await this.jobs.recordShield(jobId, 'onchain', 'pass');
+      await this.jobs.recordShield(jobId, 'onchain', 'pass', null, onchainChecks(tx));
       await this.jobs.transition(jobId, 'confirmed', { txHash: tx.txHash });
     }
     return { txHash: tx.txHash, status: tx.status, ...(tx.revertReason ? { revertReason: tx.revertReason } : {}) };

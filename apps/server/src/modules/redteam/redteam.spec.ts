@@ -197,7 +197,12 @@ describe('RedteamProcessor', () => {
     expect(call?.gas).toBe(ATTACK_GAS);
     expect(jobs.transition).toHaveBeenNthCalledWith(1, JOB_ID, 'broadcasting');
     expect(jobs.transition).toHaveBeenLastCalledWith(JOB_ID, 'reverted', { txHash: TX, reasonCode: 'ExceedsPerTxCap' });
-    expect(jobs.recordShield).toHaveBeenCalledWith(JOB_ID, 'onchain', 'fail', 'ExceedsPerTxCap');
+    // The rule table the job page shows: the tx, its block, and what the chain answered.
+    expect(jobs.recordShield).toHaveBeenCalledWith(JOB_ID, 'onchain', 'fail', 'ExceedsPerTxCap', [
+      { id: 'tx-sent', pass: true, reasonCode: null, actual: { type: 'text', value: TX }, limit: null },
+      { id: 'tx-block', pass: true, reasonCode: null, actual: { type: 'text', value: '1' }, limit: null },
+      { id: 'tx-result', pass: false, reasonCode: 'ExceedsPerTxCap', actual: { type: 'text', value: 'ExceedsPerTxCap' }, limit: null },
+    ]);
   });
 
   it('flags an attack that was not reverted as confirmed (security alarm), never hides it', async () => {

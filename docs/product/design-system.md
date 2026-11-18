@@ -82,6 +82,11 @@ Không dùng màu ngoài bảng này. Không gradient pastel; gradient duy nhấ
 
 ## 4. Pattern riêng AgentShield
 - **Verdict card:** APPROVE = viền/nhãn `ok`, tiêu đề "An toàn, tiêu 13,3% hạn mức ngày"; BLOCK = viền `danger`, nền `tint-pink`, lý do ngắn gọn. Badge nguồn giải thích `LLM` / `TEMPLATE` (mono, kem).
+- **Shield pipeline** (`features/vault/components/ShieldPipeline.tsx`, trong Verdict card, Guided và trang job): cho người xem thấy **vì sao** chứ không chỉ pass/block.
+  - Đầu tiên là chip lệnh (`Attack · 2,000 USDC`), rồi thanh ray 4 đoạn (một đoạn mỗi cổng): xanh = đã qua, đỏ = cổng chặn, xám = chưa tới.
+  - Dưới ray là 4 ô cổng (Pre-check, Simulation, Invariants thuộc Shield 1 · our server; On-chain policy thuộc Shield 2 · the contract). Mỗi ô ghi icon + chữ trạng thái: `Passed`, `Stopped here`, `Not reached`, `Checking…`, `Waiting`, `Bypassed` (đòn đi thẳng lên chain, viền nét đứt).
+  - Các ô là tab (phím mũi tên); mặc định chọn cổng chặn, nếu pass thì cổng cuối. Bảng của cổng: mỗi luật một dòng `PASS`/`FAIL`, nhãn dễ hiểu, giá trị của lệnh so với giới hạn (`2,000 USDC ≤ 500 USDC`); dòng fail nền `tint-pink` kèm mã lý do mono. Cap ngày có thanh nhỏ "đã tiêu + lệnh này / cap".
+  - Số liệu lấy từ `audit[].checks` server lưu lúc chấm (không tính lại ở web). Job cũ không có bảng thì hiện câu một dòng, không bịa số. Trang job dùng `variant="full"`: 4 bảng xếp dọc kèm giờ.
 - **Policy panel:** form input vuông, `BudgetBar` hôm nay, nút "Lưu policy" primary (ký bằng ví owner).
 - **Kill-Switch:** nút danger cố định, nằm riêng một khối, không gần nút khác để tránh bấm nhầm; sau khi bấm hiện finality (~1,5 s) mono.
 - **Vault before/after:** hai cột bằng nhau, số mono tabular, delta `ok`/`danger`, địa chỉ rút gọn mono + link Snowtrace.

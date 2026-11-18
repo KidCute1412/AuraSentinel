@@ -128,8 +128,9 @@ export class AdminService {
   // ---------- Preflight ----------
 
   async preflight(now = new Date()): Promise<PreflightDto> {
-    const [services, gas, demo, indexer, paused, proof, recent] = await Promise.all([
+    const [services, anvil, gas, demo, indexer, paused, proof, recent] = await Promise.all([
       read(this.health.check()),
+      read(anvilUp(this.env.ANVIL_RPC_URL)),
       read(this.gas()),
       this.env.SAFE_ADDRESS ? read(this.demoVault(this.env.SAFE_ADDRESS)) : Promise.resolve(null),
       read(this.indexerLag()),
@@ -147,6 +148,7 @@ export class AdminService {
               redis: services.value.redis === 'up',
               rpc: services.value.rpc === 'up',
               worker: services.value.worker === 'up',
+              anvil: anvil.ok && anvil.value,
             },
           }
         : services,
@@ -234,6 +236,22 @@ export class AdminService {
   /** Every vault's jobs, newest first. */
   jobsList(filter: JobFilter, limit: number, cursor?: string): Promise<JobListDto> {
     return this.jobs.listByVault({ limit, cursor, status: JOB_FILTERS[filter] });
+  }
+}
+
+/** The simulation fork answers eth_blockNumber within 2 s. */
+export async function anvilUp(url: string): Promise<boolean> {
+  try {
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'eth_blockNumber', params: [] }),
+      signal: AbortSignal.timeout(2_000),
+    });
+    const body = (await res.json()) as { result?: unknown };
+    return res.ok && typeof body.result === 'string';
+  } catch {
+    return false;
   }
 }
 

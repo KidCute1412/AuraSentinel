@@ -89,8 +89,8 @@ describe("stageViews", () => {
   it("orders the four stages, marks the failing one and the ones that never ran", () => {
     const ts = "2026-11-09T10:00:01.000Z";
     const stages = stageViews([
-      { shield: "precheck", result: "pass", reason: null, ts },
-      { shield: "simulation", result: "fail", reason: "ExceedsDailyCap", ts },
+      { shield: "precheck", result: "pass", reason: null, ts, checks: [] },
+      { shield: "simulation", result: "fail", reason: "ExceedsDailyCap", ts, checks: [] },
     ]);
     expect(stages.map((s) => [s.label, s.result, s.reason])).toEqual([
       ["Shield 1 · precheck", "pass", null],

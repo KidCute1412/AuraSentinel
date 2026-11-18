@@ -1,4 +1,4 @@
-import { ArrowLeft, ArrowRight, Check, ChevronDown, Lock, Play, ShieldCheck } from "lucide-react";
+import { ArrowLeft, ArrowRight, Check, Lock, Play, ShieldCheck } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { ApiError } from "@/shared/api/client";
@@ -21,7 +21,7 @@ import { Stamp } from "@/shared/ui/Stamp";
 import type { SentTx } from "@/shared/ui/TxButton";
 import { BalancesPanel } from "../components/BalancesPanel";
 import { BudgetBar } from "../components/BudgetBar";
-import { JobTimeline } from "../components/JobTimeline";
+import { ShieldPipeline } from "../components/ShieldPipeline";
 import { KillSwitch } from "../components/KillSwitch";
 import { useOwnerControl } from "../hooks/useOwnerControl";
 import { tourProgress } from "../lib/tour";
@@ -63,15 +63,14 @@ function StepRail({ current, done, onPick }: { current: number; done: ReadonlySe
 }
 
 /** The verdict of the step's job, in plain words, with every check behind a toggle and the public proof link. */
-function ResultBlock({ result, job }: { result: StepResult; job: Parameters<typeof JobTimeline>[0]["job"] | undefined }) {
-  const [open, setOpen] = useState(false);
+function ResultBlock({ result, job }: { result: StepResult; job: Parameters<typeof ShieldPipeline>[0]["job"] | undefined }) {
   if (result.kind === "idle" || !job) return null;
   if (result.kind === "running") {
     return (
       <div className="border border-line-strong bg-bg p-4">
         <p className="mono-label">Checking it now, step by step</p>
         <div className="mt-3">
-          <JobTimeline job={job} />
+          <ShieldPipeline job={job} />
         </div>
       </div>
     );
@@ -92,18 +91,15 @@ function ResultBlock({ result, job }: { result: StepResult; job: Parameters<type
         <p className="text-lg font-bold leading-tight">{result.headline}</p>
       </div>
       <p className="mt-2 text-soft">{result.detail}</p>
-      <div className="mt-3 flex flex-wrap items-center gap-x-5 gap-y-2">
-        <button type="button" aria-expanded={open} onClick={() => setOpen((v) => !v)} className="inline-flex min-h-10 items-center gap-1 font-mono text-xs font-bold uppercase tracking-wider text-accent-text hover:underline">
-          <ChevronDown aria-hidden className={cn("size-4 transition-transform duration-150", open && "rotate-180")} />
-          {open ? "Hide the checks" : "See every check"}
-        </button>
-        {job.txHash && <SnowtraceLink kind="tx" value={job.txHash}>{job.status === "reverted" ? "See the failed transaction" : "See it on Snowtrace"}</SnowtraceLink>}
-      </div>
-      {open && (
-        <div className="mt-3 border-t border-line pt-3">
-          <JobTimeline job={job} />
-        </div>
+      {job.txHash && (
+        <p className="mt-3">
+          <SnowtraceLink kind="tx" value={job.txHash}>{job.status === "reverted" ? "See the failed transaction" : "See it on Snowtrace"}</SnowtraceLink>
+        </p>
       )}
+      {/* Every check, with the numbers it compared: the point of the demo is to see why. */}
+      <div className="mt-3 border-t border-line pt-3">
+        <ShieldPipeline job={job} />
+      </div>
     </div>
   );
 }

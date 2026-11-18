@@ -1,7 +1,9 @@
 import { fromAmount, fromSignedAmount } from '@agentshield/shared';
-import { Inject, Injectable, Logger, type OnModuleDestroy } from '@nestjs/common';
+import { Inject, Injectable, Logger, Optional, type OnModuleDestroy } from '@nestjs/common';
 import { UnrecoverableError } from 'bullmq';
 import type { Address } from 'viem';
+import { ENV } from '../../core/config/config.module';
+import type { Env } from '../../core/config/env.schema';
 import type { Explanation, SimResult, SwapIntent, VaultTarget } from '../../core/types';
 import { TX_SENDER, type TxResult, type TxSenderPort } from '../execution/tx-sender.port';
 import type { ExplainInput } from '../explainer/explainer.port';
@@ -10,8 +12,10 @@ import { JobsService } from '../jobs/jobs.service';
 import { PolicyService, type VaultChainState } from '../policy/policy.service';
 import { SIMULATOR, type SimulatorPort } from '../simulation/simulator.port';
 import { VaultRegistryService } from '../vault/vault-registry.service';
+import { invariantChecks, onchainChecks, precheckChecks, simulationChecks, type TokenInfo } from './domain/checks';
 import { checkInvariants, type SimOutcome } from './domain/invariants';
-import { findLimit, precheck, spentFor } from './domain/precheck';
+import { findLimit, precheck, spentFor, type PrecheckSnapshot } from './domain/precheck';
+import { tokenInfoFor } from './domain/tokens';
 import { bpsToPct, budgetUsedBps, decideVerdict, type SimStep } from './domain/verdict';
 
 export interface AuditRequest {
@@ -60,7 +64,13 @@ export class AuditorService implements OnModuleDestroy {
     private readonly vaults: VaultRegistryService,
     @Inject(SIMULATOR) private readonly simulator: SimulatorPort,
     @Inject(TX_SENDER) private readonly sender: TxSenderPort,
-  ) {}
+    @Optional() @Inject(ENV) env?: Pick<Env, 'TOKEN_A_ADDRESS' | 'TOKEN_B_ADDRESS'>,
+  ) {
+    this.tokens = tokenInfoFor({ tokenA: env?.TOKEN_A_ADDRESS, tokenB: env?.TOKEN_B_ADDRESS });
+  }
+
+  /** Labels the amounts in the rule tables (display only). */
+  private readonly tokens: TokenInfo;
 
   async onModuleDestroy() {
     await Promise.allSettled([...this.pending]);
@@ -96,16 +106,17 @@ export class AuditorService implements OnModuleDestroy {
 
     // (a) precheck on live chain state, read at one block (P1).
     const state = await this.policy.readVaultState(target.module);
-    const pre = precheck(intent, {
+    const snapshot: PrecheckSnapshot = {
       safe: target.safe,
       signer: this.sender.address,
       now: state.now,
       policy: state.policy,
       limits: state.limits,
       spentToday: state.spentToday,
-    });
+    };
+    const pre = precheck(intent, snapshot);
     const facts: Facts = { state, target };
-    await this.jobs.recordShield(jobId, 'precheck', pre.ok ? 'pass' : 'fail', pre.reasons[0] ?? null);
+    await this.jobs.recordShield(jobId, 'precheck', pre.ok ? 'pass' : 'fail', pre.reasons[0] ?? null, precheckChecks(intent, snapshot, this.tokens));
     if (!pre.ok) {
       const verdict = decideVerdict({ precheck: pre });
       await this.jobs.transition(jobId, 'rejected', { precheck: pre, reasonCode: verdict.reasonCode });
@@ -117,12 +128,19 @@ export class AuditorService implements OnModuleDestroy {
     await this.jobs.transition(jobId, 'simulating', { precheck: pre });
     const sim = await this.simulator.simulate(intent, { ...target, agent: this.sender.address });
     const simStep = toSimStep(intent, sim);
-    await this.jobs.recordShield(jobId, 'simulation', sim.ok ? 'pass' : 'fail', sim.ok ? null : (sim.revertReason ?? null));
+    const outcome = sim.ok ? toOutcome(sim) : null;
+    await this.jobs.recordShield(
+      jobId,
+      'simulation',
+      sim.ok ? 'pass' : 'fail',
+      sim.ok ? null : (sim.revertReason ?? null),
+      simulationChecks(intent, outcome ? { ok: true, outcome } : { ok: false, revertReason: sim.revertReason ?? null }, this.tokens),
+    );
 
     // (c) invariants: a sim that did not revert is not automatically safe.
-    if (!simStep.reverted) {
+    if (!simStep.reverted && outcome) {
       const inv = simStep.invariants;
-      await this.jobs.recordShield(jobId, 'invariant', inv.ok ? 'pass' : 'fail', inv.reasons[0] ?? null);
+      await this.jobs.recordShield(jobId, 'invariant', inv.ok ? 'pass' : 'fail', inv.reasons[0] ?? null, invariantChecks(intent, outcome, this.tokens));
     }
 
     const verdict = decideVerdict({ precheck: pre, sim: simStep });
@@ -151,12 +169,12 @@ export class AuditorService implements OnModuleDestroy {
     if (tx.status === 'reverted') {
       // Shield 2 stopped what Shield 1 let through (e.g. Kill-Switch between sim and send).
       const reason = tx.revertReason ?? 'UNKNOWN_REVERT';
-      await this.jobs.recordShield(jobId, 'onchain', 'fail', reason);
+      await this.jobs.recordShield(jobId, 'onchain', 'fail', reason, onchainChecks({ ...tx, revertReason: reason }));
       await this.jobs.transition(jobId, 'reverted', { txHash: tx.txHash, reasonCode: reason });
       this.attachLater(jobId, this.explain('blocked', reason, intent, facts, untrustedText, sim));
       return;
     }
-    await this.jobs.recordShield(jobId, 'onchain', 'pass');
+    await this.jobs.recordShield(jobId, 'onchain', 'pass', null, onchainChecks(tx));
     await this.jobs.transition(jobId, 'confirmed', { txHash: tx.txHash });
     this.attachLater(jobId, approved);
   }
@@ -210,14 +228,17 @@ export class AuditorService implements OnModuleDestroy {
 }
 
 /** Simulator result -> verdict input. Amounts are base-unit strings on the wire (P5). */
-function toSimStep(intent: SwapIntent, sim: SimResult): SimStep {
-  if (!sim.ok) return { reverted: true, revertReason: sim.revertReason ?? null };
-  const outcome: SimOutcome = {
+function toOutcome(sim: SimResult): SimOutcome {
+  return {
     deltaSafeTokenOut: fromSignedAmount(sim.deltaSafeTokenOut),
     deltaSafeTokenIn: fromSignedAmount(sim.deltaSafeTokenIn),
     deltaAttacker: fromAmount(sim.attackerBalance),
     allowanceAfter: fromAmount(sim.allowanceAfter),
   };
-  return { reverted: false, invariants: checkInvariants(intent, outcome) };
+}
+
+function toSimStep(intent: SwapIntent, sim: SimResult): SimStep {
+  if (!sim.ok) return { reverted: true, revertReason: sim.revertReason ?? null };
+  return { reverted: false, invariants: checkInvariants(intent, toOutcome(sim)) };
 }
 

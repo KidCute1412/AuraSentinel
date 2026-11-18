@@ -102,10 +102,10 @@ describe("JobDetail", () => {
       status: "confirmed",
       sim: { ok: true, deltaSafeTokenIn: "-200000000", deltaSafeTokenOut: "9500000000000000000", attackerBalance: "0", allowanceAfter: "0" },
       audit: [
-        { shield: "precheck", result: "pass", reason: null, ts },
-        { shield: "simulation", result: "pass", reason: null, ts },
-        { shield: "invariant", result: "pass", reason: null, ts },
-        { shield: "onchain", result: "pass", reason: null, ts },
+        { shield: "precheck", result: "pass", reason: null, ts, checks: [] },
+        { shield: "simulation", result: "pass", reason: null, ts, checks: [] },
+        { shield: "invariant", result: "pass", reason: null, ts, checks: [] },
+        { shield: "onchain", result: "pass", reason: null, ts, checks: [] },
       ],
     });
     render(<JobDetail detail={detail} isLoading={false} isError={false} tokens={tokens} />);
@@ -119,7 +119,7 @@ describe("JobDetail", () => {
     const detail = jobDetail({
       status: "rejected",
       precheck: { ok: false, reasons: ["ExceedsPerTxCap", "ExceedsDailyCap"] },
-      audit: [{ shield: "precheck", result: "fail", reason: "ExceedsPerTxCap", ts }],
+      audit: [{ shield: "precheck", result: "fail", reason: "ExceedsPerTxCap", ts, checks: [] }],
     });
     render(<JobDetail detail={detail} isLoading={false} isError={false} tokens={tokens} />);
     expect(screen.getByText("Blocked")).toBeInTheDocument();

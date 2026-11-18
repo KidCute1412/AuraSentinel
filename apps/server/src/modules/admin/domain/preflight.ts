@@ -20,7 +20,8 @@ export interface DemoVaultReads {
 
 export interface PreflightInput {
   now: Date;
-  services: Read<{ postgres: boolean; redis: boolean; rpc: boolean; worker: boolean }>;
+  /** anvil: the Fuji fork the simulation step runs on; without it every swap fails at Shield 1 (b). */
+  services: Read<{ postgres: boolean; redis: boolean; rpc: boolean; worker: boolean; anvil: boolean }>;
   /** Agent balance (wei) and the current max fee per gas (wei), null if the fee could not be read. */
   gas: Read<{ balance: bigint; maxFeePerGas: bigint | null }>;
   minGasWei: bigint;
@@ -79,8 +80,14 @@ export function evaluatePreflight(i: PreflightInput): PreflightDto {
     const down = Object.entries(i.services.value).flatMap(([name, up]) => (up ? [] : [name]));
     checks.push(
       down.length === 0
-        ? check('services', 'Services', 'ok', 'Postgres, Redis, RPC and worker are up.')
-        : check('services', 'Services', 'fail', `Down: ${down.join(', ')}.`, 'Restart the stack (start.bat or docker compose) and check /api/health.'),
+        ? check('services', 'Services', 'ok', 'Postgres, Redis, RPC, worker and the Anvil fork are up.')
+        : check(
+            'services',
+            'Services',
+            'fail',
+            `Down: ${down.join(', ')}.${down.includes('anvil') ? ' Without the fork, swaps cannot be simulated and fail.' : ''}`,
+            'Restart the stack (start.bat or docker compose) and check /api/health.',
+          ),
     );
   }
 

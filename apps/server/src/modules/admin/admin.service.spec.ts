@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Env } from '../../core/config/env.schema';
 import { AdminService, median } from './admin.service';
 
@@ -21,6 +21,7 @@ function service(over: { vault?: unknown; indexer?: unknown; rebalance?: unknown
   const rebalance = queue(over.rebalance as Record<string, unknown>);
   const env = {
     SAFE_ADDRESS: SAFE,
+    ANVIL_RPC_URL: 'http://anvil.test:8545',
     POLICY_MODULE_ADDRESS: MODULE,
     TOKEN_A_ADDRESS: USDC,
     AGENT_MIN_GAS_WEI: 20_000_000_000_000_000n,
@@ -69,6 +70,14 @@ function service(over: { vault?: unknown; indexer?: unknown; rebalance?: unknown
   return { svc, rebalance };
 }
 
+/** The Anvil fork answering eth_blockNumber (or not). */
+const anvil = vi.fn<typeof fetch>();
+beforeEach(() => {
+  anvil.mockResolvedValue(new Response(JSON.stringify({ jsonrpc: '2.0', id: 1, result: '0x10' }), { status: 200 }));
+  vi.stubGlobal('fetch', anvil);
+});
+afterEach(() => vi.unstubAllGlobals());
+
 describe('AdminService', () => {
   it('builds the preflight from every source; here only the missing Gemini key and a failed job warn', async () => {
     const { svc } = service();
@@ -76,6 +85,15 @@ describe('AdminService', () => {
     expect(r.checks.filter((c) => c.status !== 'ok').map((c) => c.id)).toEqual(['explainer', 'recent-failures']);
     expect(r.status).toBe('warn');
     expect(r.demoBudget).toEqual({ left: '1300000000', cap: '1500000000' });
+  });
+
+  it('fails the services check when the simulation fork is down', async () => {
+    anvil.mockRejectedValue(new TypeError('fetch failed'));
+    const { svc } = service();
+    const services = (await svc.preflight()).checks.find((c) => c.id === 'services')!;
+    expect(services.status).toBe('fail');
+    expect(services.detail).toContain('anvil');
+    expect(String(anvil.mock.calls[0]![0])).toBe('http://anvil.test:8545');
   });
 
   it('keeps the other checks when one source throws', async () => {

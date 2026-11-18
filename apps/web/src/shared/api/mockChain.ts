@@ -150,7 +150,7 @@ const patchJob = (safe: string, id: string, fn: (j: JobDetailDto) => JobDetailDt
 
 /** Which audit entries are already known while a job is in a given status. */
 function auditUpTo(status: JobStatus, iso: string): JobDetailDto["audit"] {
-  const pass = (shield: JobDetailDto["audit"][number]["shield"]) => ({ shield, result: "pass" as const, reason: null, ts: iso });
+  const pass = (shield: JobDetailDto["audit"][number]["shield"]) => ({ shield, result: "pass" as const, reason: null, ts: iso, checks: [] });
   if (status === "simulating") return [pass("precheck")];
   if (status === "broadcasting") return [pass("precheck"), pass("simulation"), pass("invariant")];
   return [];

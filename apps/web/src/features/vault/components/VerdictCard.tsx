@@ -11,7 +11,7 @@ import { SnowtraceLink } from "@/shared/ui/SnowtraceLink";
 import { Stamp } from "@/shared/ui/Stamp";
 import { StatusBadge } from "@/shared/ui/StatusBadge";
 import { isTerminal } from "../lib/timeline";
-import { JobTimeline } from "./JobTimeline";
+import { ShieldPipeline } from "./ShieldPipeline";
 
 function headline(job: JobDetailDto): string {
   if (job.status === "confirmed") return `Safe: used ${formatPct(job.explanation?.budgetUsedPct ?? 0)} of today's limit`;
@@ -73,7 +73,7 @@ export function VerdictCard({ job, detailsTo, showTimes = false }: { job: JobDet
       )}
 
       <div className="mt-5 border-t border-line pt-4">
-        <JobTimeline job={job} showTimes={showTimes} />
+        <ShieldPipeline job={job} variant={showTimes ? "full" : "compact"} />
       </div>
 
       <div className="mt-4 flex flex-wrap items-center gap-x-5 gap-y-2">
