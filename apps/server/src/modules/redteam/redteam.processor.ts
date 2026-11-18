@@ -6,6 +6,7 @@ import type { Env } from '../../core/config/env.schema';
 import { QUEUES } from '../../core/queue/queue.constants';
 import { TX_SENDER, type TxResult, type TxSenderPort } from '../execution/tx-sender.port';
 import { JobsService } from '../jobs/jobs.service';
+import { VaultRegistryService } from '../vault/vault-registry.service';
 import { buildOnchainCall } from './onchain-calls';
 import type { AttackJobData } from './redteam.controller';
 import { attackContext, SCENARIOS } from './scenarios';
@@ -27,6 +28,7 @@ export class RedteamProcessor extends WorkerHost {
     private readonly jobs: JobsService,
     @Inject(ENV) private readonly env: Env,
     @Inject(TX_SENDER) private readonly sender: TxSenderPort,
+    private readonly vaults: VaultRegistryService,
   ) {
     super();
   }
@@ -35,9 +37,17 @@ export class RedteamProcessor extends WorkerHost {
   async process(job: Job<AttackJobData>): Promise<{ txHash: string; status: TxResult['status']; revertReason?: string } | null> {
     const { jobId, vault, scenario } = job.data;
     const plan = SCENARIOS[scenario].plan(attackContext(this.env, vault));
-    const module = this.env.POLICY_MODULE_ADDRESS;
+    // The module that guards THIS vault (chain-backed registry), so the bypass hits the vault under
+    // attack and its Snowtrace link shows that vault's own Shield 2. Never the env demo module by default.
+    const module = await this.vaults
+      .resolve(vault)
+      .then((v) => v?.module)
+      .catch((e: unknown) => {
+        this.log.warn(`attack ${scenario} (${jobId}): vault lookup failed: ${e instanceof Error ? e.message : String(e)}`);
+        return undefined;
+      });
     if (plan.mode !== 'onchain' || !module) {
-      this.log.warn(`attack ${scenario} (${jobId}) cannot run: ${!module ? 'POLICY_MODULE_ADDRESS not set' : 'not an on-chain plan'}`);
+      this.log.warn(`attack ${scenario} (${jobId}) cannot run: ${!module ? `no policy module found for ${vault}` : 'not an on-chain plan'}`);
       await this.jobs.transition(jobId, 'failed');
       return null;
     }

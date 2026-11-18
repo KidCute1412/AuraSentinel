@@ -101,7 +101,7 @@ function JobRow({ job, tokens, open, onToggle, renderDetail }: JobRowProps) {
             </a>
           )}
 
-          <ExplanationCard explanation={job.explanation} status={job.status} terminal={v.terminal} />
+          <ExplanationCard explanation={job.explanation} status={job.status} terminal={v.terminal} reasonCode={job.reasonCode} revertError={job.revertError} amount={v.amount} />
 
           <button
             type="button"

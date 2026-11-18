@@ -3,6 +3,7 @@ import type { JobDetailDto } from "@agentshield/shared";
 import { REASONS, type ReasonCode } from "@/shared/api/mockEngine";
 import { shortAddress } from "@/shared/lib/address";
 import { cn } from "@/shared/lib/cn";
+import { explanationText } from "@/shared/lib/explanationText";
 import { formatPct } from "@/shared/lib/format";
 import { Chamfer } from "@/shared/ui/Chamfer";
 import { Skeleton } from "@/shared/ui/Skeleton";
@@ -27,6 +28,7 @@ export function VerdictCard({ job, detailsTo, showTimes = false }: { job: JobDet
   const safe = job.status === "confirmed";
   const blocked = job.status === "rejected" || job.status === "reverted";
   const reason = job.reasonCode && job.reasonCode in REASONS ? REASONS[job.reasonCode as ReasonCode] : null;
+  const shown = done ? explanationText(job) : null;
 
   return (
     <Chamfer
@@ -43,12 +45,12 @@ export function VerdictCard({ job, detailsTo, showTimes = false }: { job: JobDet
       <h3 className="mt-3 text-xl leading-tight">{headline(job)}</h3>
 
       <div className="mt-2 min-h-[3.5rem]" aria-live="polite">
-        {job.explanation ? (
+        {shown ? (
           <>
-            <p className="text-sm text-soft">{job.explanation.messageVi}</p>
+            <p className="text-sm text-soft">{shown.text}</p>
             <p className="mt-2">
-              <span className="mono-label border border-line-strong px-1.5 py-0.5" title={job.explanation.source === "llm" ? "Wording written by the language model. The verdict is computed by rules." : "Wording from a fixed template. The verdict is computed by rules."}>
-                {job.explanation.source === "llm" ? "LLM" : "TEMPLATE"}
+              <span className="mono-label border border-line-strong px-1.5 py-0.5" title={shown.source === "llm" ? "Wording written by the language model. The verdict is computed by rules." : "Wording from a fixed template. The verdict is computed by rules."}>
+                {shown.source === "llm" ? "LLM" : "TEMPLATE"}
               </span>
             </p>
           </>

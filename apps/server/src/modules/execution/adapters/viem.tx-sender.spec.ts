@@ -30,6 +30,9 @@ interface Opts {
   status?: (nonce: number) => 'success' | 'reverted';
   sendRaw?: (signed: Hex, attempt: number) => Promise<Hex>;
   revertData?: Hex;
+  /** The receipt watcher fails (lagging RPC); `lateReceipt` is what a direct lookup then returns. */
+  waitFails?: boolean;
+  lateReceipt?: boolean;
 }
 
 function setup(o: Opts = {}) {
@@ -58,9 +61,15 @@ function setup(o: Opts = {}) {
     }),
     waitForTransactionReceipt: vi.fn(async ({ hash }: { hash: Hex }) => {
       const nonce = byHash.get(hash) ?? -1;
+      if (o.waitFails) throw new Error('Timed out while waiting for transaction');
       events.push(`start ${nonce}`);
       await new Promise((r) => setTimeout(r, 10));
       events.push(`end ${nonce}`);
+      return { status: o.status?.(nonce) ?? 'success', blockNumber: BigInt(100 + nonce) };
+    }),
+    getTransactionReceipt: vi.fn(async ({ hash }: { hash: Hex }) => {
+      if (!o.lateReceipt) throw new Error('Transaction receipt could not be found');
+      const nonce = byHash.get(hash) ?? -1;
       return { status: o.status?.(nonce) ?? 'success', blockNumber: BigInt(100 + nonce) };
     }),
     call: vi.fn(async () => {
@@ -112,6 +121,19 @@ describe('ViemTxSender', () => {
     expect(r).toMatchObject({ status: 'reverted', revertReason: 'ExceedsPerTxCap', revertData, blockNumber: 107n });
     expect(r.txHash).toBe(keccak256(signedFor(7)));
     expect(publicClient.sendRawTransaction).toHaveBeenCalledTimes(1); // never retried
+  });
+
+  it('keeps a mined revert (hash + reason) when the receipt watcher times out but the receipt exists', async () => {
+    const revertData = encodeErrorResult({ abi: POLICY_MODULE_ABI, errorName: 'ExceedsPerTxCap' });
+    const { sender } = setup({ status: () => 'reverted', revertData, waitFails: true, lateReceipt: true });
+    const r = await sender.sendSwap(intent(2_000_000_000n), { safe: SAFE, module: MODULE });
+    expect(r).toMatchObject({ status: 'reverted', revertReason: 'ExceedsPerTxCap', blockNumber: 107n });
+    expect(r.txHash).toBe(keccak256(signedFor(7)));
+  });
+
+  it('still throws when the receipt watcher times out and no receipt exists', async () => {
+    const { sender } = setup({ waitFails: true });
+    await expect(sender.sendSwap(intent(100n), { safe: SAFE, module: MODULE })).rejects.toThrow(/no receipt for/);
   });
 
   it('re-broadcasts the same signed bytes after a timeout and accepts "already known"', async () => {

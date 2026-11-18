@@ -179,7 +179,9 @@ describe('RedteamProcessor', () => {
   const make = (sendRaw: ReturnType<typeof vi.fn>, e: Env = env) => {
     const jobs = { transition: vi.fn().mockResolvedValue(undefined), recordShield: vi.fn().mockResolvedValue(undefined) };
     const sender = { address: AGENT, sendSwap: vi.fn(), sendRaw };
-    return { jobs, sendRaw, p: new RedteamProcessor(jobs as never, e, sender as never) };
+    // Registry stub: the env demo module for SAFE, nothing for an unknown vault (mirrors VaultRegistryService).
+    const vaults = { resolve: vi.fn(async (safe: string) => (e.POLICY_MODULE_ADDRESS && safe === SAFE ? { safe, module: e.POLICY_MODULE_ADDRESS, isDemo: true } : null)) };
+    return { jobs, sendRaw, vaults, p: new RedteamProcessor(jobs as never, e, sender as never, vaults as never) };
   };
 
   it('sends the exact bypass transaction and records the mined revert with its hash and reason', async () => {
@@ -207,6 +209,26 @@ describe('RedteamProcessor', () => {
   it('marks the job failed (not a fake revert) when the sender cannot send', async () => {
     const { p, jobs } = make(vi.fn().mockRejectedValue(new Error('no session key')));
     await expect(p.process({ data: { jobId: JOB_ID, vault: SAFE, scenario: 'bypass' } } as never)).resolves.toBeNull();
+    expect(jobs.transition).toHaveBeenLastCalledWith(JOB_ID, 'failed');
+  });
+
+  it("sends the bypass to the attacked vault's own module, not the demo module", async () => {
+    const OTHER_SAFE = '0x6666666666666666666666666666666666666666';
+    const OTHER_MODULE = '0x7777777777777777777777777777777777777777';
+    const { p, sendRaw, vaults } = make(
+      vi.fn().mockResolvedValue({ txHash: TX, status: 'reverted', blockNumber: 1n, revertReason: 'ExceedsPerTxCap' }),
+    );
+    vaults.resolve.mockResolvedValueOnce({ safe: OTHER_SAFE, module: OTHER_MODULE, isDemo: false });
+    await p.process({ data: { jobId: JOB_ID, vault: OTHER_SAFE, scenario: 'bypass' } } as never);
+    expect(vaults.resolve).toHaveBeenCalledWith(OTHER_SAFE);
+    expect(sendRaw.mock.calls[0]?.[0]?.to).toBe(OTHER_MODULE);
+  });
+
+  it('fails the job (no tx) when the registry lookup throws', async () => {
+    const { p, jobs, sendRaw, vaults } = make(vi.fn());
+    vaults.resolve.mockRejectedValueOnce(new Error('rpc down'));
+    await expect(p.process({ data: { jobId: JOB_ID, vault: SAFE, scenario: 'bypass' } } as never)).resolves.toBeNull();
+    expect(sendRaw).not.toHaveBeenCalled();
     expect(jobs.transition).toHaveBeenLastCalledWith(JOB_ID, 'failed');
   });
 
