@@ -25,11 +25,10 @@ for /f "tokens=1 delims=." %%v in ('node -v') do set "NODEMAJOR=%%v"
 set "NODEMAJOR=%NODEMAJOR:v=%"
 if %NODEMAJOR% LSS 20 call :die "Node 20+ required (found v%NODEMAJOR%)."
 
-rem ---------- 2. Env files (created once from the examples, never overwritten) ----------
-echo [1/6] Checking env files...
-if not exist "infra\.env" copy /y "infra\.env.example" "infra\.env" >nul && echo       created infra\.env
-if not exist "apps\server\.env" copy /y "apps\server\.env.example" "apps\server\.env" >nul && echo       created apps\server\.env
-if not exist "apps\web\.env" copy /y "apps\web\.env.example" "apps\web\.env" >nul && echo       created apps\web\.env
+rem ---------- 2. Env file (created once from the example, never overwritten) ----------
+rem The only local env file. Everything public (Fuji addresses, RPCs, ports) has a default in code.
+echo [1/6] Checking apps\server\.env...
+if not exist "apps\server\.env" copy /y "apps\server\.env.example" "apps\server\.env" >nul && echo       created apps\server\.env: put the agent key in AGENT_PRIVATE_KEY
 
 rem ---------- 3. Dependencies + shared package ----------
 echo [2/6] Installing dependencies (fast when up to date)...
@@ -43,7 +42,7 @@ echo [4/6] Making sure Docker is running...
 docker info >nul 2>nul || call :startdocker
 
 echo [5/6] Starting postgres, redis, anvil (waiting until healthy)...
-docker compose -f infra\docker-compose.yml --env-file infra\.env up -d --build --wait || call :die "docker compose failed. Check FORK_URL in infra\.env and run: docker compose -f infra\docker-compose.yml logs"
+docker compose -f infra\docker-compose.yml up -d --build --wait || call :die "docker compose failed. Run: docker compose -f infra\docker-compose.yml logs"
 
 rem ---------- 5. Database migrations ----------
 echo [6/6] Applying database migrations...

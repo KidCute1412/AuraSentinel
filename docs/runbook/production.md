@@ -7,22 +7,20 @@
 
 1. Docker Desktop đang chạy.
 2. L4 đã deploy xong: có `packages/contracts/deployments/fuji.json` (xem [`deploy-fuji.md`](./deploy-fuji.md)).
-3. Tạo file env:
+3. Tạo file env (file **duy nhất** của prod, đã gitignore):
    ```bash
-   cp infra/.env.prod.example infra/.env.prod
+   pnpm env:prod        # tạo infra/.env.prod, tự sinh SESSION_SECRET, POSTGRES_PASSWORD, WEB_PROXY_SECRET
    ```
-   Điền theo bảng dưới. File này đã gitignore. **Không bao giờ để key owner/deployer ở đây.**
+   Chạy lại an toàn: chỉ điền secret còn trống, không bao giờ đổi giá trị đã có (trừ `--rotate-session`: sinh `SESSION_SECRET` mới, mọi người đăng nhập lại). Script không in secret ra màn hình. Rồi tự điền theo bảng dưới. **Không bao giờ để key owner/deployer ở đây.**
 
-| Biến | Lấy từ |
+| Biến | Điền |
 |---|---|
-| `POSTGRES_PASSWORD` | Tự đặt |
-| `FUJI_RPC_URLS`, `FORK_URL` | RPC Fuji riêng đứng đầu, rồi **nhiều** public RPC làm fallback (mặc định: PublicNode, dRPC, RPC chính thức). Chỉ 1 RPC chính thức là không đủ: nó trả Cloudflare 429 cho Docker (L10, `security-report.md` F1) |
 | `AGENT_PRIVATE_KEY` | Key **session** của ví agent (L4 bước 0). Nạp ~0.5 AVAX Fuji cho gas |
-| `SAFE_ADDRESS`, `POLICY_MODULE_ADDRESS` | `publicSafe`, `publicModule` trong `fuji.json` |
-| `TOKEN_A_ADDRESS`, `TOKEN_B_ADDRESS` | `usdc`, `wavax` |
-| `FACTORY_ADDRESS` | `factory` |
-| `INDEXER_START_BLOCK` | Block deploy factory (Snowtrace, tx đầu tiên của factory) |
-| `GEMINI_API_KEY` | Tuỳ chọn; không có thì giải thích dùng template |
+| `ADMIN_ADDRESSES` | Ví người thuyết trình (mở drawer Admin để bật Demo mode, §4c). **Bắt buộc cho buổi demo** |
+| `SIWE_DOMAINS` | Domain Vercel khi web chạy Vercel (§2b); để trống khi dùng nginx `localhost:8080` |
+| `GEMINI_API_KEY`, `TELEGRAM_*` | Tuỳ chọn |
+
+Mọi giá trị công khai **không cần điền**, đã có mặc định trong code: địa chỉ contract + block bắt đầu của indexer (`packages/shared/src/deployments.ts`, khớp `fuji.json`, test kiểm), 3 RPC Fuji công khai (PublicNode, dRPC, RPC chính thức; L10: chỉ RPC chính thức là không đủ vì nó trả Cloudflare 429 cho Docker), địa chỉ agent cho watchdog, các giới hạn. Muốn đổi thì thêm dòng vào `.env.prod`, ví dụ `FUJI_RPC_URLS=<RPC riêng>,https://avalanche-fuji-c-chain-rpc.publicnode.com`; danh sách biến ghi đè được nằm trong `infra/docker-compose.prod.yml`.
 
 ## 2. Chạy
 
@@ -59,7 +57,7 @@ curl http://localhost:8080/api/health     # status "ok": postgres, redis, rpc, w
 
 Web tĩnh trên Vercel; server (api, worker, postgres, redis, anvil) chạy bằng compose ở mục 2 và được mở ra internet bằng một tunnel. Trình duyệt chỉ thấy **một domain** (Vercel): `/api/*` đi qua proxy `apps/web/api/proxy.ts` (Edge Function) tới server, nên cookie đăng nhập SIWE và SSE chạy không cần CORS. Không cần sửa code, chỉ điền biến.
 
-**Chưa có server:** để trống `VITE_DATA_SOURCE` trên Vercel → web chạy **mock** (giả lập trong trình duyệt, sign-in bằng địa chỉ giả, không chạm chain). Đúng thiết kế, nhưng đừng đưa link mock cho giám khảo mà không ghi rõ.
+**Chưa có server:** đặt `VITE_DATA_SOURCE=mock` trên Vercel → web chạy **mock** (giả lập trong trình duyệt, sign-in bằng địa chỉ giả, không chạm chain). Đừng đưa link mock cho giám khảo mà không ghi rõ. Không đặt gì thì web chạy **live** (mặc định), nên bản build production không bao giờ vô tình phục vụ mock.
 
 1. **Mở server ra internet** (compose đang chạy, web nginx ở `localhost:8080`):
    ```bash
@@ -70,15 +68,15 @@ Web tĩnh trên Vercel; server (api, worker, postgres, redis, anvil) chạy bằ
    | Biến | Giá trị |
    |---|---|
    | `SIWE_DOMAINS` | domain Vercel, ví dụ `agentshield.vercel.app` (thêm domain riêng nếu có, phân cách bằng dấu phẩy) |
-   | `WEB_PROXY_SECRET` | chuỗi ngẫu nhiên ≥ 32 ký tự (`openssl rand -hex 32`), **giống hệt** biến cùng tên trên Vercel |
-3. **Vercel → Project → Settings → Environment Variables** (Root Directory = `apps/web`):
+   | `WEB_PROXY_SECRET` | `pnpm env:prod` đã sinh sẵn; copy giá trị này sang Vercel ở bước 3 |
+3. **Vercel → Project → Settings → Environment Variables** (Root Directory = `apps/web`). Chỉ 2 biến bắt buộc:
    | Biến | Giá trị | Loại |
    |---|---|---|
-   | `VITE_DATA_SOURCE` | `live` | build (vào bundle) |
-   | `VITE_WALLETCONNECT_PROJECT_ID` | project id miễn phí ở cloud.reown.com; không có thì điện thoại không có extension không đăng nhập được | build |
-   | `VITE_DEMO_SAFE` | `publicSafe` trong `fuji.json` (tuỳ chọn, `/demo` mở nhanh hơn) | build |
    | `API_ORIGIN` | URL tunnel ở bước 1, **không** có `/api`, không có `/` cuối | server (chỉ Edge Function đọc) |
-   | `WEB_PROXY_SECRET` | giống bước 2 | server |
+   | `WEB_PROXY_SECRET` | giống hệt `infra/.env.prod` | server |
+   | `VITE_WALLETCONNECT_PROJECT_ID` | tuỳ chọn: project id miễn phí ở cloud.reown.com; không có thì điện thoại không có extension không đăng nhập được | build (vào bundle) |
+
+   Không cần `VITE_DATA_SOURCE` (mặc định `live`) hay địa chỉ contract (web lấy từ `packages/shared`).
 4. **Redeploy** trên Vercel (biến `VITE_*` chỉ vào bundle lúc build; đổi `API_ORIGIN` cũng cần deploy lại).
 5. **Kiểm tra:** `https://<domain>/api/health` ra `"status":"ok"`; vào `/signin` phải mở ví thật và xin chữ ký (bản mock thì vào thẳng bằng địa chỉ giả); `/vaults` hiện vault thật.
 
@@ -102,7 +100,7 @@ Ghi chú:
 Service `watchdog` (profile `monitoring`) gọi `/api/health` mỗi 30s và đọc số dư AVAX của ví agent, nhắn **Telegram** khi trạng thái đổi: API/RPC/worker chết, agent sắp hết gas (< 0.1 AVAX), và khi hồi phục. Phải lỗi 2 lần liên tiếp mới báo, nên một lần RPC chậm không gây nhiễu. Chỉ đọc dữ liệu công khai (JSON health, **địa chỉ** agent), không cầm key.
 
 1. Tạo bot bằng @BotFather → `TELEGRAM_BOT_TOKEN`; lấy chat id bằng @userinfobot → `TELEGRAM_CHAT_ID`.
-2. Điền thêm `AGENT_ADDRESS` (địa chỉ ví agent, không phải key) trong `.env.prod`.
+2. Điền 2 biến đó trong `.env.prod`. Địa chỉ ví agent (`AGENT_ADDRESS`, không phải key) đã mặc định là `agent` trong `fuji.json`.
 3. Thêm `--profile monitoring` vào lệnh ở mục 2.
 
 Không có token thì watchdog chỉ ghi log (`docker compose ... logs watchdog`).
@@ -137,7 +135,8 @@ Khách dùng vault demo không cần đăng nhập (D12). Owner và admin ký m�
 
 | Triệu chứng | Nguyên nhân / cách xử lý |
 |---|---|
-| `worker` khởi động lại liên tục | Thiếu `AGENT_PRIVATE_KEY` hoặc `POLICY_MODULE_ADDRESS`: production cố ý không chạy bản giả |
+| `worker` khởi động lại liên tục | Thiếu `AGENT_PRIVATE_KEY`: production cố ý không chạy bản giả |
+| compose báo `set POSTGRES_PASSWORD` / `set SESSION_SECRET` | Chưa chạy `pnpm env:prod`, hoặc quên `--env-file infra/.env.prod` |
 | Health `rpc: down` | RPC Fuji lỗi: thêm RPC dự phòng vào `FUJI_RPC_URLS` |
 | Job `rejected` `UnauthorizedAgent` | Key trong env không phải agent của policy (`AGENT_ADDRESS` lúc deploy) |
 | Indexer log `block range too large` | Giảm `INDEXER_MAX_SPAN` (RPC public Fuji cho tối đa 100) |
@@ -150,9 +149,9 @@ Khách dùng vault demo không cần đăng nhập (D12). Owner và admin ký m�
 ## 6. Diễn tập không cần Fuji
 
 Chạy được nguyên stack trên Anvil local (dùng để kiểm trước khi L4 deploy):
-1. `docker compose -f infra/docker-compose.yml --env-file infra/.env up -d --wait` (Anvil A = "Fuji").
+1. `docker compose -f infra/docker-compose.yml up -d --wait` (Anvil A = "Fuji").
 2. Deploy bằng script L4 với key dev của Anvil (`DEPLOYMENT=fork`, như job CI `deploy-dry-run`).
-3. Trong `infra/.env.prod`: `FUJI_RPC_URLS=FORK_URL=http://host.docker.internal:8545`, key agent = Anvil #1, địa chỉ lấy từ `deployments/fork.json`.
+3. Trong `infra/.env.prod`: `FUJI_RPC_URLS=FORK_URL=http://host.docker.internal:8545`, key agent = Anvil #1, và **ghi đè** cả 6 biến địa chỉ (`SAFE_ADDRESS`, `POLICY_MODULE_ADDRESS`, `TOKEN_A_ADDRESS`, `TOKEN_B_ADDRESS`, `FACTORY_ADDRESS`, `INDEXER_START_BLOCK`) bằng `deployments/fork.json`, nếu không server dùng mặc định Fuji.
 4. Chạy lệnh ở mục 2.
 
 ## 7. Test tự động (CI)

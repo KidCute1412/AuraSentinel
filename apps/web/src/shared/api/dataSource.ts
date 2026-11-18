@@ -3,13 +3,14 @@ import { Address } from "@agentshield/shared";
 
 /**
  * Where the vault pages get their data, fixed at build time:
- * - "mock" (default): the in-browser simulation in mockChain/mockEngine. No backend needed.
- * - "live": the real API (VITE_API_URL) and SSE. Set VITE_DATA_SOURCE=live.
+ * - "live" (default): the real API (VITE_API_URL) and SSE, real wallet sign-in. Needs the server running.
+ * - "mock": the in-browser simulation in mockChain/mockEngine, no backend. Only with VITE_DATA_SOURCE=mock (tests,
+ *   a preview deployed before the server): anything else is live, so a production build never serves the simulation.
  * Pages never mix the two: in live mode nothing simulated is shown.
  */
 export type DataSource = "mock" | "live";
 
-export const parseDataSource = (raw: string | undefined): DataSource => (raw?.trim().toLowerCase() === "live" ? "live" : "mock");
+export const parseDataSource = (raw: string | undefined): DataSource => (raw?.trim().toLowerCase() === "mock" ? "mock" : "live");
 
 /**
  * A valid address in checksum form, or null for anything else (empty, typo, wrong length). Lower-cased first so a
