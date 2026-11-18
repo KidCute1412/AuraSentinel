@@ -3,7 +3,7 @@ import { Header } from "@/shared/shell/Header";
 import { Footer } from "@/shared/shell/Footer";
 import { NetworkGuard } from "@/shared/web3/NetworkGuard";
 import { WalletButton } from "@/shared/web3/WalletButton";
-import { AdminDrawer, type SessionRole } from "./AdminDrawer";
+import { AdminDrawer, type SessionRole } from "@/shared/shell/AdminDrawer";
 
 interface AppShellProps {
   /** Mono breadcrumb in the app bar, e.g. "APP / DEMO VAULT". */
