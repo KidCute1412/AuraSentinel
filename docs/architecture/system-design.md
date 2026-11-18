@@ -372,7 +372,7 @@ erDiagram
 | `POST` | `/rebalance` | `{ amountIn }` — enqueue swap thủ công (nút demo 200 USDC) |
 | `POST` | `/attacks/:scenario` | `over-withdraw · wrong-recipient · unlimited-approval · bypass` |
 | `POST` | `/attacks/inject` | `{ text }` — prompt injection |
-| `POST` | `/admin/rebalancer/pause` · `/resume` | Demo mode |
+| `GET` · `PATCH` | `/admin/rebalancer` | Trạng thái · `{paused}` = Demo mode (pause queue `rebalance`) |
 | `GET` | `/events` | SSE stream |
 | `GET` | `/admin/queues` | Bull Board |
 

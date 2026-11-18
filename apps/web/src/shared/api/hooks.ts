@@ -39,6 +39,8 @@ export function useJobs(safe: string | null | undefined) {
 
 /** While a job runs, poll this often as a safety net in case the SSE stream is down. */
 export const JOB_POLL_MS = 2_000;
+/** Admin drawer, while open: the rebalancer's last run and the agent's gas. */
+export const ADMIN_POLL_MS = 10_000;
 
 /**
  * One job with its audit trail. With `pollWhileRunning` it also refetches every JOB_POLL_MS until the job reaches a
@@ -113,7 +115,13 @@ export function useLaunchAttack(safe: string) {
 
 /** GET /admin/rebalancer. Only call it for admins (the server answers 401/403 otherwise). */
 export function useRebalancerStatus(enabled: boolean) {
-  return useQuery({ queryKey: queryKeys.adminRebalancer, queryFn: ({ signal }) => getRebalancerStatus(signal), enabled });
+  // While the drawer is open, last run and gas stay current.
+  return useQuery({
+    queryKey: queryKeys.adminRebalancer,
+    queryFn: ({ signal }) => getRebalancerStatus(signal),
+    enabled,
+    refetchInterval: enabled ? ADMIN_POLL_MS : false,
+  });
 }
 
 /** PATCH /admin/rebalancer { paused }: Demo mode. */

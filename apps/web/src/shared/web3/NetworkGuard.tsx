@@ -16,7 +16,7 @@ export function NetworkGuard() {
         <p className="flex min-w-0 items-start gap-2 font-bold">
           <TriangleAlert aria-hidden className="mt-0.5 size-4 shrink-0" strokeWidth={2.5} />
           <span>
-            Your wallet is on the wrong network <span className="font-mono text-sm">(chain {chainId ?? "?"})</span>. AgentShield only
+            Your wallet is on the wrong network <span className="font-mono text-sm">(chain {chainId ?? "?"})</span>. AuraSentinel only
             runs on Avalanche Fuji.
           </span>
         </p>

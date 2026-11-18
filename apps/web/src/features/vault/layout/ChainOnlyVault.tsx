@@ -70,7 +70,7 @@ export function ChainOnlyVault({ safe, onRetry }: { safe: Address; onRetry: () =
             <p className="text-sm text-soft">
               {found.status === "unavailable"
                 ? "The chain could not be read either. Check your connection and try again."
-                : `No AgentShield module is registered on-chain for ${shortAddress(safe)}.`}
+                : `No AuraSentinel module is registered on-chain for ${shortAddress(safe)}.`}
             </p>
           </Panel>
         ) : isActive === null ? (

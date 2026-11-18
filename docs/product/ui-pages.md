@@ -240,9 +240,23 @@ Owner được xác định **on-chain** (`Safe.getOwners`), backend chỉ kiể
 
 Mỗi reason code → câu tiếng Việt từ `shared/errors.ts` (Q1); UI không tự dịch.
 
-### 4.6 Guided tour (chỉ `/demo`)
+### 4.6 Hai chế độ của `/demo`: Guided (mặc định) và Free play
 
-4 bước tooltip: ① Run Rebalance → ② Over-withdraw → ③ Bypass ⚡ → ④ Kill-Switch. Có `Bỏ qua`; cắt được theo kế hoạch (thay bằng hướng dẫn tĩnh).
+**Cập nhật 2026-11-18:** `/demo` có hero "Try to break it." và nút chuyển chế độ, lưu trong URL (`?mode=free`). Mục tiêu: người không rành blockchain biết ngay phải bấm gì trước.
+
+- **Guided** (`features/vault/demo/GuidedDemo.tsx`, logic thuần ở `guided.ts`). Bên trái là dải 4 bước, mỗi lần chỉ hiện **một thẻ bước**: câu chuyện bằng lời thường, khung "What should happen", **nút ngay trong bước**, và **kết quả hiện ngay dưới nút**. Kết quả gồm stamp, một câu giải thích, nút "See every check" (pipeline Shield 1 → 2) và link Snowtrace. Có `Next step`, `Skip this step`, `Back`. Bên phải là vault thật: "The agent's rules" (4 quy tắc đọc từ policy on-chain), Daily budget, Balances, cập nhật live sau mỗi lần bấm.
+  1. **Normal trade**: rebalance 200 USDC. Số tiền tự giảm theo hạn mức ngày còn lại (USDC chẵn), để bước "bình thường" thật sự hợp lệ trên vault công khai.
+  2. **Take too much**: attack over-withdraw → Shield 1 chặn, không có tx.
+  3. **Hack around**: attack bypass → contract revert on-chain, link tx thất bại.
+  4. **Emergency stop**: bản mock dùng Kill-Switch giữ-để-xác-nhận thật. Bản **live**: vault demo dùng chung nên **không** cho khách bấm. Thay vào đó là khối hazard giải thích chỉ ví owner ký được, nút "Got it" để hoàn thành bước, và link tạo vault riêng. Nhờ vậy hướng dẫn không bao giờ kẹt ở 3/4.
+
+  Bước nào làm ở Free play trong cùng lần ghé (`lib/tour.ts` `tourProgress`) cũng được tính. Xong 4 bước thì có màn tổng kết "You tried to break it. It held." kèm CTA tạo vault, Free play, Start over. Cooldown của vault dùng chung hiện bằng lời thân thiện ("Someone else just ran a test…", nút đếm ngược "Your turn in Ns"), không báo như lỗi. Aura-kun nhảy tới thẻ bước và phản ứng theo kết quả.
+- **Free play**: cho giám khảo hoặc người muốn thử mọi thứ. Bố cục theo vòng "bấm → đọc kết quả" để màn đầu (1320×778) chứa cả nút lẫn verdict, không phải cuộn:
+  - Hero thu gọn (bỏ đoạn mô tả, h1 nhỏ hơn) vì người vào Free play đã biết ý tưởng.
+  - **01 Pick a move** (cột trái): `RedTeamPanel layout="tabs"`, một thẻ với 3 tab Attacks (mặc định, 4 attack lưới 2×2) / Prompt injection / Normal trade, bên dưới là Recent jobs (4 dòng).
+  - **02 Read the verdict** (cột phải, sticky trên desktop): VerdictCard của job vừa bấm hoặc job chọn trong Recent jobs. Trên điện thoại verdict nằm dưới, bấm xong tự cuộn tới.
+  - **03 Watch the vault**: header vault (`VaultHeaderBar`, không tạo thêm query observer), Budget + Balances, Policy, Kill-Switch.
+  - Trang `/vaults/:safe` (owner) và trang Red team giữ nguyên bố cục cũ. Thẻ "Try it in 4 steps" cũ đã bỏ vì Guided thay nó.
 
 ---
 
@@ -294,7 +308,7 @@ Chỉ đọc; không cần ví.
 
 ## 7. Drawer Admin (D16)
 
-Không phải route riêng. Nút "Admin" ở app shell chỉ hiện khi session có role `admin`; mở drawer trên `/demo` hoặc `/vaults/:safe`: trạng thái rebalancer, `Pause/Resume` (Demo mode), link Bull Board, `/api/health`, số dư gas của agent. Lý do: admin cần bật Demo mode ngay lúc đứng ở dashboard khi trình diễn.
+Không phải route riêng. Nút "Admin" nằm ở header chung (`shared/shell/AdminEntry.tsx`), chỉ hiện trên `/demo` và `/vaults/*` khi dữ liệu live và `GET /auth/session` trả role `admin`; drawer có: trạng thái rebalancer (`Running` / `Demo mode on`, chu kỳ, lần chạy cuối), `Pause/Resume` (Demo mode; nút bấm tay vẫn chạy), địa chỉ agent + Snowtrace, số dư gas (cảnh báo dưới `AGENT_MIN_GAS_WEI`), link Bull Board, `/api/health`. Mở drawer thì tự làm mới 10s/lần; mất quyền (401/403) thì báo phiên không còn là admin. Lý do: admin cần bật Demo mode ngay lúc đứng ở dashboard khi trình diễn.
 
 ---
 

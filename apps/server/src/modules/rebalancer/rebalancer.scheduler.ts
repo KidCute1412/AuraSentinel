@@ -14,15 +14,8 @@ export class RebalancerScheduler implements OnApplicationBootstrap {
     @Inject(ENV) private readonly env: Env,
   ) {}
 
+  /** Demo mode pauses the queue itself (PATCH /admin/rebalancer), so the schedule stays registered here. */
   async onApplicationBootstrap() {
     await this.queue.upsertJobScheduler(SCHEDULER_ID, { every: this.env.REBALANCE_INTERVAL_MS }, { name: 'tick' });
-  }
-
-  async pause() {
-    await this.queue.removeJobScheduler(SCHEDULER_ID);
-  }
-
-  async resume() {
-    await this.onApplicationBootstrap();
   }
 }

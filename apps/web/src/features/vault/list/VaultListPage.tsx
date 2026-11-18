@@ -90,7 +90,7 @@ export function VaultListPage() {
 
         {list.isError && (
           <div role="alert" className="flex flex-wrap items-center justify-between gap-3 border-l-4 border-warn bg-tint-amber px-4 py-3 text-sm">
-            <span>Could not load your vaults from the AgentShield server, so this list may be incomplete. Each vault page still works straight from the chain.</span>
+            <span>Could not load your vaults from the AuraSentinel server, so this list may be incomplete. Each vault page still works straight from the chain.</span>
             <button type="button" onClick={() => void list.refetch()} className="min-h-10 border border-line-strong bg-surface px-3 font-bold hover:bg-hover">
               Try again
             </button>

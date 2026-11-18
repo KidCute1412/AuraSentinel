@@ -1,8 +1,10 @@
 name: agentshield-prod
 
 # Whole demo on one laptop (D14): no VPS, no TLS, no domain.
-#   cp infra/.env.prod.example infra/.env.prod   # fill it in (never the owner key)
+#   pnpm env:prod                                # creates infra/.env.prod with fresh secrets; add the agent key
 #   docker compose -f infra/docker-compose.prod.yml --env-file infra/.env.prod up -d --build --wait
+# infra/.env.prod is the only env file here. Public values (Fuji addresses, RPCs) default in the server code or below;
+# every ${X:-} line is only an optional override.
 # Open http://localhost:${WEB_PORT:-8080}. Only the web port is published; everything else stays
 # on the compose network.
 
@@ -11,7 +13,7 @@ x-server-env: &server-env
   LOG_LEVEL: ${LOG_LEVEL:-info}
   DATABASE_URL: postgres://${POSTGRES_USER:-agentshield}:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-agentshield}
   REDIS_URL: redis://redis:6379
-  FUJI_RPC_URLS: ${FUJI_RPC_URLS:?set FUJI_RPC_URLS}
+  FUJI_RPC_URLS: ${FUJI_RPC_URLS:-}
   ANVIL_RPC_URL: http://anvil:8545
   SAFE_ADDRESS: ${SAFE_ADDRESS:-}
   POLICY_MODULE_ADDRESS: ${POLICY_MODULE_ADDRESS:-}
@@ -73,7 +75,7 @@ services:
       dockerfile: anvil.Dockerfile
     restart: unless-stopped
     environment:
-      FORK_URL: ${FORK_URL:?set FORK_URL (a Fuji RPC URL)}
+      FORK_URL: ${FORK_URL:-https://avalanche-fuji-c-chain-rpc.publicnode.com}
     healthcheck:
       test: ["CMD", "cast", "block-number", "--rpc-url", "http://127.0.0.1:8545"]
       interval: 5s
@@ -133,7 +135,7 @@ services:
       context: ..
       dockerfile: infra/web.Dockerfile
       args:
-        VITE_FUJI_RPC_URL: ${VITE_FUJI_RPC_URL:-https://api.avax-test.network/ext/bc/C/rpc}
+        VITE_FUJI_RPC_URL: ${VITE_FUJI_RPC_URL:-https://avalanche-fuji-c-chain-rpc.publicnode.com}
         VITE_WALLETCONNECT_PROJECT_ID: ${VITE_WALLETCONNECT_PROJECT_ID:-}
         VITE_DATA_SOURCE: ${VITE_DATA_SOURCE:-live}
         VITE_DEMO_SAFE: ${VITE_DEMO_SAFE:-}
@@ -160,8 +162,9 @@ services:
     # Public data only: the health JSON and the agent ADDRESS. No key.
     environment:
       HEALTH_URL: http://api:4000/api/health
-      FUJI_RPC_URLS: ${FUJI_RPC_URLS}
-      AGENT_ADDRESS: ${AGENT_ADDRESS:-}
+      FUJI_RPC_URLS: ${FUJI_RPC_URLS:-https://avalanche-fuji-c-chain-rpc.publicnode.com,https://avalanche-fuji.drpc.org,https://api.avax-test.network/ext/bc/C/rpc}
+      # The agent of packages/shared deployments.ts (FUJI_DEPLOYMENT.agent)
+      AGENT_ADDRESS: ${AGENT_ADDRESS:-0x9A478E17cfE33c98e5E74B4d744d249526c9be18}
       TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-}
       TELEGRAM_CHAT_ID: ${TELEGRAM_CHAT_ID:-}
       WATCH_INTERVAL_MS: ${WATCH_INTERVAL_MS:-30000}

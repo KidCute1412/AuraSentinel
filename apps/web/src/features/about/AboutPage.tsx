@@ -42,7 +42,7 @@ export function AboutPage() {
 
       <section className="blueprint relative overflow-hidden border-b border-line">
         <div className="mx-auto max-w-6xl px-4 pb-24 pt-20 sm:px-6 lg:pt-28">
-          <span className="mono-label">ABOUT / AGENTSHIELD</span>
+          <span className="mono-label">ABOUT / AURASENTINEL</span>
           <h1 data-ground="page-title" className="mt-4 text-5xl font-black italic uppercase leading-[0.92] tracking-[-0.04em] sm:text-7xl lg:text-8xl">
             Give the agent
             <span className="outline-text block">a leash,</span>
@@ -50,7 +50,7 @@ export function AboutPage() {
           </h1>
           <div className="mt-8 flex flex-wrap items-center gap-4">
             <p className="max-w-xl text-lg text-soft">
-              AI agents can trade around the clock, but nobody should hand one the keys to a wallet. AgentShield lets an
+              AI agents can trade around the clock, but nobody should hand one the keys to a wallet. AuraSentinel lets an
               agent work inside rules that the blockchain itself enforces.
             </p>
             <span className="rotate-3 bg-highlight px-3 py-1 font-mono text-sm font-bold uppercase tracking-widest text-ink">

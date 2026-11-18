@@ -75,15 +75,17 @@ agentshield/
 │  │  ├─ src/schemas/             # SwapIntent, SimResult, Explanation, JobDto, PolicyDto
 │  │  ├─ src/events.ts            # ServerEvent discriminated union
 │  │  ├─ src/errors.ts            # custom error name → reason code → câu tiếng Việt
-│  │  ├─ src/chain.ts             # avalancheFuji, addresses theo env, decimals
+│  │  ├─ src/chain.ts             # avalancheFuji, explorer, decimals
+│  │  ├─ src/deployments.ts       # địa chỉ Fuji (= fuji.json), block factory, RPC công khai: mặc định của mọi env
 │  │  ├─ src/money.ts             # parse/format bigint, không float
 │  │  ├─ src/generated/abis.ts    # ← @wagmi/cli sinh từ packages/contracts/out
 │  │  └─ wagmi.config.ts
 │  └─ config/                     # tsconfig.base.json, eslint, prettier
 ├─ infra/
-│  ├─ docker-compose.yml          # redis, postgres, anvil, api, worker, web
+│  ├─ docker-compose.yml          # dev: redis, postgres, anvil (không cần file env)
+│  ├─ docker-compose.prod.yml     # prod: cả 7 service, đọc infra/.env.prod (file env duy nhất của prod)
 │  ├─ anvil.Dockerfile
-│  └─ .env.example
+│  └─ .env.prod.example           # `pnpm env:prod` tạo .env.prod + sinh secret
 ├─ scripts/seed.ts                # mint, addLiquidity, fund Safe, setPolicy, --verify
 ├─ docs/
 ├─ turbo.json
@@ -152,9 +154,9 @@ apps/server/
 │     │  ├─ domain/
 │     │  │  ├─ rebalance.math.ts       # computeRebalance(balances, prices, policy) → SwapIntent | null
 │     │  │  └─ rebalance.math.spec.ts
-│     │  ├─ rebalancer.scheduler.ts    # upsertJobScheduler 15s, pause/resume
+│     │  ├─ rebalancer.scheduler.ts    # upsertJobScheduler 15s (Demo mode pause queue, xem modules/admin)
 │     │  ├─ rebalancer.processor.ts    # tick → đọc chain → math → enqueue swap
-│     │  ├─ rebalancer.controller.ts   # POST /rebalance, /admin/rebalancer/pause|resume
+│     │  ├─ rebalancer.controller.ts   # POST /rebalance
 │     │  └─ rebalancer.module.ts
 │     │
 │     ├─ auditor/                 # WORKER 2 — orchestration Shield 1

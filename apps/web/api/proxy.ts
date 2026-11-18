@@ -1,5 +1,5 @@
 /**
- * Vercel Edge Function: /api/* on the web's own domain -> the AgentShield server (API_ORIGIN). Same origin for the
+ * Vercel Edge Function: /api/* on the web's own domain -> the AuraSentinel server (API_ORIGIN). Same origin for the
  * browser, so the SIWE session cookie and SSE work without CORS. Used only by live builds (VITE_DATA_SOURCE=live);
  * the mock build never calls /api. Env (Vercel project settings, server side, not in the bundle):
  *   API_ORIGIN         https://api.example.com   (no path, no trailing slash)
@@ -15,7 +15,7 @@ export default async function handler(req: Request): Promise<Response> {
   const target = targetUrl(process.env.API_ORIGIN, req.url);
   if (!target) {
     return new Response(
-      JSON.stringify({ type: "/errors/api-not-configured", title: "The AgentShield server is not configured for this site", status: 503, code: "CHAIN_UNAVAILABLE", reason: null }),
+      JSON.stringify({ type: "/errors/api-not-configured", title: "The AuraSentinel server is not configured for this site", status: 503, code: "CHAIN_UNAVAILABLE", reason: null }),
       { status: 503, headers: { "content-type": "application/problem+json" } },
     );
   }

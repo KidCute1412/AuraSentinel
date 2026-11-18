@@ -311,6 +311,10 @@ describe.skipIf(!DEPLOYMENT)('e2e: rebalance and attacks through the whole pipel
     const owner = await signIn(OWNER);
     expect((await withCookie(owner.cookie, '/api/v1/admin/queues')).status).toBe(403);
     const admin = await signIn(ADMIN);
-    expect((await withCookie(admin.cookie, '/api/v1/admin/queues')).status).toBe(200);
+    const page = await withCookie(admin.cookie, '/api/v1/admin/queues');
+    expect(page.status).toBe(200);
+    // The page must be allowed to run its own bundle, or it renders blank.
+    expect(page.headers.get('content-security-policy')).toContain("script-src 'self'");
+    expect((await withCookie(admin.cookie, '/api/v1/admin/rebalancer')).headers.get('content-security-policy')).toContain("default-src 'none'");
   });
 });

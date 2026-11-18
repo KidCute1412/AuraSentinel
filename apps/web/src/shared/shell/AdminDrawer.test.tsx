@@ -42,7 +42,7 @@ describe("AdminDrawer", () => {
 
     fireEvent.click(screen.getByRole("button", { name: /admin/i }));
     expect(screen.getByRole("dialog", { name: "Admin panel" })).toBeInTheDocument();
-    await screen.findByText(/RUNNING/);
+    await screen.findByText("Running");
 
     fireEvent.keyDown(document, { key: "Escape" });
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
@@ -60,7 +60,7 @@ describe("AdminDrawer", () => {
     const patch = fetchMock.mock.calls.find(([, init]) => init?.method === "PATCH");
     expect(String(patch![0])).toMatch(/\/api\/v1\/admin\/rebalancer$/);
     expect(JSON.parse(String(patch![1]!.body))).toEqual({ paused: true });
-    expect(screen.getByText(/PAUSED/)).toBeInTheDocument();
+    expect(screen.getByText("Demo mode on")).toBeInTheDocument();
     expect(screen.getByText("5 AVAX")).toBeInTheDocument();
     expect(screen.getByText("Low gas")).toBeInTheDocument();
   });
@@ -82,6 +82,22 @@ describe("AdminDrawer", () => {
     fireEvent.click(close);
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
     expect(trigger).toHaveFocus();
+  });
+
+  it("shows the agent, its explorer link and when the rebalancer last ran", async () => {
+    fetchMock.mockResolvedValue(jsonResponse({ ...status(false), lastTickAt: new Date(Date.now() - 30_000).toISOString() }));
+    render(wrap(<AdminDrawer role="admin" />));
+    fireEvent.click(screen.getByRole("button", { name: /admin/i }));
+    await screen.findByText("Running");
+    expect(screen.getByText(/Last run:/)).toHaveTextContent(/ago/);
+    expect(screen.getByRole("link", { name: /snowtrace/i })).toHaveAttribute("href", expect.stringContaining(AGENT));
+  });
+
+  it("says the session lost its admin role on a 403, not that the network is down", async () => {
+    fetchMock.mockResolvedValue(jsonResponse({ type: "about:blank", title: "Admins only", status: 403, code: "NOT_ADMIN" }, { status: 403, headers: { "content-type": "application/problem+json" } }));
+    render(wrap(<AdminDrawer role="admin" />));
+    fireEvent.click(screen.getByRole("button", { name: /admin/i }));
+    expect(await screen.findByRole("alert")).toHaveTextContent("Your session is not an admin any more");
   });
 
   it("says so when the admin API is not reachable", async () => {

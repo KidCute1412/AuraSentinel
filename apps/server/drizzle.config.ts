@@ -7,5 +7,6 @@ export default defineConfig({
   dialect: 'postgresql',
   schema: './src/core/database/schema/index.ts',
   out: './src/core/database/migrations',
-  dbCredentials: { url: process.env.DATABASE_URL ?? '' },
+  // Same local default as the server (DEV_DEFAULTS in src/core/config/env.schema.ts): infra/docker-compose.yml ports.
+  dbCredentials: { url: process.env.DATABASE_URL || 'postgres://agentshield:agentshield@localhost:55432/agentshield' },
 });

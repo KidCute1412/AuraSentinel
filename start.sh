@@ -13,10 +13,9 @@ command -v node >/dev/null || die "Node.js not found. Install Node 20+."
 command -v docker >/dev/null || die "Docker not found."
 [ "$(node -p 'process.versions.node.split(".")[0]')" -ge 20 ] || die "Node 20+ required."
 
-echo "[1/6] Checking env files..."
-for f in infra/.env apps/server/.env apps/web/.env; do
-  [ -f "$f" ] || { cp "$f.example" "$f"; echo "      created $f"; }
-done
+# The only local env file. Everything public (Fuji addresses, RPCs, ports) has a default in code.
+echo "[1/6] Checking apps/server/.env..."
+[ -f apps/server/.env ] || { cp apps/server/.env.example apps/server/.env; echo "      created apps/server/.env: put the agent key in AGENT_PRIVATE_KEY"; }
 
 echo "[2/6] Installing dependencies..."
 $PNPM install --frozen-lockfile --prefer-offline || die "pnpm install failed."
@@ -26,8 +25,8 @@ $PNPM --filter @agentshield/shared build >/dev/null || die "Building packages/sh
 echo "[4/6] Checking Docker..."
 docker info >/dev/null 2>&1 || die "Docker is not running. Start it and re-run."
 echo "[5/6] Starting postgres, redis, anvil (waiting until healthy)..."
-docker compose -f infra/docker-compose.yml --env-file infra/.env up -d --build --wait \
-  || die "docker compose failed. Check FORK_URL in infra/.env"
+docker compose -f infra/docker-compose.yml up -d --build --wait \
+  || die "docker compose failed. Run: docker compose -f infra/docker-compose.yml logs"
 
 echo "[6/6] Applying database migrations..."
 (cd apps/server && $PNPM db:migrate) || die "drizzle migrate failed."

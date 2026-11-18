@@ -1,4 +1,5 @@
 import { existsSync } from 'node:fs';
+import { FUJI_DEPLOYMENT, FUJI_FACTORY_BLOCK, FUJI_PUBLIC_RPC_URLS } from '@agentshield/shared';
 import { z } from 'zod';
 
 const address = z
@@ -93,11 +94,38 @@ export const envSchema = z.object({
 
 export type Env = z.infer<typeof envSchema>;
 
+/**
+ * Public values every deployment shares, so .env files hold only secrets and per-deployment settings. Applied
+ * outside tests only: a test that forgets an address must not silently talk to the real Fuji contracts.
+ */
+const FUJI_DEFAULTS: Record<string, string> = {
+  FUJI_RPC_URLS: FUJI_PUBLIC_RPC_URLS.join(','),
+  SAFE_ADDRESS: FUJI_DEPLOYMENT.publicSafe,
+  POLICY_MODULE_ADDRESS: FUJI_DEPLOYMENT.publicModule,
+  TOKEN_A_ADDRESS: FUJI_DEPLOYMENT.usdc,
+  TOKEN_B_ADDRESS: FUJI_DEPLOYMENT.wavax,
+  FACTORY_ADDRESS: FUJI_DEPLOYMENT.factory,
+  INDEXER_START_BLOCK: String(FUJI_FACTORY_BLOCK),
+};
+/** Local dev: the ports infra/docker-compose.yml publishes. Production gets these from its compose file. */
+const DEV_DEFAULTS: Record<string, string> = {
+  DATABASE_URL: 'postgres://agentshield:agentshield@localhost:55432/agentshield',
+  REDIS_URL: 'redis://localhost:56379',
+  // The web runs on Vite and proxies /api here with changeOrigin, so the request Host is not what the browser shows.
+  SIWE_DOMAINS: 'localhost:5173',
+};
+
+export function defaultsFor(nodeEnv: string | undefined): Record<string, string> {
+  if (nodeEnv === 'test') return {};
+  return nodeEnv === 'production' ? FUJI_DEFAULTS : { ...FUJI_DEFAULTS, ...DEV_DEFAULTS };
+}
+
 export function parseEnv(raw: NodeJS.ProcessEnv = process.env): Env {
   // Local dev: load apps/server/.env if present (real env vars always win).
   if (raw === process.env && existsSync('.env')) process.loadEnvFile('.env');
   // `KEY=` in a .env file means "unset", not an empty string.
-  const cleaned = Object.fromEntries(Object.entries(raw).filter(([, v]) => v !== ''));
+  const set = Object.fromEntries(Object.entries(raw).filter(([, v]) => v !== ''));
+  const cleaned = { ...defaultsFor(set.NODE_ENV ?? 'development'), ...set };
   const result = envSchema.safeParse(cleaned);
   if (!result.success) {
     const issues = result.error.issues.map((i) => `  - ${i.path.join('.')}: ${i.message}`).join('\n');

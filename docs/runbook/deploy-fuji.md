@@ -15,9 +15,11 @@ node scripts/deploy/deploy.mjs run    --network fork --fresh
 node scripts/deploy/deploy.mjs doctor                    # Fuji thật, chỉ đọc, phải toàn PASS
 node scripts/deploy/deploy.mjs run    --remember-password  # ký thật; hỏi mật khẩu keystore 1 lần
 node scripts/deploy/deploy.mjs verify                    # 5 contract lên Snowtrace
-node scripts/deploy/deploy.mjs wire                      # ghi địa chỉ vào apps/server/.env
+node scripts/deploy/deploy.mjs wire                      # tuỳ chọn: ghi đè địa chỉ vào apps/server/.env của máy mình
 node scripts/deploy/deploy.mjs status                    # bảng địa chỉ + link Snowtrace
 ```
+
+- **Sau khi deploy lại:** chép địa chỉ mới từ `fuji.json` vào `packages/shared/src/deployments.ts` (`FUJI_DEPLOYMENT`, cùng `FUJI_FACTORY_BLOCK` = block deploy factory) rồi commit cả hai. Server, web và watchdog đều lấy mặc định từ đó, nên không ai phải sửa `.env`. Test `packages/shared/test/deployments.spec.ts` báo đỏ nếu hai file lệch nhau. Riêng watchdog có địa chỉ agent mặc định trong `infra/docker-compose.prod.yml`.
 
 - Chạy lại `run` an toàn: bước nào đã có địa chỉ trong `fuji.json` thì bỏ qua. Làm tiếp từ bước lỗi: `--from N` (1 token+factory, 2 pool, 3 vault, 4 swap của agent).
 - `--remember-password` ghi mật khẩu vào file tạm (xoá khi thoát) để Foundry không hỏi 6 lần. Bỏ cờ này nếu muốn Foundry tự hỏi mỗi lần.

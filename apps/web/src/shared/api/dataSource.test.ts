@@ -7,17 +7,16 @@ const SAFE = getAddress("0x5afe000000000000000000000000000000000abc");
 
 describe("data source switch", () => {
   it.each([
-    [undefined, "mock"],
-    ["", "mock"],
-    ["mock", "mock"],
+    [undefined, "live"],
+    ["", "live"],
+    [" Mock ", "mock"],
     ["Live", "live"],
-    [" live ", "live"],
-    ["prod", "mock"],
+    ["prod", "live"],
   ] as const)("VITE_DATA_SOURCE=%j -> %s", (raw, expected) => {
     expect(parseDataSource(raw)).toBe(expected);
   });
 
-  it("defaults to the simulation, so tests and a fresh checkout need no backend", () => {
+  it("tests run on the simulation (vite.config sets VITE_DATA_SOURCE=mock), so they need no backend", () => {
     expect(DATA_SOURCE).toBe("mock");
     expect(isLive).toBe(false);
     expect(DEMO_SAFE).toBe(FIXTURE_SAFES.demo);

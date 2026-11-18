@@ -1,7 +1,9 @@
 name: agentshield
 
 # Infra only: postgres, redis, anvil. Run api/worker with `pnpm dev` on the host.
-# Usage: docker compose -f infra/docker-compose.yml --env-file infra/.env up -d
+# Usage: docker compose -f infra/docker-compose.yml up -d
+# Needs no env file: every value below has a dev default. To change one (a port taken by another project, your own
+# RPC), put it in infra/.env, which compose reads by itself.
 
 services:
   postgres:
@@ -43,7 +45,7 @@ services:
     restart: unless-stopped
     environment:
       # First entry of FUJI_RPC_URLS
-      FORK_URL: ${FORK_URL:?set FORK_URL in infra/.env (a Fuji RPC URL)}
+      FORK_URL: ${FORK_URL:-https://avalanche-fuji-c-chain-rpc.publicnode.com}
     ports:
       - "127.0.0.1:${ANVIL_PORT:-8545}:8545"
     healthcheck:
