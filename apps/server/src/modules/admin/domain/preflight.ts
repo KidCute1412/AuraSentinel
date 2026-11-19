@@ -1,4 +1,4 @@
-import { DEMO_NORMAL_TRADE, formatUnits, type CheckStatus, type PreflightCheck, type PreflightDto } from '@agentshield/shared';
+import { DEMO_TRADE_MAX, formatUnits, type CheckStatus, type PreflightCheck, type PreflightDto } from '@agentshield/shared';
 
 /**
  * Demo Day preflight (admin console): is the stage ready, and if not, why. Pure and deterministic: every input is
@@ -134,16 +134,17 @@ export function evaluatePreflight(i: PreflightInput): PreflightDto {
     else {
       const detail = `${usdc(left)} of ${usdc(d.dailyCap!)} left today.`;
       checks.push(
-        left >= DEMO_NORMAL_TRADE
+        // Measured against the biggest trade a visitor may pick (100 USDC), so the warning comes while there is room.
+        left >= DEMO_TRADE_MAX
           ? check('demo-budget', 'Daily budget', 'ok', detail)
-          : check('demo-budget', 'Daily budget', 'warn', `${detail} The normal trade (${usdc(DEMO_NORMAL_TRADE)}) will shrink or be blocked.`, 'Wait for the daily reset (00:00 UTC), or present on a fresh vault.'),
+          : check('demo-budget', 'Daily budget', 'warn', `${detail} A ${usdc(DEMO_TRADE_MAX)} trade (the most a visitor can pick) will shrink or be blocked.`, 'Wait for the daily reset (00:00 UTC), or present on a fresh vault.'),
       );
     }
 
     checks.push(
-      d.usdcBalance >= DEMO_NORMAL_TRADE
+      d.usdcBalance >= DEMO_TRADE_MAX
         ? check('demo-balance', 'Vault balance', 'ok', `${usdc(d.usdcBalance)} in the vault.`)
-        : check('demo-balance', 'Vault balance', 'fail', `${usdc(d.usdcBalance)} in the vault, less than the ${usdc(DEMO_NORMAL_TRADE)} normal trade.`, 'The owner deposits USDC into the demo vault.'),
+        : check('demo-balance', 'Vault balance', 'fail', `${usdc(d.usdcBalance)} in the vault, less than a ${usdc(DEMO_TRADE_MAX)} trade.`, 'The owner deposits USDC into the demo vault.'),
     );
   }
 

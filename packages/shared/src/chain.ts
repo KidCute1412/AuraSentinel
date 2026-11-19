@@ -19,5 +19,10 @@ export const explorerAddressUrl = (addr: string) => `${FUJI_EXPLORER}/address/${
 
 export const TOKEN_DECIMALS = { USDC: 6, WAVAX: 18 } as const;
 
-/** The demo's "normal trade" (guided step 1): 200 USDC in base units, well inside the 500 USDC per-trade limit. */
-export const DEMO_NORMAL_TRADE = 200_000_000n;
+/**
+ * The demo's "normal trade" (guided step 1, Free play default): 20 USDC in base units. Small on purpose: the public
+ * demo vault and its 1,500 USDC daily limit are shared by every visitor.
+ */
+export const DEMO_NORMAL_TRADE = 20_000_000n;
+/** Most a manual trade on the shared demo vault may move (UI limit, and the server clamps to it too): 100 USDC. */
+export const DEMO_TRADE_MAX = 100_000_000n;

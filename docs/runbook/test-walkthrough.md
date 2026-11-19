@@ -64,7 +64,7 @@ Làm lần lượt 4 bước trên trang:
 
 | Bấm | ✅ Thành công khi |
 |---|---|
-| **01 Normal trade** | Con dấu **APPROVE / SAFE**; số dư USDC giảm 200 và WAVAX tăng; có link Snowtrace tới tx thành công |
+| **01 Normal trade** (mặc định 20 USDC; ô nhập cho chọn 1–100, nút nhanh 10/20/50/100; gõ 150 thì báo lỗi và nút bị khoá) | Con dấu **APPROVE / SAFE**; số dư USDC giảm đúng số đã chọn và WAVAX tăng; có link Snowtrace tới tx thành công |
 | **02 Take too much** (2.000 USDC) | **BLOCKED · Shield 1**, lý do `ExceedsPerTxCap`; **không có** tx nào lên chain; số dư không đổi |
 | **03 Hack around** (Bypass) | **Shield 2 blocked**: tx thật lên chain và **bị revert**; Snowtrace hiện tx `Fail` |
 | **04 Emergency stop** | Ở bản live, nút **bị tắt có chủ ý**: vault demo dùng chung, khách không được khoá nó cho mọi người. Trang giải thích và cho bấm "Got it". Test Kill-Switch thật ở **bước 8** (két riêng) |
@@ -73,7 +73,7 @@ Làm lần lượt 4 bước trên trang:
 
 | Bước | ✅ Ray và bảng luật đúng khi |
 |---|---|
-| 01 Normal trade | 4 cổng `Passed`. Bấm **Simulation**: "Vault pays −200 USDC", "Vault receives … WAVAX". Bấm **On-chain policy**: có link tx |
+| 01 Normal trade | 4 cổng `Passed`. Bấm **Simulation**: "Vault pays −20 USDC" (hoặc số đã chọn), "Vault receives … WAVAX". Bấm **On-chain policy**: có link tx |
 | 02 Take too much | **Pre-check** `Stopped here`, 3 cổng sau `Not reached`. Bảng: dòng **Per-trade cap** `FAIL`, `2,000 USDC ≤ 500 USDC`, mã `ExceedsPerTxCap`; dòng Daily cap có thanh "đã tiêu + lệnh này / cap" |
 | 03 Hack around | 3 cổng Shield 1 `Bypassed` (viền nét đứt), **On-chain policy** `Stopped here`; bảng có "Contract accepted it: FAIL" và link tx bị revert |
 

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { state } from "@/test/apiFixtures";
-import { doneSteps, firstOpenStep, GUIDED_STEPS, normalTradeAmount, stepFor, stepResult } from "./guided";
+import { doneSteps, firstOpenStep, GUIDED_STEPS, checkTradeAmount, normalTradeAmount, stepFor, stepResult } from "./guided";
 
 const job = (status: string, reasonCode: string | null = null, revertError: string | null = null) => ({ status, reasonCode, revertError }) as never;
 
@@ -44,14 +44,27 @@ describe("guided demo steps", () => {
     expect(firstOpenStep(new Set(["rebalance", "over-withdraw", "bypass", "kill"]))).toBe(3);
   });
 
-  it("sizes the normal trade to what is left of today's limit, in whole USDC", () => {
+  it("sizes the normal trade to 20 USDC, or what is left of today's limit, in whole USDC", () => {
     const spent = (amount: string) => ({ ...state, spentToday: state.spentToday.map((s) => ({ ...s, amount })) });
-    expect(normalTradeAmount(state)).toBe(200_000_000n); // 1,300 left
-    expect(normalTradeAmount(spent("1420500000"))).toBe(79_000_000n); // 79.5 left -> 79
-    expect(normalTradeAmount(spent("1500000000"))).toBe(200_000_000n); // nothing left: blocked, said plainly
-    expect(normalTradeAmount(null)).toBe(200_000_000n);
-    const step = stepFor(GUIDED_STEPS[0]!, spent("1420500000"));
-    expect(step.story).toContain("79 USDC");
-    expect(step.spec).toEqual({ type: "rebalance", amountIn: 79_000_000n });
+    expect(normalTradeAmount(state)).toBe(20_000_000n); // plenty left
+    expect(normalTradeAmount(spent("1485500000"))).toBe(14_000_000n); // 14.5 left -> 14
+    expect(normalTradeAmount(spent("1500000000"))).toBe(20_000_000n); // nothing left: blocked, said plainly
+    expect(normalTradeAmount(null)).toBe(20_000_000n);
+    const step = stepFor(GUIDED_STEPS[0]!, spent("1485500000"));
+    expect(step.story).toContain("14 USDC");
+    expect(step.spec).toEqual({ type: "rebalance", amountIn: 14_000_000n });
+  });
+
+  it("lets the visitor pick 1 to 100 USDC, within what the shared vault has left today", () => {
+    const spent = (amount: string) => ({ ...state, spentToday: state.spentToday.map((s) => ({ ...s, amount })) });
+    expect(checkTradeAmount("35", state)).toEqual({ value: 35_000_000n });
+    expect(checkTradeAmount("100", state)).toEqual({ value: 100_000_000n });
+    expect(checkTradeAmount("101", state)).toEqual({ error: "At most 100 USDC on this shared demo vault" });
+    expect(checkTradeAmount("0.5", state)).toEqual({ error: "At least 1 USDC" });
+    expect(checkTradeAmount("abc", state)).toHaveProperty("error");
+    expect(checkTradeAmount("60", spent("1450000000"))).toEqual({ error: "Only 50 USDC left today on this shared vault" });
+    const step = stepFor(GUIDED_STEPS[0]!, state, 35_000_000n);
+    expect(step.story).toContain("35 USDC");
+    expect(step.spec).toEqual({ type: "rebalance", amountIn: 35_000_000n });
   });
 });

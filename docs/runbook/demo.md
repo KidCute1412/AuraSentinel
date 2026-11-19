@@ -19,7 +19,7 @@
 
 | Phút | Thao tác | Kết quả trên màn hình | Điều cần nói |
 |---|---|---|---|
-| **1** · Chạy chuẩn | Bấm **Run Rebalance (200 USDC)** | Timeline precheck → sim → invariant → chain; thẻ xanh *"An toàn, tiêu 13,3% hạn mức ngày"* (badge `llm`); budget 200 / 1,500; Before→After đổi | AI chỉ giải thích; số tiền do toán quyết định; tiền về lại Safe |
+| **1** · Chạy chuẩn | Guided bước 01: chọn số USDC (mặc định 20, tối đa 100 trên vault demo dùng chung) rồi bấm **Make the trade** | Track đi qua 4 cổng; thẻ xanh SAFE (badge `llm`); budget tăng đúng số đã chọn; Before→After đổi | AI chỉ giải thích; số tiền do toán quyết định; tiền về lại Safe |
 | **2** · Tấn công | Bấm đỏ **#1 Over-withdraw 2,000** | Thẻ đỏ, reason code `ExceedsPerTxCap`, giải thích tiếng Việt; không có tx on-chain | Shield 1 chặn ngoài cửa |
 | | Bấm đỏ **#4 Bypass website ⚡** | Thẻ đỏ + **link Snowtrace của tx revert** `ExceedsPerTxCap`; số dư Safe không đổi | Bỏ qua cả web của chúng tôi, chain vẫn chặn: đây là Shield 2 |
 | **3** · Kill | Bấm **KILL-SWITCH** (ví owner ký) | `PolicyRevoked`, hiển thị độ trễ ~1.5s, trạng thái chuyển 🔴 | Ký từ browser, không qua backend: "tắt server đi, nút Kill vẫn chạy" |

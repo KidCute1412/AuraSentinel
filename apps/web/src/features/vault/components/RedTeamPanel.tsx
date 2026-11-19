@@ -1,6 +1,6 @@
 import { Bug, Lock, Play } from "lucide-react";
 import { useState, type KeyboardEvent } from "react";
-import type { AttackScenario as Scenario } from "@agentshield/shared";
+import { DEMO_TRADE_MAX, type AttackScenario as Scenario } from "@agentshield/shared";
 import { ApiError } from "@/shared/api/client";
 import { describeApiError } from "@/shared/api/errorCopy";
 import type { AttackScenario, JobSpec } from "@/shared/api/mockEngine";
@@ -11,6 +11,7 @@ import { useCountdown } from "@/shared/lib/useCountdown";
 import { Panel } from "@/shared/ui/Panel";
 import { expectationLine } from "../lib/attacks";
 import { parseLimit } from "../lib/policyForm";
+import { TRADE_PRESETS } from "../demo/guided";
 
 const ATTACKS: { id: AttackScenario; title: string; hint: string }[] = [
   { id: "over-withdraw", title: "Over-withdraw", hint: "Try to move 2,000 USDC at once" },
@@ -48,7 +49,9 @@ const btn = "min-h-11 border border-line-strong px-4 text-left text-sm font-bold
 /** Run a rebalance, fire one of the four attacks, or paste a prompt injection. Every result is decided by rules, not by the text. */
 export function RedTeamPanel({ view, canAct, onStarted, layout = "stack" }: Props) {
   const { launch } = useJobLauncher(view);
-  const [amount, setAmount] = useState("200");
+  // The shared demo vault: small default, 100 USDC at most (its daily limit is everyone's). Own vaults: as before.
+  const demo = view.isDemo;
+  const [amount, setAmount] = useState(demo ? "20" : "200");
   const [text, setText] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -77,7 +80,7 @@ export function RedTeamPanel({ view, canAct, onStarted, layout = "stack" }: Prop
   };
 
   const parsed = parseLimit(amount, 6);
-  const amountError = "error" in parsed ? parsed.error : null;
+  const amountError = "error" in parsed ? parsed.error : demo && parsed.value > DEMO_TRADE_MAX ? "At most 100 USDC on this shared demo vault" : null;
 
   if (!canAct) {
     return (
@@ -113,12 +116,12 @@ export function RedTeamPanel({ view, canAct, onStarted, layout = "stack" }: Prop
       </div>
       {amountError && <p id="rebalance-err" className="mt-1 text-xs text-danger-text">{amountError}</p>}
       <div className="mt-2 flex flex-wrap gap-2">
-        {["50", "200", "600"].map((v) => (
+        {(demo ? TRADE_PRESETS : ["50", "200", "600"]).map((v) => (
           <button key={v} type="button" onClick={() => setAmount(v)} className="min-h-9 border border-line px-3 font-mono text-xs hover:bg-hover">
             {v}
           </button>
         ))}
-        <span className="self-center text-xs text-muted">600 is over the per-transaction cap</span>
+        <span className="self-center text-xs text-muted">{demo ? "1 to 100 USDC on this shared vault" : "600 is over the per-transaction cap"}</span>
       </div>
       <button
         type="submit"
