@@ -142,9 +142,9 @@ function GateDetail({ gate, job, showTime }: { gate: Gate; job: JobDetailDto; sh
         )}
       </div>
       <p className="px-4 pt-2.5 text-sm text-soft">{info.what}</p>
-      {flow && <MoneyFlowDiagram key={gate.id} flow={flow} />}
+      {flow && <MoneyFlowDiagram flow={flow} />}
       {gate.checks.length > 0 ? (
-        <ul key={gate.id} className="mt-2 divide-y divide-line border-t border-line">
+        <ul className="mt-2 divide-y divide-line border-t border-line">
           {gate.checks.map((c, i) => (
             <RuleRow key={`${c.id}-${i}`} row={c} amountIn={job.intent?.amountIn} index={i} />
           ))}
@@ -239,7 +239,8 @@ export function ShieldPipeline({ job, variant = "compact" }: { job: JobDetailDto
         </div>
       ) : (
         <div role="tabpanel" id={`gate-panel-${job.id}`} aria-labelledby={`gate-${job.id}-${selected}`}>
-          <GateDetail gate={gates.find((g) => g.id === selected)!} job={job} />
+          {/* Keyed by gate: switching tabs mounts a fresh table, so rows and arrows replay and never pile up. */}
+          <GateDetail key={selected} gate={gates.find((g) => g.id === selected)!} job={job} />
         </div>
       )}
     </div>
