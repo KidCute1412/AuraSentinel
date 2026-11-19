@@ -195,4 +195,36 @@ describe('AnvilSimulator', () => {
       'not configured',
     );
   });
+  describe('bounded fork resets (a stuck public RPC must not freeze the queue)', () => {
+    const hang = () => new Promise<never>(() => {});
+
+    it('gives up on a hanging RPC after resetTimeoutMs and resets from the next one', async () => {
+      const { client } = fakeAnvil();
+      client.reset.mockImplementationOnce(hang as never);
+      const sim = new AnvilSimulator(client as never, { refreshIntervalMs: 0, forkUrls: ['https://a.example', 'https://b.example'], resetTimeoutMs: 20 });
+      const t0 = Date.now();
+      await expect(sim.simulate(intent, target)).resolves.toMatchObject({ ok: true });
+      expect(Date.now() - t0).toBeLessThan(1_000);
+      expect(client.reset.mock.calls.map((c) => (c as unknown as [{ jsonRpcUrl: string }])[0].jsonRpcUrl)).toEqual(['https://a.example', 'https://b.example']);
+    });
+
+    it('starts the next reset from the RPC that last worked', async () => {
+      const { client } = fakeAnvil();
+      client.reset.mockImplementationOnce(async () => {
+        throw new Error('fetch failed');
+      });
+      const sim = new AnvilSimulator(client as never, { refreshIntervalMs: 0, maxForkAgeMs: -1, forkUrls: ['https://a.example', 'https://b.example'], resetTimeoutMs: 20 });
+      await sim.simulate(intent, target);
+      await sim.simulate(intent, target);
+      const urls = client.reset.mock.calls.map((c) => (c as unknown as [{ jsonRpcUrl: string }])[0].jsonRpcUrl);
+      expect(urls).toEqual(['https://a.example', 'https://b.example', 'https://b.example']);
+    });
+
+    it('fails the sim quickly (infra error, retried by the queue) when every RPC is stuck', async () => {
+      const { client } = fakeAnvil();
+      client.reset.mockImplementation(hang as never);
+      const sim = new AnvilSimulator(client as never, { refreshIntervalMs: 0, forkUrls: ['https://a.example', 'https://b.example'], resetTimeoutMs: 20 });
+      await expect(sim.simulate(intent, target)).rejects.toThrow(/timed out/);
+    });
+  });
 });
