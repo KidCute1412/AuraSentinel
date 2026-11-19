@@ -1,0 +1,11 @@
+[Unit]
+Description=AuraSentinel: deploy main if there is a new commit with ci-pass green
+After=network-online.target docker.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=deploy
+WorkingDirectory=/opt/aurasentinel
+ExecStart=/usr/local/bin/aurasentinel-autodeploy
+TimeoutStartSec=30min
