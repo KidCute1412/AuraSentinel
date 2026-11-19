@@ -24,8 +24,9 @@ import { BudgetBar } from "../components/BudgetBar";
 import { ShieldPipeline } from "../components/ShieldPipeline";
 import { KillSwitch } from "../components/KillSwitch";
 import { useOwnerControl } from "../hooks/useOwnerControl";
+import { parseLimit } from "../lib/policyForm";
 import { tourProgress } from "../lib/tour";
-import { doneSteps, firstOpenStep, GUIDED_STEPS, stepFor, stepResult, type GuidedId, type StepResult } from "./guided";
+import { checkTradeAmount, doneSteps, firstOpenStep, GUIDED_STEPS, normalTradeAmount, stepFor, stepResult, TRADE_PRESETS, type GuidedId, type StepResult } from "./guided";
 
 const STEP_GROUND = "guided-step";
 
@@ -104,6 +105,51 @@ function ResultBlock({ result, job }: { result: StepResult; job: Parameters<type
   );
 }
 
+/**
+ * How much the normal trade moves: 20 USDC by default, the visitor may pick 1 to 100 (the shared vault's daily limit
+ * belongs to everyone). Presets for one tap; the error sits under the field and keeps the button off.
+ */
+function TradeAmount({ text, onChange, error, disabled }: { text: string; onChange: (v: string) => void; error: string | null; disabled: boolean }) {
+  return (
+    <div className="mb-4">
+      <label htmlFor="guided-amount" className="mono-label">
+        USDC to swap
+      </label>
+      <div className="mt-1 flex flex-wrap items-stretch gap-2">
+        <div className="flex items-stretch">
+          <input
+            id="guided-amount"
+            inputMode="decimal"
+            autoComplete="off"
+            value={text}
+            disabled={disabled}
+            onChange={(e) => onChange(e.target.value)}
+            aria-invalid={!!error}
+            aria-describedby="guided-amount-help"
+            className={cn("tabular min-h-11 w-28 border bg-surface px-3 font-mono text-base disabled:opacity-50", error ? "border-danger" : "border-line-strong")}
+          />
+          <span className="inline-flex items-center border border-l-0 border-line-strong bg-hover px-3 font-mono text-xs text-soft">USDC</span>
+        </div>
+        {TRADE_PRESETS.map((v) => (
+          <button
+            key={v}
+            type="button"
+            disabled={disabled}
+            aria-pressed={text.trim() === v}
+            onClick={() => onChange(v)}
+            className={cn("tabular min-h-11 min-w-11 border px-3 font-mono text-sm disabled:opacity-50", text.trim() === v ? "border-fg bg-ink text-bg" : "border-line-strong hover:bg-hover")}
+          >
+            {v}
+          </button>
+        ))}
+      </div>
+      <p id="guided-amount-help" className={cn("mt-1.5 text-sm", error ? "font-bold text-danger-text" : "text-muted")}>
+        {error ?? "1 to 100 USDC. This vault is shared, so its daily limit belongs to everyone."}
+      </p>
+    </div>
+  );
+}
+
 /** "Cooling down" on the shared vault: someone else just pressed, so it is a wait, not an error. */
 const isCooldown = (e: unknown) => e instanceof ApiError && (e.code === "COOLDOWN" || e.code === "RATE_LIMITED");
 
@@ -129,7 +175,14 @@ export function GuidedDemo({ view, onFreePlay }: { view: VaultView; onFreePlay: 
   const resultRef = useRef<HTMLDivElement>(null);
   const moved = useRef(false);
 
-  const step = stepFor(GUIDED_STEPS[current]!, feed.state);
+  // The normal trade's amount: what the visitor typed, else today's default (20 USDC, less if the vault is nearly spent).
+  const [amountText, setAmountText] = useState<string | null>(null);
+  const tradeText = amountText ?? formatTokenAmount(normalTradeAmount(feed.state), 6);
+  const tradeCheck = checkTradeAmount(tradeText, feed.state);
+  const tradeError = "error" in tradeCheck ? tradeCheck.error : null;
+  // The story follows what is typed (even an amount the button refuses), so the sentence and the field never disagree.
+  const typed = parseLimit(tradeText, 6);
+  const step = stepFor(GUIDED_STEPS[current]!, feed.state, "value" in typed ? typed.value : undefined);
   const jobId = runs[step.id];
   const { job } = useJobDetail(view, jobId);
   const result = stepResult(step.id, job);
@@ -179,7 +232,7 @@ export function GuidedDemo({ view, onFreePlay }: { view: VaultView; onFreePlay: 
   };
 
   const run = async () => {
-    if (!step.spec || busy) return;
+    if (!step.spec || busy || (step.id === "rebalance" && tradeError)) return;
     setBusy(true);
     setError(null);
     try {
@@ -223,11 +276,12 @@ export function GuidedDemo({ view, onFreePlay }: { view: VaultView; onFreePlay: 
             </p>
 
             <div className="mt-6">
+              {step.id === "rebalance" && <TradeAmount text={tradeText} onChange={setAmountText} error={tradeError} disabled={running} />}
               {step.spec ? (
                 <div className="flex flex-wrap items-center gap-4">
                   <span className={cn(!finished && "drop-hard")}>
                     {/* Once there is a result, "Next step" becomes the main action and this one steps back. */}
-                    <button type="button" onClick={() => void run()} disabled={running || wait > 0 || lowGas} className={cn(finished ? secondaryCta : primaryCta, "gap-2 disabled:cursor-not-allowed disabled:opacity-50")}>
+                    <button type="button" onClick={() => void run()} disabled={running || wait > 0 || lowGas || (step.id === "rebalance" && !!tradeError)} className={cn(finished ? secondaryCta : primaryCta, "gap-2 disabled:cursor-not-allowed disabled:opacity-50")}>
                       <Play aria-hidden className="size-4" />
                       {busy ? "Sending…" : result.kind === "running" ? "Checking…" : wait > 0 ? `Your turn in ${wait}s` : finished ? "Run it again" : step.cta}
                     </button>

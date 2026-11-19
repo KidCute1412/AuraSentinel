@@ -1,4 +1,4 @@
-import { Address, CreateJobRequest, problem, type CreateJobResponse } from '@agentshield/shared';
+import { Address, CreateJobRequest, DEMO_TRADE_MAX, problem, type CreateJobResponse } from '@agentshield/shared';
 import {
   BadRequestException,
   Body,
@@ -77,11 +77,11 @@ export class RebalancerController {
     });
     const limit = state.limits.find((l) => l.token.toLowerCase() === tokenIn.toLowerCase());
     const spent = state.spentToday.find((s) => s.token.toLowerCase() === tokenIn.toLowerCase())?.amount ?? 0n;
-    const amountIn = manualAmount(BigInt(req.data.amountIn), {
-      maxPerTx: limit?.maxPerTx ?? 0n,
-      dailyCap: limit?.dailyCap ?? 0n,
-      spentToday: spent,
-    });
+    const amountIn = manualAmount(
+      BigInt(req.data.amountIn),
+      { maxPerTx: limit?.maxPerTx ?? 0n, dailyCap: limit?.dailyCap ?? 0n, spentToday: spent },
+      vault.isDemo ? DEMO_TRADE_MAX : undefined,
+    );
     const quoted = await this.quotes.amountOut(state.policy.router, tokenIn, tokenOut, amountIn).catch(() => {
       throw chainDown('Could not get a router quote');
     });

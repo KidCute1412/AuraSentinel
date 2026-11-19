@@ -70,14 +70,14 @@ describe('evaluatePreflight', () => {
     expect(byId(never, 'demo-expiry').status).toBe('ok');
   });
 
-  it('warns when less than the 200 USDC normal trade is left today, fails when the vault holds less than that', () => {
+  it('warns when less than a 100 USDC trade (the most a visitor picks) is left today, fails when the vault holds less', () => {
     const spent = ready();
-    (spent.demo as { value: { spentToday: bigint } }).value.spentToday = USDC(1_400);
+    (spent.demo as { value: { spentToday: bigint } }).value.spentToday = USDC(1_450);
     expect(byId(spent, 'demo-budget')).toMatchObject({ status: 'warn' });
-    expect(byId(spent, 'demo-budget').detail).toContain('100 USDC of 1,500 USDC left today');
+    expect(byId(spent, 'demo-budget').detail).toContain('50 USDC of 1,500 USDC left today');
 
     const poor = ready();
-    (poor.demo as { value: { usdcBalance: bigint } }).value.usdcBalance = USDC(150);
+    (poor.demo as { value: { usdcBalance: bigint } }).value.usdcBalance = USDC(60);
     expect(byId(poor, 'demo-balance').status).toBe('fail');
   });
 

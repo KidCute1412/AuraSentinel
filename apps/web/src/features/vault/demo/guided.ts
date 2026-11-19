@@ -1,7 +1,8 @@
-import { DEMO_NORMAL_TRADE, JOB_TERMINAL_STATUSES, type JobDetailDto, type StateDto } from "@agentshield/shared";
+import { DEMO_NORMAL_TRADE, DEMO_TRADE_MAX, JOB_TERMINAL_STATUSES, type JobDetailDto, type StateDto } from "@agentshield/shared";
 import { formatTokenAmount } from "@/shared/lib/format";
 import { REASONS, spentUsdc, usdcLimit, type JobSpec, type ReasonCode } from "@/shared/api/mockEngine";
 import { checkOutcome } from "../lib/attacks";
+import { parseLimit } from "../lib/policyForm";
 import type { TourStep } from "../lib/tour";
 
 /**
@@ -26,27 +27,52 @@ export interface GuidedStep {
   spec: JobSpec | null;
 }
 
-/** The usual normal trade: well inside the 500 USDC per-trade limit of the demo policy. */
+/** The usual normal trade (20 USDC): small, because every visitor shares the demo vault's daily limit. */
 const NORMAL_TRADE = DEMO_NORMAL_TRADE;
 const ONE_USDC = 1_000_000n;
+/** The visitor may pick 1 to 100 USDC (the server clamps the shared demo vault to 100 too). */
+export const TRADE_MIN = ONE_USDC;
+export const TRADE_MAX = DEMO_TRADE_MAX;
+/** One-tap amounts next to the field. */
+export const TRADE_PRESETS = ["10", "20", "50", "100"] as const;
+
+const leftToday = (state: StateDto): bigint => {
+  const { dailyCap } = usdcLimit(state);
+  return dailyCap > spentUsdc(state) ? dailyCap - spentUsdc(state) : 0n;
+};
 
 /**
- * The normal trade, sized so it really is normal today: 200 USDC, or less when the shared demo vault has less than
- * that left of its daily limit (whole USDC). With under 1 USDC left it stays 200 and the result says the budget is used up.
+ * The normal trade, sized so it really is normal today: 20 USDC, or less when the shared demo vault has less than
+ * that left of its daily limit (whole USDC). With under 1 USDC left it stays 20 and the result says the budget is used up.
  */
 export function normalTradeAmount(state: StateDto | null): bigint {
   if (!state) return NORMAL_TRADE;
-  const { dailyCap, maxPerTx } = usdcLimit(state);
-  const left = dailyCap > spentUsdc(state) ? dailyCap - spentUsdc(state) : 0n;
-  const fit = [NORMAL_TRADE, left, maxPerTx].reduce((a, b) => (b < a ? b : a));
+  const { maxPerTx } = usdcLimit(state);
+  const fit = [NORMAL_TRADE, leftToday(state), maxPerTx].reduce((a, b) => (b < a ? b : a));
   const whole = (fit / ONE_USDC) * ONE_USDC;
   return whole >= ONE_USDC ? whole : NORMAL_TRADE;
 }
 
-/** Step 1 with the amount filled in (the other steps are fixed). */
-export function stepFor(step: GuidedStep, state: StateDto | null): GuidedStep {
+/**
+ * The amount the visitor typed for the normal trade: 1 to 100 USDC, and no more than the shared vault has left today
+ * (a normal trade should stay normal; "take too much" is step 2). Errors are short, shown under the field.
+ */
+export function checkTradeAmount(text: string, state: StateDto | null): { value: bigint } | { error: string } {
+  const parsed = parseLimit(text, 6);
+  if ("error" in parsed) return parsed;
+  if (parsed.value < TRADE_MIN) return { error: "At least 1 USDC" };
+  if (parsed.value > TRADE_MAX) return { error: `At most ${formatTokenAmount(TRADE_MAX, 6)} USDC on this shared demo vault` };
+  if (state) {
+    const left = leftToday(state);
+    if (left >= TRADE_MIN && parsed.value > left) return { error: `Only ${formatTokenAmount(left, 6)} USDC left today on this shared vault` };
+  }
+  return parsed;
+}
+
+/** Step 1 with the amount filled in (the other steps are fixed). `amount`: what the visitor picked, else the default. */
+export function stepFor(step: GuidedStep, state: StateDto | null, picked?: bigint): GuidedStep {
   if (step.id !== "rebalance") return step;
-  const amount = normalTradeAmount(state);
+  const amount = picked ?? normalTradeAmount(state);
   const shown = formatTokenAmount(amount, 6);
   return {
     ...step,
@@ -60,7 +86,7 @@ export const GUIDED_STEPS: readonly GuidedStep[] = [
     id: "rebalance",
     short: "Normal trade",
     title: "Let the AI make a normal trade",
-    story: "The agent swaps 200 USDC for WAVAX, the kind of trade it makes on its own all day. That is inside its limits.",
+    story: "The agent swaps 20 USDC for WAVAX, the kind of trade it makes on its own all day. That is inside its limits.",
     expect: "Both checks let it through and the trade lands on the blockchain.",
     cta: "Make the trade",
     spec: { type: "rebalance", amountIn: NORMAL_TRADE },

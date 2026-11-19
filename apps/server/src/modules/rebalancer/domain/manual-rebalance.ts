@@ -7,14 +7,16 @@ export const MANUAL_SLIPPAGE_BPS = 100n;
 
 /**
  * Amount actually swapped for a manual rebalance (api.md #10): the client only suggests it,
- * we clamp to min(requested, maxPerTx, dailyCap - spentToday).
+ * we clamp to min(requested, maxPerTx, dailyCap - spentToday) and, on the shared demo vault, to
+ * `demoMax` too (every visitor shares its daily limit, so nobody can spend it in one press).
  *
  * When nothing is left today the request is passed through unclamped, so the Auditor rejects it
  * with ExceedsDailyCap and the user sees why (a red card is data, not an HTTP error).
  */
-export function manualAmount(requested: bigint, budget: TokenBudget): bigint {
-  const clamped = clampAmount(requested, budget);
-  return clamped > 0n ? clamped : requested;
+export function manualAmount(requested: bigint, budget: TokenBudget, demoMax?: bigint): bigint {
+  const asked = demoMax !== undefined && requested > demoMax ? demoMax : requested;
+  const clamped = clampAmount(asked, budget);
+  return clamped > 0n ? clamped : asked;
 }
 
 /**

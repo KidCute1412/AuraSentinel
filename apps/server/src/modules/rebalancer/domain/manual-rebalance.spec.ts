@@ -5,6 +5,12 @@ const USDC = (n: bigint) => n * 10n ** 6n;
 const budget = { maxPerTx: USDC(500n), dailyCap: USDC(1_500n), spentToday: 0n };
 
 describe('manualAmount', () => {
+  it('caps a trade on the shared demo vault at demoMax, then applies the policy clamp', () => {
+    expect(manualAmount(USDC(400n), budget, USDC(100n))).toBe(USDC(100n));
+    expect(manualAmount(USDC(20n), budget, USDC(100n))).toBe(USDC(20n));
+    expect(manualAmount(USDC(400n), budget)).toBe(USDC(400n)); // any other vault: only its own policy limits
+  });
+
   it('keeps a request inside every limit', () => {
     expect(manualAmount(USDC(200n), budget)).toBe(USDC(200n));
   });
