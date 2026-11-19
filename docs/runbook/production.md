@@ -96,6 +96,8 @@ Thay laptop + tunnel ở §2b bằng VM Hetzner CX23 (2 vCPU x86, 4 GB, Ubuntu 2
 4. GitHub → Settings → Secrets → Actions: `DEPLOY_HOST` = IP, `DEPLOY_SSH_KEY` = private key `aurasentinel_deploy`.
 5. Vercel: `API_ORIGIN` = URL ở bước 2, `WEB_PROXY_SECRET` như `.env.prod`, redeploy.
 
+Bản đang chạy (19/11): VM `2.29.105.1` (Helsinki), `API_ORIGIN=https://2-29-105-1.sslip.io`, web `https://aura-sentinel.lok1412.site` (`SIWE_DOMAINS`). Vercel chỉ đọc biến mới ở deployment tạo **sau** khi lưu biến: redeploy (cần 2FA) hoặc merge một PR vào `main`.
+
 Từ đó: push `main` → `ci` xanh → `.github/workflows/deploy.yml` SSH vào VM, `git reset` về đúng commit, `compose up -d --build --wait`, kiểm tra `/api/health`. Chạy tay: Actions → deploy → Run workflow. **Không chạy compose prod ở nơi khác** cùng lúc (cùng agent key: tranh nonce, P4).
 
 ## 3. Thao tác thường gặp
