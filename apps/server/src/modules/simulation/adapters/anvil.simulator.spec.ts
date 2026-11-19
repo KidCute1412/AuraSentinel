@@ -53,7 +53,8 @@ function fakeAnvil(opts: { revertData?: `0x${string}`; routerRevertData?: `0x${s
       swapped = true;
       return '0xabc';
     }),
-    waitForTransactionReceipt: vi.fn(async () => ({ status: 'success' })),
+    // First lookup races the mining (null), like a real Anvil can: the simulator must poll, not wait for a new block.
+    getTransactionReceipt: vi.fn().mockResolvedValueOnce(null).mockResolvedValue({ status: 'success' }),
   };
   return { client, calls };
 }
