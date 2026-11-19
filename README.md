@@ -6,8 +6,10 @@ Két Safe + module luật on-chain cho phép **AI agent giao dịch 24/7 mà kh�
 
 <p align="center">
   <img src="docs/assets/system-pipeline.svg" width="100%"
-       alt="Sơ đồ AgentShield: lệnh do Rebalancer hoặc Red-team tạo ra đi qua Shield 1 ngoài chain (precheck, chạy thử, invariants, verdict) rồi Shield 2 trên chain (AgentPolicyModule) trước khi Safe swap qua Trader Joe; chủ két ký setPolicy và Kill-Switch thẳng từ ví.">
+       alt="Sơ đồ động AgentShield: lệnh do Rebalancer hoặc Red-team tạo ra đi qua Shield 1 ngoài chain (precheck, chạy thử, invariants, verdict) rồi Shield 2 trên chain (AgentPolicyModule) trước khi Safe swap qua Trader Joe; chủ két ký setPolicy và Kill-Switch thẳng từ ví. Ảnh lặp lại 4 kịch bản: lệnh an toàn, đòn #2 bị Shield 1 chặn, đòn #4 bị Shield 2 chặn, Kill-Switch.">
 </p>
+
+Ảnh tự chạy 4 kịch bản lặp lại, mỗi vòng khoảng 22 giây: **(1/4)** lệnh an toàn đi hết hai lớp rồi lên web, **(2/4)** đòn #2 (người nhận lạ) bị Shield 1 chặn, **(3/4)** đòn #4 bỏ qua Shield 1 nhưng bị Shield 2 revert, **(4/4)** chủ két bấm Kill-Switch từ ví. Máy bật chế độ giảm chuyển động sẽ thấy bản tĩnh.
 
 **Đọc ảnh theo số:**
 
