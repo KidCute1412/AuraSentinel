@@ -82,10 +82,16 @@ Không dùng màu ngoài bảng này. Không gradient pastel; gradient duy nhấ
 
 ## 4. Pattern riêng AgentShield
 - **Verdict card:** APPROVE = viền/nhãn `ok`, tiêu đề "An toàn, tiêu 13,3% hạn mức ngày"; BLOCK = viền `danger`, nền `tint-pink`, lý do ngắn gọn. Badge nguồn giải thích `LLM` / `TEMPLATE` (mono, kem).
+- **Shield pipeline** (`features/vault/components/ShieldPipeline.tsx`, trong Verdict card, Guided và trang job): cho người xem thấy **vì sao** chứ không chỉ pass/block.
+  - Đầu tiên là chip lệnh (`Attack · 2,000 USDC`), rồi thanh ray 4 đoạn (một đoạn mỗi cổng): xanh = đã qua, đỏ = cổng chặn, xám = chưa tới.
+  - Dưới ray là 4 ô cổng (Pre-check, Simulation, Invariants thuộc Shield 1 · our server; On-chain policy thuộc Shield 2 · the contract). Mỗi ô ghi icon + chữ trạng thái: `Passed`, `Stopped here`, `Not reached`, `Checking…`, `Waiting`, `Bypassed` (đòn đi thẳng lên chain, viền nét đứt).
+  - Các ô là tab (phím mũi tên); mặc định chọn cổng chặn, nếu pass thì cổng cuối. Bảng của cổng: mỗi luật một dòng `PASS`/`FAIL`, nhãn dễ hiểu, giá trị của lệnh so với giới hạn (`2,000 USDC ≤ 500 USDC`); dòng fail nền `tint-pink` kèm mã lý do mono. Cap ngày có thanh nhỏ "đã tiêu + lệnh này / cap".
+  - Số liệu lấy từ `audit[].checks` server lưu lúc chấm (không tính lại ở web). Job cũ không có bảng thì hiện câu một dòng, không bịa số. Trang job dùng `variant="full"`: 4 bảng xếp dọc kèm giờ.
 - **Policy panel:** form input vuông, `BudgetBar` hôm nay, nút "Lưu policy" primary (ký bằng ví owner).
 - **Kill-Switch:** nút danger cố định, nằm riêng một khối, không gần nút khác để tránh bấm nhầm; sau khi bấm hiện finality (~1,5 s) mono.
 - **Vault before/after:** hai cột bằng nhau, số mono tabular, delta `ok`/`danger`, địa chỉ rút gọn mono + link Snowtrace.
 - **Activity / job timeline:** hàng timeline: cột trái mono nhãn thời gian/trạng thái, phải tiêu đề đậm; tx revert có link Snowtrace.
+- **Lịch sử job (mọi danh sách):** không danh sách nào dài vô hạn. Widget trên dashboard (`JobHistory`) chỉ hiện 4–6 job mới nhất + link "View all N" sang trang Activity. Danh sách đầy đủ (Activity, `/admin`) dùng `shared/ui/JobList` + `shared/ui/Pager`: 10 job một trang, nút `Newer` / `Older`, không infinite scroll, không "Load more" cộng dồn; job gom theo ngày (`Today`, `Yesterday`, `Mon, Nov 16`, kèm số job), mỗi job **một dòng** gọn: tiêu đề đậm, giờ `HH:MM:SS` mono (+ vault nếu danh sách trộn nhiều vault), mã lý do chặn, badge trạng thái bên phải; cả dòng là link sang trang job. Lọc bằng chip/tab đặt trên danh sách, đổi bộ lọc thì về trang 1.
 - **Red-team buttons:** nút secondary, kết quả hiện flash viền 200ms (`ok` blocked đúng / `danger` lọt).
 - **Giọng văn trạng thái:** kiểu báo cáo an ninh, mono uppercase: `STATUS: PROTECTED`, `LAST ATTACK BLOCKED · 2s ago`, `KILL-SWITCH ARMED`.
 - Số tiền: luôn base units → format bằng helper shared (bigint), hiển thị mono; không float.

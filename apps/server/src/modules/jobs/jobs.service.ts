@@ -1,4 +1,4 @@
-import type { Explanation, JobDetailDto, JobDto, JobListDto } from '@agentshield/shared';
+import type { CheckRow, Explanation, JobDetailDto, JobDto, JobListDto } from '@agentshield/shared';
 import { Injectable } from '@nestjs/common';
 import { EventBus } from '../../core/redis/event-bus';
 import type { JobStatus } from '../../core/types';
@@ -37,9 +37,9 @@ export class JobsService {
     return dto;
   }
 
-  /** One Shield verdict for GET /jobs/{id}.audit (precheck, simulation, invariant, onchain). */
-  recordShield(jobId: string, shield: Shield, result: 'pass' | 'fail', reason: string | null = null) {
-    return this.repo.appendAudit(jobId, shield, { result, reason });
+  /** One Shield verdict for GET /jobs/{id}.audit, with the rule table behind it (shown on the job page as evidence). */
+  recordShield(jobId: string, shield: Shield, result: 'pass' | 'fail', reason: string | null = null, checks: readonly CheckRow[] = []) {
+    return this.repo.appendAudit(jobId, shield, { result, reason, checks });
   }
 
   /**
@@ -60,6 +60,20 @@ export class JobsService {
     const rows = await this.repo.listByVault(q);
     const items = rows.slice(0, q.limit).map(toJobDto);
     return { items, nextCursor: rows.length > q.limit ? (items.at(-1)?.id ?? null) : null };
+  }
+
+  /** Admin console: jobs since `since` by status, plus how many were attacks. */
+  async countsSince(since: Date): Promise<{ total: number; attacks: number; byStatus: Partial<Record<JobStatus, number>> }> {
+    const rows = await this.repo.countsSince(since);
+    const byStatus: Partial<Record<JobStatus, number>> = {};
+    let total = 0;
+    let attacks = 0;
+    for (const r of rows) {
+      byStatus[r.status] = (byStatus[r.status] ?? 0) + r.n;
+      total += r.n;
+      if (r.attack) attacks += r.n;
+    }
+    return { total, attacks, byStatus };
   }
 
   /** GET /proof: on-chain reverts (Shield 2 evidence). */

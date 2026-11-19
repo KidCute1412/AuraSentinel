@@ -16,7 +16,7 @@
 | Biến | Điền |
 |---|---|
 | `AGENT_PRIVATE_KEY` | Key **session** của ví agent (L4 bước 0). Nạp ~0.5 AVAX Fuji cho gas |
-| `ADMIN_ADDRESSES` | Ví người thuyết trình (mở drawer Admin để bật Demo mode, §4c). **Bắt buộc cho buổi demo** |
+| `ADMIN_ADDRESSES` | Ví người thuyết trình (mở trang `/admin`: preflight, Demo mode, §4c). **Bắt buộc cho buổi demo** |
 | `SIWE_DOMAINS` | Domain Vercel khi web chạy Vercel (§2b); để trống khi dùng nginx `localhost:8080` |
 | `GEMINI_API_KEY`, `TELEGRAM_*` | Tuỳ chọn |
 
@@ -86,6 +86,18 @@ Ghi chú:
 - `/api/proxy` trả `503` problem+json khi `API_ORIGIN` chưa đặt hoặc sai dạng.
 - Bản Docker `web` (nginx, mục 2) mặc định build **live** (`VITE_DATA_SOURCE=live` trong `web.Dockerfile`), không còn rơi về mock.
 
+## 2c. Server trên Hetzner VM, tự deploy khi push `main`
+
+Thay laptop + tunnel ở §2b bằng VM Hetzner CX23 (2 vCPU x86, 4 GB, Ubuntu 24.04, IPv4 + IPv6, firewall chỉ mở 22/80/443). HTTPS bằng Caddy trên `<ip-gạch-ngang>.sslip.io`, không cần mua domain.
+
+1. Tạo key deploy trên laptop: `ssh-keygen -t ed25519 -C aurasentinel-deploy -f ~/.ssh/aurasentinel_deploy -N ""`.
+2. `scp infra/setup-vm.sh root@<IP>:/root/` rồi `ssh root@<IP> bash /root/setup-vm.sh "<nội dung aurasentinel_deploy.pub>"`. Script in ra `API_ORIGIN`.
+3. `scp infra/.env.prod root@<IP>:/opt/aurasentinel/infra/.env.prod`, rồi `chown deploy` + `chmod 600` (lệnh in ở cuối script). Điền `SIWE_DOMAINS` (domain Vercel), `ADMIN_ADDRESSES`, chạy `pnpm env:prod` trước để có `WEB_PROXY_SECRET`.
+4. GitHub → Settings → Secrets → Actions: `DEPLOY_HOST` = IP, `DEPLOY_SSH_KEY` = private key `aurasentinel_deploy`.
+5. Vercel: `API_ORIGIN` = URL ở bước 2, `WEB_PROXY_SECRET` như `.env.prod`, redeploy.
+
+Từ đó: push `main` → `ci` xanh → `.github/workflows/deploy.yml` SSH vào VM, `git reset` về đúng commit, `compose up -d --build --wait`, kiểm tra `/api/health`. Chạy tay: Actions → deploy → Run workflow. **Không chạy compose prod ở nơi khác** cùng lúc (cùng agent key: tranh nonce, P4).
+
 ## 3. Thao tác thường gặp
 
 | Việc | Lệnh |
@@ -125,7 +137,7 @@ Khách dùng vault demo không cần đăng nhập (D12). Owner và admin ký m�
 |---|---|
 | Khách | Đọc mọi thứ; `POST /jobs`, `/attacks` **chỉ trên vault demo** (có throttle, §4b) |
 | Owner (có trong `Safe.getOwners()` trên chain, cache 30s) | Thêm `POST /jobs`, `/attacks` trên vault của mình. Không phải owner → `403 NOT_OWNER` |
-| Admin (`ADMIN_ADDRESSES`) | Drawer Admin (`/api/v1/admin/rebalancer`: tạm dừng rebalancer = Demo mode) và Bull Board (`/api/v1/admin/queues`) |
+| Admin (`ADMIN_ADDRESSES`) | Trang `/admin`: preflight Demo Day, Demo mode / chạy tick (`/api/v1/admin/rebalancer*`), hoạt động mọi vault (`/api/v1/admin/overview`, `/jobs`) và Bull Board (`/api/v1/admin/queues`). Không đụng tiền hay policy |
 
 - Đổi `ADMIN_ADDRESSES` thì restart `api` (env chỉ đọc lúc khởi động). Role tính lại ở mỗi `GET /auth/session`, nên sau đó chỉ cần reload trang, không phải ký lại.
 

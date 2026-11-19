@@ -27,3 +27,30 @@ export function timeLeft(expirySec: number, nowSec: number): string {
   const d = Math.round(s / 86_400);
   return `${d} day${d === 1 ? "" : "s"}`;
 }
+
+/** Local calendar day of a timestamp, "2026-11-18". Groups lists by day. */
+export function dayKey(iso: string): string {
+  const d = new Date(iso);
+  const two = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${two(d.getMonth() + 1)}-${two(d.getDate())}`;
+}
+
+/** "Today", "Yesterday", else "Mon, Nov 16" (en-US, viewer's time zone). Display only. */
+export function dayLabel(iso: string, nowMs: number = Date.now()): string {
+  const key = dayKey(iso);
+  if (key === dayKey(new Date(nowMs).toISOString())) return "Today";
+  if (key === dayKey(new Date(nowMs - 86_400_000).toISOString())) return "Yesterday";
+  return new Date(iso).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
+}
+
+/** Consecutive items of the same day, in the order given (lists arrive newest first). */
+export function groupByDay<T extends { createdAt: string }>(items: readonly T[], nowMs: number = Date.now()): { key: string; label: string; items: T[] }[] {
+  const groups: { key: string; label: string; items: T[] }[] = [];
+  for (const item of items) {
+    const key = dayKey(item.createdAt);
+    const last = groups.at(-1);
+    if (last?.key === key) last.items.push(item);
+    else groups.push({ key, label: dayLabel(item.createdAt, nowMs), items: [item] });
+  }
+  return groups;
+}

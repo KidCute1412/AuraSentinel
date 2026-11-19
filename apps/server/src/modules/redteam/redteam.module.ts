@@ -3,6 +3,7 @@ import { Module } from '@nestjs/common';
 import { QUEUES } from '../../core/queue/queue.constants';
 import { ExecutionModule } from '../execution/execution.module';
 import { JobsModule } from '../jobs/jobs.module';
+import { VaultModule } from '../vault/vault.module';
 import { RedteamProcessor } from './redteam.processor';
 
 /**
@@ -10,7 +11,7 @@ import { RedteamProcessor } from './redteam.processor';
  * module instance the Auditor imports, so both queues share one TxSender (P4).
  */
 @Module({
-  imports: [BullModule.registerQueue({ name: QUEUES.attack }), JobsModule, ExecutionModule],
+  imports: [BullModule.registerQueue({ name: QUEUES.attack }), JobsModule, ExecutionModule, VaultModule],
   providers: [RedteamProcessor],
 })
 export class RedteamModule {}

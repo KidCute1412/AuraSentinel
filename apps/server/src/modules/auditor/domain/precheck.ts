@@ -1,5 +1,6 @@
 import type { ReasonCode } from '@agentshield/shared';
 import type { SwapIntent } from '../../../core/types';
+import { failedReasons, precheckChecks } from './checks';
 
 export interface TokenLimit {
   token: string;
@@ -48,10 +49,6 @@ export const findLimit = (limits: readonly TokenLimit[], token: string): TokenLi
 export const spentFor = (spent: readonly TokenSpent[], token: string): bigint =>
   spent.find((s) => same(s.token, token))?.amount ?? 0n;
 
-/** A token is whitelisted when its dailyCap is above zero (contracts.md §2). */
-const isWhitelisted = (limits: readonly TokenLimit[], token: string): boolean =>
-  (findLimit(limits, token)?.dailyCap ?? 0n) > 0n;
-
 /**
  * Shield 1, step (a). Pure and deterministic.
  *
@@ -67,30 +64,7 @@ const isWhitelisted = (limits: readonly TokenLimit[], token: string): boolean =>
  * the whitelist, swap the two lines below and the order test.
  */
 export function precheck(intent: SwapIntent, s: PrecheckSnapshot): PrecheckResult {
-  const reasons: ReasonCode[] = [];
-
-  // Gate 1: who and when
-  if (!same(s.signer, s.policy.agentSigner)) reasons.push('UnauthorizedAgent');
-  if (!s.policy.isActive) reasons.push('PolicyInactive');
-  if (s.now > s.policy.expiry) reasons.push('PolicyExpired');
-
-  // Gate 2: which tokens
-  const tokensAllowed = isWhitelisted(s.limits, intent.tokenIn) && isWhitelisted(s.limits, intent.tokenOut);
-  if (!tokensAllowed) reasons.push('TokenNotWhitelisted');
-  if (same(intent.tokenIn, intent.tokenOut)) reasons.push('SameToken');
-
-  // Gates 3-4: how much. Caps of a token that is not whitelisted are meaningless, skip them.
-  const limit = findLimit(s.limits, intent.tokenIn);
-  if (tokensAllowed && limit) {
-    if (intent.amountIn > limit.maxPerTx) reasons.push('ExceedsPerTxCap');
-    if (spentFor(s.spentToday, intent.tokenIn) + intent.amountIn > limit.dailyCap) {
-      reasons.push('ExceedsDailyCap');
-    }
-  }
-  if (intent.minAmountOut <= 0n) reasons.push('ZeroMinOut');
-
-  // Intent: the module has no recipient parameter, so only Shield 1 can catch this (attack #2).
-  if (!same(intent.recipient, s.safe)) reasons.push('RECIPIENT_NOT_SAFE');
-
+  // The rule table (checks.ts) is the single source: the verdict is its failed rows, in gate order.
+  const reasons = failedReasons(precheckChecks(intent, s)) as ReasonCode[];
   return { ok: reasons.length === 0, reasons };
 }

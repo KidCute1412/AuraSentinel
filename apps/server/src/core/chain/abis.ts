@@ -65,6 +65,8 @@ export const SWAP_DEADLINE_SECONDS = 300n;
  * swap fails in the sim first.
  */
 export const SWAP_GAS = 700_000n;
+/** Gas a guarded swap really uses on Fuji (measured: 350,000 of the 700,000 limit). For estimates only, never as a limit. */
+export const SWAP_GAS_USED = 350_000n;
 
 export const FACTORY_ABI = parseAbi([
   'event ModuleDeployed(address indexed safe, address indexed module, address indexed owner)',

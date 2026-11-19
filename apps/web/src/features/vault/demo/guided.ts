@@ -1,4 +1,4 @@
-import { JOB_TERMINAL_STATUSES, parseUnits, type JobDetailDto, type StateDto } from "@agentshield/shared";
+import { DEMO_NORMAL_TRADE, JOB_TERMINAL_STATUSES, type JobDetailDto, type StateDto } from "@agentshield/shared";
 import { formatTokenAmount } from "@/shared/lib/format";
 import { REASONS, spentUsdc, usdcLimit, type JobSpec, type ReasonCode } from "@/shared/api/mockEngine";
 import { checkOutcome } from "../lib/attacks";
@@ -27,7 +27,7 @@ export interface GuidedStep {
 }
 
 /** The usual normal trade: well inside the 500 USDC per-trade limit of the demo policy. */
-const NORMAL_TRADE = parseUnits("200", 6);
+const NORMAL_TRADE = DEMO_NORMAL_TRADE;
 const ONE_USDC = 1_000_000n;
 
 /**

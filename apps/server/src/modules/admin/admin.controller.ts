@@ -1,67 +1,66 @@
-import { UpdateRebalancerRequest, problem, type RebalancerStatusDto } from '@agentshield/shared';
-import { InjectQueue } from '@nestjs/bullmq';
-import { BadRequestException, Body, Controller, Get, Inject, Patch, UseGuards } from '@nestjs/common';
-import type { Queue } from 'bullmq';
-import { getAddress, zeroAddress, type PublicClient } from 'viem';
-import { POLICY_MODULE_ABI } from '../../core/chain/abis';
-import { PUBLIC_CLIENT } from '../../core/chain/chain.module';
-import { ENV } from '../../core/config/config.module';
-import type { Env } from '../../core/config/env.schema';
-import { QUEUES } from '../../core/queue/queue.constants';
+import { UpdateRebalancerRequest, problem, type AdminOverviewDto, type JobListDto, type PreflightDto, type RebalancerStatusDto, type RunTickResponse } from '@agentshield/shared';
+import { BadRequestException, Body, ConflictException, Controller, Get, HttpCode, Patch, Post, Query, UseGuards } from '@nestjs/common';
+import { z } from 'zod';
 import { AdminGuard } from '../auth/admin.guard';
+import { AdminService, JOB_FILTERS, type JobFilter } from './admin.service';
+
+const JobsQuery = z.object({
+  filter: z.enum(Object.keys(JOB_FILTERS) as [JobFilter, ...JobFilter[]]).default('all'),
+  limit: z.coerce.number().int().min(1).max(100).default(20),
+  cursor: z.string().uuid().optional(),
+});
 
 /**
- * Admin drawer (api.md #15, #16, D16): Demo mode = pause the 24/7 rebalancer. Pausing the BullMQ
- * queue is stored in Redis, so it holds across the API and worker processes and survives restarts.
+ * Admin console (api.md §9, page /admin): Demo Day preflight, the rebalancer's switch, activity across every vault.
+ * Read-only apart from pausing or nudging the rebalancer: no route here holds a key or touches funds or policy (P2).
+ * Pausing the BullMQ queue is stored in Redis, so it holds across the API and worker processes and survives restarts.
  */
 @Controller('admin')
 @UseGuards(AdminGuard)
 export class AdminController {
-  constructor(
-    @InjectQueue(QUEUES.rebalance) private readonly queue: Queue,
-    @Inject(PUBLIC_CLIENT) private readonly client: PublicClient,
-    @Inject(ENV) private readonly env: Env,
-  ) {}
+  constructor(private readonly admin: AdminService) {}
 
+  /** #15 */
   @Get('rebalancer')
   status(): Promise<RebalancerStatusDto> {
-    return this.read();
+    return this.admin.rebalancer();
   }
 
-  /** Idempotent: setting the current value again is a no-op that returns the same resource. */
+  /** #16. Idempotent: setting the current value again is a no-op that returns the same resource. */
   @Patch('rebalancer')
-  async update(@Body() body: unknown): Promise<RebalancerStatusDto> {
+  update(@Body() body: unknown): Promise<RebalancerStatusDto> {
     const req = UpdateRebalancerRequest.safeParse(body);
     if (!req.success) throw new BadRequestException(problem('VALIDATION_ERROR', 'Body must be { paused: boolean }'));
-    if (req.data.paused) await this.queue.pause();
-    else await this.queue.resume();
-    return this.read();
+    return this.admin.setPaused(req.data.paused);
   }
 
-  private async read(): Promise<RebalancerStatusDto> {
-    const [paused, [last], agent] = await Promise.all([
-      this.queue.isPaused(),
-      this.queue.getJobs(['completed'], 0, 0, false),
-      this.agent(),
-    ]);
-    return {
-      paused,
-      intervalMs: this.env.REBALANCE_INTERVAL_MS,
-      lastTickAt: last?.finishedOn ? new Date(last.finishedOn).toISOString() : null,
-      agent,
-    };
-  }
-
-  /** The session key's public address comes from the demo vault's policy: the API holds no key. */
-  private async agent(): Promise<RebalancerStatusDto['agent']> {
-    const module = this.env.POLICY_MODULE_ADDRESS;
-    try {
-      if (!module) throw new Error('no module');
-      const [address] = await this.client.readContract({ address: module, abi: POLICY_MODULE_ABI, functionName: 'policy' });
-      const wei = await this.client.getBalance({ address });
-      return { address: getAddress(address), avaxBalance: wei.toString(), lowGas: wei < this.env.AGENT_MIN_GAS_WEI };
-    } catch {
-      return { address: zeroAddress, avaxBalance: '0', lowGas: true };
+  /** #15b. A paused queue would hold the job until Resume, so refuse instead of queuing silently. */
+  @Post('rebalancer/ticks')
+  @HttpCode(202)
+  async tick(): Promise<RunTickResponse> {
+    if (await this.admin.isPaused()) {
+      throw new ConflictException(problem('REBALANCER_PAUSED', 'Demo mode is on', 'Resume the rebalancer to run a tick.'));
     }
+    return this.admin.runTick();
+  }
+
+  /** #19 */
+  @Get('preflight')
+  preflight(): Promise<PreflightDto> {
+    return this.admin.preflight();
+  }
+
+  /** #20 */
+  @Get('overview')
+  overview(): Promise<AdminOverviewDto> {
+    return this.admin.overview();
+  }
+
+  /** #21: GET /admin/jobs?filter=all|blocked|failed&limit=&cursor= */
+  @Get('jobs')
+  jobs(@Query() raw: unknown): Promise<JobListDto> {
+    const q = JobsQuery.safeParse(raw);
+    if (!q.success) throw new BadRequestException(problem('VALIDATION_ERROR', 'Invalid query', 'filter is all, blocked or failed; limit 1-100'));
+    return this.admin.jobsList(q.data.filter, q.data.limit, q.data.cursor);
   }
 }

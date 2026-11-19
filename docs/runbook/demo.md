@@ -5,7 +5,8 @@
 ## 1. Trước giờ thi (T-60 → T-10 phút)
 
 - [ ] `docker compose up` sạch, `pnpm seed --verify --api http://localhost:8080 --web http://localhost:8080 --env infra/.env.prod` ra `0 FAIL` (WARN đọc kỹ: gas agent, ngân sách ngày, hạn policy). Báo cáo đầy đủ: [`security-report.md`](./security-report.md)
-- [ ] **Demo mode bật:** đăng nhập bằng ví trong `ADMIN_ADDRESSES` → nút **Admin** trên header → `Pause rebalancer`, drawer hiện `Demo mode on` (hoặc `PATCH /api/v1/admin/rebalancer {"paused":true}`); rebalancer không tự swap nữa, chỉ bấm tay
+- [ ] **Preflight `READY`:** đăng nhập bằng ví trong `ADMIN_ADDRESSES` → nút **Admin** trên header → trang `/admin`. Mục 01 phải toàn `OK`; dòng nào `WARN`/`FAIL` thì làm theo dòng `Fix` của nó
+- [ ] **Demo mode bật:** ở mục 02 của `/admin` chọn `Demo mode` (hoặc `PATCH /api/v1/admin/rebalancer {"paused":true}`); rebalancer không tự swap nữa, chỉ bấm tay
 - [ ] Safe có đủ MockUSDC; agent EOA có AVAX trả gas
 - [ ] Policy đang `isActive`, `spentToday = 0` (lưu ý `dayId` theo UTC: 00:00 UTC = 7h sáng VN)
 - [ ] Gemini key còn quota; thử 1 lần ra badge `llm`

@@ -115,8 +115,15 @@ export class ViemTxSender implements TxSenderPort {
         pollingInterval: this.opts.pollingIntervalMs,
       });
     } catch (e) {
-      this.nextNonce = undefined;
-      throw new Error(`no receipt for ${hash}: ${errMessage(e)}`, { cause: e });
+      // The watcher can miss a mined tx (a lagging RPC behind the fallback transport): ask once
+      // directly before calling it lost, so a mined revert never turns into `failed` without its hash.
+      const late = await this.publicClient.getTransactionReceipt({ hash }).catch(() => null);
+      if (!late) {
+        this.nextNonce = undefined;
+        throw new Error(`no receipt for ${hash}: ${errMessage(e)}`, { cause: e });
+      }
+      this.log.warn(`receipt for ${hash} found only after the wait failed (${errMessage(e).slice(0, 120)})`);
+      receipt = late;
     }
 
     if (receipt.status === 'success') {

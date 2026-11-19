@@ -169,9 +169,7 @@ jobs:
       - name: Start Anvil nodes
         if: steps.has.outputs.present == 'true'
         run: |
-          anvil --fork-url https://api.avax-test.network/ext/bc/C/rpc --chain-id 43113 --port 8545 > anvil.log 2>&1 &
-          for i in $(seq 1 30); do cast block-number --rpc-url "$RPC_URL" && break; sleep 2; done
-          cast block-number --rpc-url "$RPC_URL" || { cat anvil.log; exit 1; }
+          bash scripts/ci/start-fuji-fork.sh
           anvil --fork-url "$RPC_URL" --chain-id 43113 --port 8546 > anvil-sim.log 2>&1 &
           anvil --chain-id 43113 --port 18545 > anvil-plain.log 2>&1 &
           for p in 8546 18545; do
@@ -203,7 +201,7 @@ jobs:
           ANVIL_TEST_URL: http://127.0.0.1:18545
       - name: Anvil logs on failure
         if: failure() && steps.has.outputs.present == 'true'
-        run: tail -n 50 anvil.log anvil-sim.log anvil-plain.log
+        run: tail -n 50 anvil.log anvil-sim.log anvil-plain.log || true
 
   # Demo runs from compose, so the images must keep building.
   docker:
@@ -266,10 +264,7 @@ jobs:
           submodules: recursive
       - uses: foundry-rs/foundry-toolchain@v1
       - name: Start Anvil fork of Fuji
-        run: |
-          anvil --fork-url https://api.avax-test.network/ext/bc/C/rpc --chain-id 43113 --port 8545 > anvil.log 2>&1 &
-          for i in $(seq 1 30); do cast block-number --rpc-url "$RPC" && exit 0; sleep 2; done
-          cat anvil.log; exit 1
+        run: bash ../../scripts/ci/start-fuji-fork.sh
       - name: 1. Deploy MockUSDC, MockWAVAX, factory
         run: forge script script/Deploy.s.sol --rpc-url "$RPC" --private-key "$OWNER_KEY" --broadcast
       - name: 2. Trader Joe pool
@@ -299,7 +294,7 @@ jobs:
             "$USDC" "$WAVAX" 2000000000 1 "$DEADLINE" --from "$AGENT_ADDRESS" --rpc-url "$RPC" 2>&1 || true)
           echo "$ERR"
           echo "$ERR" | grep -qi "${SEL#0x}"
-      - run: cat deployments/fork.json
+      - run: cat deployments/fork.json || true
         if: always()
 
   # Single required check for branch protection: "ci-pass"

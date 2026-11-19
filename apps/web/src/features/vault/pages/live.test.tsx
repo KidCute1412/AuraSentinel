@@ -80,7 +80,7 @@ const attack: JobDto = job({ id: J2, kind: "attack", origin: "redteam", status: 
 const confirmedDetail: JobDetailDto = {
   ...jobDetail(confirmed),
   sim: { ok: true, deltaSafeTokenIn: "-200000000", deltaSafeTokenOut: "8000000000000000000", attackerBalance: "0", allowanceAfter: "0" },
-  audit: (["precheck", "simulation", "invariant", "onchain"] as const).map((shield) => ({ shield, result: "pass" as const, reason: null, ts: "2026-11-09T10:00:01.000Z" })),
+  audit: (["precheck", "simulation", "invariant", "onchain"] as const).map((shield) => ({ shield, result: "pass" as const, reason: null, ts: "2026-11-09T10:00:01.000Z", checks: [] })),
 };
 
 /** Nest's own 404 for a route that does not exist yet (GET /state before A3): not problem+json. */

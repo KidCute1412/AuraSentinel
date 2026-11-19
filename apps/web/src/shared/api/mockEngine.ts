@@ -222,10 +222,10 @@ export function finalizeJob(args: { id: string; safe: Address; plan: Plan; state
   const stateAfter: StateDto = plan.terminal === "confirmed" ? applyConfirmedSwap(state, plan.amountIn) : state;
   const audit: JobDetailDto["audit"] =
     plan.terminal === "confirmed"
-      ? (["precheck", "simulation", "invariant", "onchain"] as const).map((shield) => ({ shield, result: "pass" as const, reason: null, ts: nowIso }))
+      ? (["precheck", "simulation", "invariant", "onchain"] as const).map((shield) => ({ shield, result: "pass" as const, reason: null, ts: nowIso, checks: [] }))
       : plan.failAt === "precheck"
-        ? [{ shield: "precheck" as const, result: "fail" as const, reason: plan.code, ts: nowIso }]
-        : [{ shield: "onchain" as const, result: "fail" as const, reason: plan.code, ts: nowIso }];
+        ? [{ shield: "precheck" as const, result: "fail" as const, reason: plan.code, ts: nowIso, checks: [] }]
+        : [{ shield: "onchain" as const, result: "fail" as const, reason: plan.code, ts: nowIso, checks: [] }];
   return {
     id,
     vault: safe,

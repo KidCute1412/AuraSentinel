@@ -76,7 +76,7 @@ describe("validatePolicy", () => {
 
 describe("timelineSteps", () => {
   const base: Pick<JobDetailDto, "kind" | "origin" | "precheck"> = { kind: "swap", origin: "manual", precheck: { ok: true, reasons: [] } };
-  const e = (shield: JobDetailDto["audit"][number]["shield"], result: "pass" | "fail" = "pass", reason: string | null = null) => ({ shield, result, reason, ts: "t" });
+  const e = (shield: JobDetailDto["audit"][number]["shield"], result: "pass" | "fail" = "pass", reason: string | null = null) => ({ shield, result, reason, ts: "t", checks: [] });
   const states = (steps: ReturnType<typeof timelineSteps>) => steps.map((s) => s.state);
 
   it("queued: nothing has started", () => {

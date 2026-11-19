@@ -1,11 +1,17 @@
 import type { Explanation, JobStatus } from "@agentshield/shared";
 import { cn } from "@/shared/lib/cn";
+import { explanationText } from "@/shared/lib/explanationText";
 import { formatBudgetPct } from "../jobView";
 
 interface ExplanationCardProps {
   explanation: Explanation | null;
   status: JobStatus;
   terminal: boolean;
+  /** Reason behind a block: the sentence when there is no explanation row (on-chain attacks). */
+  reasonCode?: string | null;
+  revertError?: string | null;
+  /** Formatted order amount ("2,000 USDC") for the reason sentence. */
+  amount?: string | null;
 }
 
 /**
@@ -14,34 +20,37 @@ interface ExplanationCardProps {
  * instead of pushing the timeline around. The verdict comes from code; only the sentence may
  * come from the LLM, hence the LLM/TEMPLATE badge.
  */
-export function ExplanationCard({ explanation, status, terminal }: ExplanationCardProps) {
-  const blocked = explanation?.verdict === "blocked";
+export function ExplanationCard({ explanation, status, terminal, reasonCode, revertError, amount }: ExplanationCardProps) {
+  const shown = terminal ? explanationText({ status, explanation, reasonCode, revertError }, { amount: amount ?? undefined }) : null;
+  const blocked = explanation?.verdict === "blocked" || (!!shown && (status === "rejected" || status === "reverted"));
   return (
     <div
       data-testid="explanation-card"
       aria-live="polite"
       className={cn(
         "min-h-28 border p-4",
-        !explanation && "border-dashed border-line-strong bg-bg",
-        explanation && !blocked && "border-accent bg-bg",
+        !shown && "border-dashed border-line-strong bg-bg",
+        shown && !blocked && "border-accent bg-bg",
         blocked && "border-danger bg-tint-pink",
       )}
     >
       <div className="flex items-center justify-between gap-3">
         <span className="mono-label">Explanation</span>
         {/* ink is cream in dark and near-black in light; text-bg keeps the contrast in both themes. */}
-        {explanation && (
+        {shown && (
           <span className="bg-ink px-1.5 py-0.5 font-mono text-[11px] font-bold uppercase tracking-widest text-bg">
-            {explanation.source === "llm" ? "LLM" : "TEMPLATE"}
+            {shown.source === "llm" ? "LLM" : "TEMPLATE"}
           </span>
         )}
       </div>
-      {explanation ? (
+      {shown ? (
         <>
-          <p className="mt-2 text-base leading-relaxed sm:text-lg">{explanation.messageVi}</p>
-          <p className="mt-2 font-mono text-xs text-muted">
-            Daily budget used: <span className="tabular text-fg">{formatBudgetPct(explanation.budgetUsedPct)}</span>
-          </p>
+          <p className="mt-2 text-base leading-relaxed sm:text-lg">{shown.text}</p>
+          {shown.budgetUsedPct !== null && (
+            <p className="mt-2 font-mono text-xs text-muted">
+              Daily budget used: <span className="tabular text-fg">{formatBudgetPct(shown.budgetUsedPct)}</span>
+            </p>
+          )}
         </>
       ) : (
         <Pending status={status} terminal={terminal} />

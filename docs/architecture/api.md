@@ -79,7 +79,11 @@ Theo RFC 9457 (`Content-Type: application/problem+json`):
 | 14 | Proof | GET | `/proof` | public | Địa chỉ, finality, test, tx đã chặn |
 | 15 | Admin | GET | `/admin/rebalancer` | admin | Trạng thái scheduler |
 | 16 | Admin | PATCH | `/admin/rebalancer` | admin | `{paused: bool}` — bật/tắt Demo mode |
+| 15b | Admin | POST | `/admin/rebalancer/ticks` | admin | Chạy 1 tick ngay; `409 REBALANCER_PAUSED` khi Demo mode |
 | 17 | Admin | GET | `/admin/queues` | admin | Bull Board (UI công cụ, không phải API JSON) |
+| 19 | Admin | GET | `/admin/preflight` | admin | Preflight Demo Day (ok/warn/fail từng mục) |
+| 20 | Admin | GET | `/admin/overview` | admin | Queue, số liệu 24h, danh sách vault |
+| 21 | Admin | GET | `/admin/jobs` | admin | Job mọi vault, lọc `all/blocked/failed`, phân trang cursor |
 | 18 | Ops | GET | `/api/health` | public | Smoke/uptime (không version) |
 
 Đã bỏ `GET /events` global (không trang nào dùng). `{safe}` là path param.
@@ -223,11 +227,17 @@ JobDto + `precheck`, `sim`, `audit`:
   "sim": { "ok": true, "deltaSafeTokenOut": "900000000000000000", "deltaSafeTokenIn": "-200000000",
            "attackerBalance": "0", "allowanceAfter": "0" },
   "audit": [
-    { "shield": "precheck", "result": "pass", "reason": null, "ts": "…" },
+    { "shield": "precheck", "result": "fail", "reason": "ExceedsPerTxCap", "ts": "…",
+      "checks": [
+        { "id": "per-trade-cap", "pass": false, "reasonCode": "ExceedsPerTxCap",
+          "actual": { "type": "amount", "amount": "2000000000", "token": "0xUSDC…", "symbol": "USDC", "decimals": 6 },
+          "limit":  { "type": "amount", "amount": "500000000",  "token": "0xUSDC…", "symbol": "USDC", "decimals": 6 } } ] },
     { "shield": "simulation", "result": "pass", "reason": null, "ts": "…" },
     { "shield": "invariant", "result": "pass", "reason": null, "ts": "…" },
     { "shield": "onchain", "result": "pass", "reason": null, "ts": "…" } ] }
 ```
+`audit[].checks`: bảng luật đằng sau kết quả của từng lớp, theo đúng thứ tự đã kiểm (`auditor/domain/checks.ts`; verdict của precheck và invariants được suy ra từ chính bảng này nên không thể lệch). Mỗi dòng: `id`, `pass`, `reasonCode` (null khi pass), `actual` và `limit` là `CheckValue` có kiểu (`amount` base units + token/symbol/decimals, có thể âm cho delta mô phỏng · `address` · `bool` · `time` unix · `text`). Job ghi trước khi có bảng thì `checks: []`.
+
 `JobDto.kind` ∈ `swap` · `attack`; `origin` ∈ `rebalancer` · `manual` · `redteam`.
 `id` là UUID duy nhất toàn hệ thống nên không cần lồng dưới `/vaults/{safe}`; `JobDto.vault` cho biết vault.
 
@@ -308,7 +318,9 @@ Mọi `/admin/*` cần cookie role `admin` (AdminGuard); khác → `401/403`.
 
 ### 15. `GET /admin/rebalancer`
 ```json
-{ "paused": true, "intervalMs": 15000, "lastTickAt": "…", "agent": { "address": "0xAgent…", "avaxBalance": "5000000000000000000", "lowGas": false } }
+{ "paused": true, "intervalMs": 15000, "lastTickAt": "…",
+  "lastTick": { "at": "…", "blockNumber": "123", "queued": 0, "skipped": [{ "safe": "0x…", "reason": "balanced" }] },
+  "agent": { "address": "0xAgent…", "avaxBalance": "50000000000000000", "lowGas": false, "swapsLeft": 892857142 } }
 ```
 ### 16. `PATCH /admin/rebalancer`
 ```json
@@ -316,6 +328,8 @@ Mọi `/admin/*` cần cookie role `admin` (AdminGuard); khác → `401/403`.
 { "paused": true }
 // 200: trả lại tài nguyên như #15; idempotent
 ```
+### 15b. `POST /admin/rebalancer/ticks`
+Đưa 1 tick vào queue ngay → `202 { "jobId": "manual-…" }`. Khi Demo mode (queue pause) → `409 REBALANCER_PAUSED`, vì job sẽ nằm chờ tới lúc Resume. Processor đã có claim theo vault nên tick thêm không xếp swap trùng.
 ### 17. `GET /admin/queues`
 Bull Board UI (HTML) gắn vào Nest, AdminGuard. Là công cụ vận hành, không thuộc hợp đồng JSON.
 ### 18. `GET /api/health`
@@ -324,6 +338,16 @@ Không version, không cần auth (cho Docker/Caddy/uptime).
 { "status": "ok", "api": "up", "redis": "up", "postgres": "up", "rpc": "up", "worker": "up", "uptimeSec": 86400 }
 ```
 `200` khi mọi thành phần thiết yếu OK, `503` nếu không. Không lộ secret.
+### 19. `GET /admin/preflight`
+```json
+{ "status": "warn", "checkedAt": "…", "demoBudget": { "left": "1300000000", "cap": "1500000000" },
+  "checks": [{ "id": "demo-mode", "label": "Demo mode", "status": "warn", "detail": "The rebalancer is trading on its own.", "fix": "Pause it (section 02) before presenting." }] }
+```
+`status` = mức tệ nhất. Luật cố định (`modules/admin/domain/preflight.ts`): đọc chain/service trước rồi chấm; một nguồn lỗi chỉ làm check của nó `fail` ("Could not read: …").
+### 20. `GET /admin/overview`
+`{ queues: [{ name, waiting, active, delayed, failed }], last24h: { total, confirmed, rejected, reverted, failed, attacks, medianMinedMs }, vaults: [{ safe, owner, module, createdAtBlock, isDemo, rebalanceSlot }], maxRebalancedVaults }`. `waiting` gộp cả job đang chờ vì queue pause.
+### 21. `GET /admin/jobs?filter=all|blocked|failed&limit=&cursor=`
+Như #9 nhưng mọi vault. `blocked` = `rejected` (Shield 1) hoặc `reverted` (Shield 2); `failed` = lỗi hạ tầng.
 
 ---
 
@@ -368,13 +392,13 @@ Browser: wagmi `revoke` → Fuji (`PolicyRevoked`) → Indexer phát `chain.revo
 | 8 | `/vaults/new/module` (fallback) |
 | 10, 12 | `/demo`, `/vaults/{safe}` (cột Red-team), `/vaults/{safe}/red-team` |
 | 14 | `/proof`, `/` |
-| 15–17 | Drawer Admin (trong dashboard) |
+| 15–17, 19–21 | Trang `/admin` (Ops console) |
 | 18 | CI smoke, uptime |
 
 ## 12. Điểm mở
 
 1. `PUT /vaults/{safe}` (#8) có cần nếu indexer ≤ 5s ổn định; nếu bỏ thì wizard dùng event `vault.registered`.
-2. ~~`/admin` route riêng hay panel~~ — đã chốt D16: drawer trong dashboard, endpoint `/admin/*` giữ nguyên.
+2. ~~`/admin` route riêng hay panel~~ — D16 sửa 18/11: trang `/admin` riêng (Ops console), endpoint `/admin/*`.
 3. `budgetUsedPct` trong state: giữ (tiện UI) hay để UI tự tính từ bigint.
 4. Có đổi sang subdomain `api.<domain>` thay cho tiền tố `/api/v1` (đổi lại cấu hình CORS và cookie).
 5. `/vaults` (danh sách "của tôi"): `GET /vaults` hiện trả **toàn bộ** registry, FE lọc theo `owner` = ví kết nối. Nếu registry lớn thì thêm `?owner=0x…` (phân trang) — chưa cần cho hackathon.

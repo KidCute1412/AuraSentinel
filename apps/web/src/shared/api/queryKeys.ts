@@ -9,4 +9,7 @@ export const queryKeys = {
   vaults: ["vaults"] as const,
   session: ["auth", "session"] as const,
   adminRebalancer: ["admin", "rebalancer"] as const,
+  adminPreflight: ["admin", "preflight"] as const,
+  adminOverview: ["admin", "overview"] as const,
+  adminJobs: (filter: string) => ["admin", "jobs", filter] as const,
 };

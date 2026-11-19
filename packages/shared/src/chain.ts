@@ -18,3 +18,6 @@ export const explorerTxUrl = (hash: string) => `${FUJI_EXPLORER}/tx/${hash}`;
 export const explorerAddressUrl = (addr: string) => `${FUJI_EXPLORER}/address/${addr}`;
 
 export const TOKEN_DECIMALS = { USDC: 6, WAVAX: 18 } as const;
+
+/** The demo's "normal trade" (guided step 1): 200 USDC in base units, well inside the 500 USDC per-trade limit. */
+export const DEMO_NORMAL_TRADE = 200_000_000n;

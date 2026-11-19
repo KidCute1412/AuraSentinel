@@ -39,11 +39,37 @@ export const JobDto = z.object({
 });
 export type JobDto = z.infer<typeof JobDto>;
 
+/**
+ * A value a rule looked at, typed so the web formats it (P5: money stays base units here). `amount` may be signed
+ * (a simulated balance delta).
+ */
+export const CheckValue = z.discriminatedUnion('type', [
+  z.object({ type: z.literal('amount'), amount: z.string().regex(/^-?(0|[1-9]\d*)$/), token: Address, symbol: z.string(), decimals: z.number().int().min(0).max(36) }),
+  z.object({ type: z.literal('address'), value: Address }),
+  z.object({ type: z.literal('bool'), value: z.boolean() }),
+  z.object({ type: z.literal('time'), unix: z.number().int().nonnegative() }),
+  z.object({ type: z.literal('text'), value: z.string().max(200) }),
+]);
+export type CheckValue = z.infer<typeof CheckValue>;
+
+/** One rule a shield checked: what the job had (`actual`) against what the rule allows (`limit`). */
+export const CheckRow = z.object({
+  id: z.string(),
+  pass: z.boolean(),
+  /** The error this rule raises when it fails (precheck reason, invariant code, revert name); null when it passed. */
+  reasonCode: z.string().nullable(),
+  actual: CheckValue.nullable(),
+  limit: CheckValue.nullable(),
+});
+export type CheckRow = z.infer<typeof CheckRow>;
+
 export const AuditEntry = z.object({
   shield: z.enum(['precheck', 'simulation', 'invariant', 'onchain']),
   result: z.enum(['pass', 'fail']),
   reason: z.string().nullable(),
   ts: z.string().datetime(),
+  /** The rules behind the result, in the order they were checked. Empty for jobs recorded before this existed. */
+  checks: z.array(CheckRow).default([]),
 });
 export type AuditEntry = z.infer<typeof AuditEntry>;
 

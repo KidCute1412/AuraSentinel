@@ -1,5 +1,6 @@
 import {
   type AuditEntry,
+  CheckRow,
   Explanation,
   SimResult,
   SwapIntent,
@@ -8,6 +9,7 @@ import {
   type JobOrigin,
 } from '@agentshield/shared';
 import { getAddress, isAddress, zeroAddress } from 'viem';
+import { z } from 'zod';
 import type { auditLog, jobs } from '../../core/database/schema';
 
 export type JobRow = typeof jobs.$inferSelect;
@@ -59,13 +61,16 @@ export function toJobDto(row: JobRow): JobDto {
 export function toAuditEntries(rows: readonly AuditRow[]): AuditEntry[] {
   return rows.flatMap((r) => {
     if (!isShield(r.step)) return [];
-    const p = (r.payload ?? {}) as { result?: unknown; reason?: unknown };
+    const p = (r.payload ?? {}) as { result?: unknown; reason?: unknown; checks?: unknown };
+    // Rows written before the rule table existed have no checks; a malformed table is dropped, never half-shown.
+    const checks = z.array(CheckRow).safeParse(p.checks ?? []);
     return [
       {
         shield: r.step,
         result: p.result === 'pass' ? 'pass' : 'fail',
         reason: typeof p.reason === 'string' ? p.reason : null,
         ts: r.at.toISOString(),
+        checks: checks.success ? checks.data : [],
       },
     ];
   });

@@ -1,5 +1,5 @@
 import { Inject, Injectable } from '@nestjs/common';
-import { and, asc, desc, eq, inArray, isNotNull, lt, or, type SQL } from 'drizzle-orm';
+import { and, asc, count, desc, eq, gte, inArray, isNotNull, lt, or, sql, type SQL } from 'drizzle-orm';
 import { DRIZZLE, type Database } from '../../core/database/database.module';
 import { auditLog, jobs } from '../../core/database/schema';
 import type { JobStatus } from '../../core/types';
@@ -7,11 +7,13 @@ import type { JobStatus } from '../../core/types';
 type JobPatch = Partial<Omit<typeof jobs.$inferInsert, 'id' | 'createdAt' | 'vault'>>;
 
 export interface ListByVault {
-  vault: string;
+  /** Omitted: every vault (admin console). */
+  vault?: string;
   limit: number;
   /** Id of the last job of the previous page. */
   cursor?: string;
-  status?: JobStatus;
+  /** One status, or any of several (the admin console's "blocked" = rejected or reverted). */
+  status?: JobStatus | readonly JobStatus[];
 }
 
 /** Sole owner of `jobs` and `audit_log` tables. Vault addresses are stored lowercase. */
@@ -39,8 +41,9 @@ export class JobsRepository {
 
   /** Newest first, keyset-paginated on (createdAt, id). Returns up to limit + 1 rows so the caller can tell if there is a next page. */
   async listByVault({ vault, limit, cursor, status }: ListByVault) {
-    const where: (SQL | undefined)[] = [eq(jobs.vault, vault.toLowerCase())];
-    if (status) where.push(eq(jobs.status, status));
+    const where: (SQL | undefined)[] = vault ? [eq(jobs.vault, vault.toLowerCase())] : [];
+    if (typeof status === 'string') where.push(eq(jobs.status, status));
+    else if (status?.length) where.push(inArray(jobs.status, [...status]));
     if (cursor) {
       const after = await this.get(cursor);
       if (!after) return [];
@@ -52,6 +55,16 @@ export class JobsRepository {
       .where(and(...where))
       .orderBy(desc(jobs.createdAt), desc(jobs.id))
       .limit(limit + 1);
+  }
+
+  /** Jobs created since `since`, counted by status and by kind (admin console, last 24 h). */
+  async countsSince(since: Date) {
+    const rows = await this.db
+      .select({ status: jobs.status, attack: sql<boolean>`${jobs.kind} like 'attack%'`, n: count() })
+      .from(jobs)
+      .where(gte(jobs.createdAt, since))
+      .groupBy(jobs.status, sql`${jobs.kind} like 'attack%'`);
+    return rows.map((r) => ({ status: r.status, attack: r.attack, n: Number(r.n) }));
   }
 
   /** Mined transactions Shield 2 reverted, newest first (GET /proof blockedTxs). */

@@ -31,8 +31,9 @@
 | `/vaults/:safe/red-team` | Run Rebalance, 4 đòn tấn công, ô injection (§10.5) | theo §4.3 | Q10 | `POST .../jobs`, `POST .../attacks` | không |
 | `/vaults/:safe/settings` | Agent + vùng nguy hiểm (Kill, kích hoạt lại) (§10.6) | chỉ owner | L7 | state | revoke, setPolicy |
 | `/proof` | Bằng chứng on-chain | public | L9 | `GET /proof` | không |
+| `/admin` | Ops console: preflight Demo Day, rebalancer, hoạt động mọi vault (§7) | chỉ admin | L | `GET /admin/*`, `PATCH`/`POST /admin/rebalancer*` | không |
 
-Không có route `/admin` (D16): admin là **drawer** trong dashboard, chỉ hiện với role `admin` (§7).
+`/admin` (D16, sửa 18/11) là trang riêng cho người vận hành, chỉ role `admin` dùng được (§7). Trước đó admin là drawer trong dashboard; nội dung vận hành nhiều lên nên tách thành trang.
 
 `/demo` thực chất là `/vaults/:demoSafe` với: khách vãng lai thao tác được, rebalancer tắt (D15), guided tour bật, rate limit chặt. Vẫn là **một màn duy nhất** (không có route con), dùng **chung component `VaultDashboard`** với Tổng quan của `/vaults/:safe`, khác nhau ở prop `mode: "demo" | "owner"`.
 
@@ -209,7 +210,7 @@ Mobile (<1024px): xếp dọc 1 → 2 → 3, `KillSwitch` luôn dính đáy màn
 | Xem state, job, SSE | ✅ | ✅ | ✅ |
 | Run Rebalance, 4 đòn, injection | ✅ *chỉ vault demo công khai* (throttle IP + cooldown) | ✅ vault của mình | ✅ |
 | PolicyForm, Kill, Deposit/Withdraw | ẩn | ✅ (ký ví, không qua backend) | ẩn nếu không là owner |
-| Drawer admin (Demo mode, Bull Board, gas agent) | ẩn | ẩn | ✅ |
+| Trang `/admin` (preflight, Demo mode, hoạt động, Bull Board) | màn mời đăng nhập | màn Denied | ✅ |
 
 Owner được xác định **on-chain** (`Safe.getOwners`), backend chỉ kiểm lại để cấp cookie role.
 
@@ -306,11 +307,18 @@ Chỉ đọc; không cần ví.
 
 ---
 
-## 7. Drawer Admin (D16)
+## 7. Trang Admin `/admin` (D16, sửa 18/11)
 
-Không phải route riêng. Nút "Admin" nằm ở header chung (`shared/shell/AdminEntry.tsx`), chỉ hiện trên `/demo` và `/vaults/*` khi dữ liệu live và `GET /auth/session` trả role `admin`; drawer có: trạng thái rebalancer (`Running` / `Demo mode on`, chu kỳ, lần chạy cuối), `Pause/Resume` (Demo mode; nút bấm tay vẫn chạy), địa chỉ agent + Snowtrace, số dư gas (cảnh báo dưới `AGENT_MIN_GAS_WEI`), link Bull Board, `/api/health`. Mở drawer thì tự làm mới 10s/lần; mất quyền (401/403) thì báo phiên không còn là admin. Lý do: admin cần bật Demo mode ngay lúc đứng ở dashboard khi trình diễn.
+Câu hỏi trang trả lời: **"sân khấu đã sẵn sàng chưa, nếu chưa thì vì sao?"**. Nút "Admin" trên header chung (`shared/shell/AdminEntry.tsx`) dẫn tới trang, chỉ hiện khi dữ liệu live và `GET /auth/session` trả role `admin`. Chặn quyền thật nằm ở server (`AdminGuard`); trang chỉ ẩn: mock → "Needs the live server", chưa đăng nhập → mời ký bằng ví admin, ví khác → Chamfer đỏ `ACCESS DENIED`.
 
----
+Bố cục theo `/proof` (`features/admin/AdminPage.tsx`): hero `.blueprint` "Is the stage / ready?" với Stamp tổng `READY` / `CHECK` / `NOT READY` và 3 tile (gas agent ≈ số swap còn lại, ngân sách ngày còn lại của vault demo, rebalancer), rồi 4 section đánh số:
+
+1. **Preflight** (`GET /admin/preflight`): mỗi dòng một badge vuông `OK`/`WARN`/`FAIL` (chữ + icon), chi tiết mono và dòng `Fix` nói phải làm gì. Kiểm: services, gas agent (dưới `AGENT_MIN_GAS_WEI` = fail, dưới 50 swap = warn), vault demo còn armed, hạn policy, ngân sách ngày còn ≥ 200 USDC, số dư ≥ 200 USDC, indexer trễ ≤ 50 block, Demo mode, Gemini key, đã có tx bị revert on-chain cho `/proof`, job failed trong 1h. Luật cố định ở `modules/admin/domain/preflight.ts`, không LLM. Tự làm mới 15s.
+2. **Rebalancer**: segmented `Running | Demo mode` (`PATCH /admin/rebalancer`), nút "Run one tick now" (`POST /admin/rebalancer/ticks`, tắt khi Demo mode), agent + Snowtrace + gas, bảng "Last tick": vault nào bị bỏ qua và vì sao (lý do viết thành câu).
+3. **Activity** (`GET /admin/overview`, `GET /admin/jobs`): 4 tile 24h (approved, blocked theo từng shield, failed, finality trung vị), job mọi vault với tab `All | Blocked | Failed` + "Load more", bảng queue swap/attack/rebalance, danh sách vault kèm slot rebalancer.
+4. **Tools**: Bull Board, health check.
+
+Admin không có quyền gì với tiền, Kill-Switch hay policy (P2): những việc đó vẫn do owner ký trên ví.
 
 ## 8. Luồng dữ liệu & quy ước
 
@@ -353,7 +361,7 @@ flowchart LR
 | `/demo`, `/vaults/:safe` (Tổng quan) | `GET /vaults/{safe}`, `GET /vaults/{safe}/state`, `GET /vaults/{safe}/jobs`, `GET /jobs/{id}`, `POST /vaults/{safe}/jobs`, `POST /vaults/{safe}/attacks`, auth (`/auth/*`) | `job.updated`, `job.explained`, `chain.swap`, `chain.policy`, `chain.revoked` |
 | `/vaults/new/*` | `GET /vaults/{safe}`, `PUT /vaults/{safe}`, auth | `vault.registered` *(tuỳ chọn)* |
 | `/proof` | `GET /proof` | — |
-| Drawer Admin (trong dashboard) | `GET/PATCH /admin/rebalancer`, `GET /admin/queues`, `GET /api/health` | — |
+| `/admin` | `GET /admin/preflight`, `GET /admin/overview`, `GET /admin/jobs`, `GET/PATCH /admin/rebalancer`, `POST /admin/rebalancer/ticks`, `GET /admin/queues`, `GET /api/health` | — |
 | `/vaults` (danh sách) | `GET /vaults` | — |
 | `/vaults/:safe/activity` | `GET /vaults/{safe}/jobs` | `job.updated`, `job.explained` |
 | `/vaults/:safe/activity/:jobId` | `GET /jobs/{id}` | `job.updated`, `job.explained` |
