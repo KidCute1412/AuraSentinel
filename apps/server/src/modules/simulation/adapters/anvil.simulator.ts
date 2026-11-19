@@ -60,6 +60,21 @@ function withTimeout<T>(p: Promise<T>, ms: number, what: string): Promise<T> {
   return Promise.race([p, timeout]).finally(() => clearTimeout(t));
 }
 
+/**
+ * The fork's receipt for a tx we just sent. Not `waitForTransactionReceipt`: when its first lookup races Anvil's
+ * mining, it waits for the NEXT block, which an idle fork never produces, and sat there for viem's 3 min default
+ * while holding the fork (measured on the VM, 19/11). Polls the receipt itself instead, briefly.
+ */
+async function minedReceipt(c: Pick<AnvilClient, 'getTransactionReceipt'>, hash: Hex, timeoutMs = 10_000) {
+  const until = Date.now() + timeoutMs;
+  for (;;) {
+    const receipt = await c.getTransactionReceipt({ hash }).catch(() => null);
+    if (receipt) return receipt;
+    if (Date.now() > until) throw new Error(`sim tx ${hash} not mined on the fork within ${timeoutMs} ms`);
+    await new Promise((r) => setTimeout(r, 50));
+  }
+}
+
 /** Host only, for logs (RPC URLs may carry an API key in the path or query). */
 const hostOf = (url: string) => {
   try {
@@ -265,7 +280,7 @@ export class AnvilSimulator implements SimulatorPort, OnModuleDestroy {
         );
       }
       const hash = await c.sendTransaction({ account: agent, chain: avalancheFuji, to: target.module, data, gas: SWAP_GAS });
-      const receipt = await c.waitForTransactionReceipt({ hash, pollingInterval: 50 });
+      const receipt = await minedReceipt(c, hash);
       // eth_call passed but the mined tx did not: state changed in between. Never call it safe.
       if (receipt.status !== 'success') return reverted('UNKNOWN_REVERT');
     } finally {
