@@ -236,7 +236,7 @@ JobDto + `precheck`, `sim`, `audit`:
     { "shield": "invariant", "result": "pass", "reason": null, "ts": "…" },
     { "shield": "onchain", "result": "pass", "reason": null, "ts": "…" } ] }
 ```
-`audit[].checks`: bảng luật đằng sau kết quả của từng lớp, theo đúng thứ tự đã kiểm (`auditor/domain/checks.ts`; verdict của precheck và invariants được suy ra từ chính bảng này nên không thể lệch). Mỗi dòng: `id`, `pass`, `reasonCode` (null khi pass), `actual` và `limit` là `CheckValue` có kiểu (`amount` base units + token/symbol/decimals, có thể âm cho delta mô phỏng · `address` · `bool` · `time` unix · `text`). Job ghi trước khi có bảng thì `checks: []`.
+`audit[].checks`: bảng luật đằng sau kết quả của từng lớp, theo đúng thứ tự đã kiểm (`auditor/domain/checks.ts`; verdict của precheck và invariants được suy ra từ chính bảng này nên không thể lệch). Mỗi dòng: `id`, `pass`, `reasonCode` (null khi pass), `actual` và `limit` là `CheckValue` có kiểu (`amount` base units + token/symbol/decimals, có thể âm cho delta mô phỏng · `address` · `bool` · `time` unix · `text`). Job ghi trước khi có bảng thì `checks: []`. Lớp `onchain` của swap `confirmed` có thêm số **đo trên chain**: `chain-paid` / `chain-received` (dòng tiền ròng của Safe từ log `Transfer` trong receipt, `actual` âm/dương) rồi `chain-balance` (số dư Safe tại block đó; thiếu khi đọc RPC lỗi). Web dựng ô Vault balances từ đây: before = after − flow.
 
 `JobDto.kind` ∈ `swap` · `attack`; `origin` ∈ `rebalancer` · `manual` · `redteam`.
 `id` là UUID duy nhất toàn hệ thống nên không cần lồng dưới `/vaults/{safe}`; `JobDto.vault` cho biết vault.

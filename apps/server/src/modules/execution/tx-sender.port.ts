@@ -22,6 +22,15 @@ export interface TxResult {
   /** Only when reverted: decoded reason (UNKNOWN_REVERT if the data could not be recovered). */
   revertReason?: ReasonCode;
   revertData?: Hex;
+  /** Only when success: every ERC-20 Transfer the receipt logged (what really moved, not a simulation). */
+  transfers?: Erc20Transfer[];
+}
+
+export interface Erc20Transfer {
+  token: Address;
+  from: Address;
+  to: Address;
+  value: bigint;
 }
 
 /**

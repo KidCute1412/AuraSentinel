@@ -43,6 +43,15 @@ export class PolicyService {
     @Inject(PUBLIC_CLIENT) private readonly client: PublicClient,
   ) {}
 
+  /** ERC-20 balances of `owner` at one block (e.g. right after a swap's receipt). Throws on RPC failure. */
+  async balancesAt(owner: Address, tokens: readonly Address[], blockNumber: bigint): Promise<bigint[]> {
+    return this.client.multicall({
+      blockNumber,
+      allowFailure: false,
+      contracts: tokens.map((t) => ({ address: t, abi: ERC20_ABI, functionName: 'balanceOf', args: [owner] }) as const),
+    });
+  }
+
   /**
    * Chain is the source of truth (P1): policy, limits and spentToday straight from
    * AgentPolicyModule, all pinned to one block so precheck never mixes two states.

@@ -35,6 +35,9 @@ const RULES: Record<string, { label: string; op?: string }> = {
   "tx-sent": { label: "Transaction sent" },
   "tx-block": { label: "Included in block" },
   "tx-result": { label: "Contract accepted it" },
+  "chain-paid": { label: "Vault paid (measured on-chain)" },
+  "chain-received": { label: "Vault received (measured on-chain)" },
+  "chain-balance": { label: "Vault balance after" },
 };
 
 export const ruleLabel = (id: string): string => RULES[id]?.label ?? id;

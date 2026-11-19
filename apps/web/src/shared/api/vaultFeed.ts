@@ -2,6 +2,7 @@ import { useMemo } from "react";
 import type { JobDetailDto, JobDto, StateDto } from "@agentshield/shared";
 import { sameAddress } from "@/shared/lib/address";
 import { ApiError } from "./client";
+import { measuredChange } from "./measuredChange";
 import { isLive, type DataSource } from "./dataSource";
 import { useCreateRebalance, useJob, useJobs, useLaunchAttack, useVaultEvents, useVaultState } from "./hooks";
 import { startJob, useVaultSim } from "./mockChain";
@@ -26,7 +27,7 @@ export interface VaultFeed {
   jobsStatus: LoadStatus;
   /** The server has older jobs than the ones loaded (live only). */
   hasMoreJobs: boolean;
-  /** Exact balances around the latest confirmed swap. Mock only; live has no such record yet. */
+  /** Exact balances around the latest confirmed swap (live: measured on-chain by the server; null for older jobs). */
   lastChange: VaultSim["lastChange"];
   /** Try the reads again after an error. */
   refetch: () => void;
@@ -63,6 +64,10 @@ export function useLiveVaultFeed(view: VaultView): VaultFeed {
   const jobs = useJobs(view.safe);
   const { refetch: refetchState } = state;
   const { refetch: refetchJobs } = jobs;
+  // The latest confirmed swap, with its audit trail: its Shield 2 rows carry the measured before/after.
+  const lastSwapId = jobs.data?.items.find((j) => j.kind === "swap" && j.status === "confirmed")?.id;
+  const lastSwap = useJob(lastSwapId);
+  const lastChange = useMemo(() => measuredChange(lastSwap.data, state.data ?? null), [lastSwap.data, state.data]);
   return useMemo(
     () => ({
       source: "live",
@@ -71,14 +76,14 @@ export function useLiveVaultFeed(view: VaultView): VaultFeed {
       jobs: jobs.data?.items ?? [],
       jobsStatus: statusOf({ data: jobs.data, isError: jobs.isError }),
       hasMoreJobs: Boolean(jobs.data?.nextCursor),
-      lastChange: null,
+      lastChange,
       refetch: () => {
         void refetchState();
         void refetchJobs();
       },
     }),
     // Only the fields read above: the query result objects themselves are new on every render.
-    [state.data, state.isError, jobs.data, jobs.isError, refetchState, refetchJobs],
+    [state.data, state.isError, jobs.data, jobs.isError, lastChange, refetchState, refetchJobs],
   );
 }
 

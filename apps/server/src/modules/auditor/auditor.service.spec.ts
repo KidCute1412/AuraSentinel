@@ -110,6 +110,7 @@ function setup(s: Setup = {}) {
   const policy = {
     readVaultState: vi.fn(typeof chain === 'function' ? chain : async () => chain),
     tokenMeta: vi.fn(async (t: string) => (t === USDC_ADDR ? { symbol: 'USDC', decimals: 6 } : { symbol: 'WAVAX', decimals: 18 })),
+    balancesAt: vi.fn(async () => [800_000_000n, 5n]),
   };
   const vaults = {
     resolve: vi.fn(async () => (s.vaultFound === false ? null : { safe: SAFE, module: MODULE, isDemo: true })),
