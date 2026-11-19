@@ -3,7 +3,7 @@ import { GoogleGenAI, Type } from '@google/genai';
 import { ENV } from '../../../core/config/config.module';
 import type { Env } from '../../../core/config/env.schema';
 import type { Explanation } from '../../../core/types';
-import type { ExplainerPort, ExplainInput } from '../explainer.port';
+import type { ExplainInput, LlmExplainer } from '../explainer.port';
 import { explainWithLlm, type GenerateFn } from '../llm';
 
 /** Structured output: the model must return exactly {"messageVi": string}. Zod checks it again. */
@@ -18,10 +18,14 @@ const RESPONSE_SCHEMA = {
  * JSON or schema mismatch; ExplainerService then swaps to the template adapter.
  */
 @Injectable()
-export class GeminiExplainer implements ExplainerPort {
+export class GeminiExplainer implements LlmExplainer {
+  readonly label: string;
+  readonly rpm: number;
   private readonly generate?: GenerateFn;
 
   constructor(@Inject(ENV) private readonly env: Env) {
+    this.label = env.GEMINI_MODEL;
+    this.rpm = env.GEMINI_RPM;
     if (!env.GEMINI_API_KEY) return;
     const ai = new GoogleGenAI({ apiKey: env.GEMINI_API_KEY });
     this.generate = async ({ system, user, signal }) => {

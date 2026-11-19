@@ -48,6 +48,17 @@ export const envSchema = z.object({
   /** Max Gemini calls per minute; above it the explainer uses the template (free tier is ~10 RPM). */
   GEMINI_RPM: z.coerce.number().int().positive().default(10),
 
+  /**
+   * Any OpenAI-compatible chat endpoint (self-hosted vLLM, Ollama...), e.g. http://127.0.0.1:18449/v1. When set it
+   * is used instead of Gemini and LLM_MODEL is required. The host must be able to reach it (an SSH tunnel in dev).
+   */
+  LLM_BASE_URL: z.string().url().optional(),
+  /** Sent as `Authorization: Bearer`. Unset: no header. */
+  LLM_KEY: z.string().optional(),
+  LLM_MODEL: z.string().optional(),
+  /** Max calls per minute to LLM_BASE_URL (button spam must not load the box); above it the explainer uses the template. */
+  LLM_RPM: z.coerce.number().int().positive().default(60),
+
   /** Contract test summary written by the L5 CI job; GET /proof reads it. */
   PROOF_TESTS_FILE: z.string().default('../../packages/contracts/proof/tests.json'),
 
@@ -133,6 +144,9 @@ export function parseEnv(raw: NodeJS.ProcessEnv = process.env): Env {
   }
   if (result.data.NODE_ENV === 'production' && !result.data.SESSION_SECRET) {
     throw new Error('Invalid environment:\n  - SESSION_SECRET: required in production (32+ chars)');
+  }
+  if (result.data.LLM_BASE_URL && !result.data.LLM_MODEL) {
+    throw new Error('Invalid environment:\n  - LLM_MODEL: required when LLM_BASE_URL is set');
   }
   return result.data;
 }
