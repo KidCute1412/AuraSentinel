@@ -12,7 +12,7 @@ import { JobsService } from '../jobs/jobs.service';
 import { PolicyService, type VaultChainState } from '../policy/policy.service';
 import { SIMULATOR, type SimulatorPort } from '../simulation/simulator.port';
 import { VaultRegistryService } from '../vault/vault-registry.service';
-import { invariantChecks, onchainChecks, precheckChecks, simulationChecks, type TokenInfo } from './domain/checks';
+import { invariantChecks, netFlow, onchainChecks, precheckChecks, simulationChecks, type ChainMove, type TokenInfo } from './domain/checks';
 import { checkInvariants, type SimOutcome } from './domain/invariants';
 import { findLimit, precheck, spentFor, type PrecheckSnapshot } from './domain/precheck';
 import { tokenInfoFor } from './domain/tokens';
@@ -174,9 +174,23 @@ export class AuditorService implements OnModuleDestroy {
       this.attachLater(jobId, this.explain('blocked', reason, intent, facts, untrustedText, sim));
       return;
     }
-    await this.jobs.recordShield(jobId, 'onchain', 'pass', null, onchainChecks(tx));
+    await this.jobs.recordShield(jobId, 'onchain', 'pass', null, onchainChecks(tx, await this.chainMoves(intent, target.safe, tx), this.tokens));
     await this.jobs.transition(jobId, 'confirmed', { txHash: tx.txHash });
     this.attachLater(jobId, approved);
+  }
+
+  /**
+   * What the mined swap measurably did to the Safe (tokenIn, tokenOut): net flow from the receipt's Transfer logs and
+   * the balance at that block. Display evidence only, never a decision input. Never throws: a failed balance read
+   * leaves balanceAfter null.
+   */
+  private async chainMoves(intent: SwapIntent, safe: Address, tx: TxResult): Promise<ChainMove[]> {
+    const tokens = [intent.tokenIn, intent.tokenOut] as const;
+    const after = await this.policy.balancesAt(safe, tokens, tx.blockNumber).catch((e: unknown) => {
+      this.log.warn(`balances after ${tx.txHash}: ${message(e)}`);
+      return null;
+    });
+    return tokens.map((token, i) => ({ token, delta: netFlow(tx.transfers ?? [], safe, token), balanceAfter: after?.[i] ?? null }));
   }
 
   /** Builds the explainer input from deterministic facts and asks for messageVi. Never throws. */

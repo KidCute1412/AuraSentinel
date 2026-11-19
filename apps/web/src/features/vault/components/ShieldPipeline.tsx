@@ -1,6 +1,6 @@
 import { useRef, useState, type KeyboardEvent } from "react";
 import { Ban, Check, Circle, Minus, X } from "lucide-react";
-import type { CheckRow, JobDetailDto } from "@agentshield/shared";
+import { fromAmount, type CheckRow, type JobDetailDto } from "@agentshield/shared";
 import { reasonTitle } from "@/shared/api/mockEngine";
 import { cn } from "@/shared/lib/cn";
 import { formatTokenAmount } from "@/shared/lib/format";
@@ -8,10 +8,13 @@ import { jobLabel } from "@/shared/lib/jobLabel";
 import { clockTime } from "@/shared/lib/time";
 import { SnowtraceLink } from "@/shared/ui/SnowtraceLink";
 import { dailyBar, formatValue, GATE_INFO, ruleLabel, ruleOp } from "../lib/checks";
-import { timelineSteps, type StepId, type StepState, type TimelineStep } from "../lib/timeline";
+import { moneyFlow } from "../lib/moneyFlow";
+import type { GateLook } from "../lib/pipelineMotion";
+import { timelineSteps, type StepId, type TimelineStep } from "../lib/timeline";
+import { MoneyFlowDiagram } from "./MoneyFlowDiagram";
+import { PipelineTrack } from "./PipelineTrack";
 
-/** A gate's look on the rail. "bypassed": an on-chain attack skipped the website, so Shield 1 never saw it. */
-type GateState = StepState | "bypassed";
+type GateState = GateLook;
 
 const GATE: Record<GateState, { word: string; box: string; bar: string; icon: typeof Check }> = {
   pass: { word: "Passed", box: "border-accent", bar: "bg-accent", icon: Check },
@@ -35,6 +38,10 @@ function gatesOf(job: JobDetailDto): Gate[] {
     checks: job.audit.find((a) => a.shield === s.id)?.checks ?? [],
   }));
 }
+
+/** The packet's tag on the track: the amount, else what the job was. */
+const packetLabel = (job: JobDetailDto): string =>
+  job.intent && job.intent.amountIn !== "0" ? `${formatTokenAmount(fromAmount(job.intent.amountIn), 6)} USDC` : job.kind === "attack" ? "Attack" : "Trade";
 
 /** Where to look first: the gate that stopped it, else the furthest gate that ran. */
 function defaultGate(gates: Gate[]): StepId {
@@ -60,12 +67,18 @@ function DailyBar({ bar }: { bar: NonNullable<ReturnType<typeof dailyBar>> }) {
   );
 }
 
-function RuleRow({ row, amountIn }: { row: CheckRow; amountIn: string | undefined }) {
+/** Rules print one after another, like a terminal log (60ms apart, each a 200ms slide-in). */
+const RULE_STAGGER_MS = 60;
+
+function RuleRow({ row, amountIn, index }: { row: CheckRow; amountIn: string | undefined; index: number }) {
   const op = ruleOp(row.id);
   const bar = dailyBar(row, amountIn);
   const txHash = row.id === "tx-sent" && row.actual?.type === "text" ? row.actual.value : null;
   return (
-    <li className={cn("grid grid-cols-[auto_minmax(0,1fr)] gap-x-3 gap-y-1 px-4 py-2.5 sm:grid-cols-[auto_minmax(0,1.2fr)_minmax(0,1fr)]", !row.pass && "bg-tint-pink")}>
+    <li
+      className={cn("animate-feed-in grid grid-cols-[auto_minmax(0,1fr)] gap-x-3 gap-y-1 px-4 py-2.5 sm:grid-cols-[auto_minmax(0,1.2fr)_minmax(0,1fr)]", !row.pass && "bg-tint-pink")}
+      style={{ animationDelay: `${index * RULE_STAGGER_MS}ms` }}
+    >
       <span className={cn("mt-0.5 inline-flex w-14 items-center gap-1 font-mono text-[11px] font-bold uppercase tracking-widest", row.pass ? "text-accent-text" : "text-danger-text")}>
         {row.pass ? <Check aria-hidden strokeWidth={3} className="size-3.5" /> : <X aria-hidden strokeWidth={3} className="size-3.5" />}
         {row.pass ? "Pass" : "Fail"}
@@ -112,6 +125,7 @@ function emptyText(g: Gate, job: JobDetailDto): string {
 function GateDetail({ gate, job, showTime }: { gate: Gate; job: JobDetailDto; showTime?: boolean }) {
   const info = GATE_INFO[gate.id];
   const failed = gate.checks.filter((c) => !c.pass).length;
+  const flow = moneyFlow(gate.id, gate.checks);
   return (
     <div className={cn("border border-line bg-bg", gate.look === "fail" && "border-danger")}>
       <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1 border-b border-line px-4 py-2.5">
@@ -128,10 +142,11 @@ function GateDetail({ gate, job, showTime }: { gate: Gate; job: JobDetailDto; sh
         )}
       </div>
       <p className="px-4 pt-2.5 text-sm text-soft">{info.what}</p>
+      {flow && <MoneyFlowDiagram key={gate.id} flow={flow} />}
       {gate.checks.length > 0 ? (
-        <ul className="mt-2 divide-y divide-line border-t border-line">
-          {gate.checks.map((c) => (
-            <RuleRow key={c.id} row={c} amountIn={job.intent?.amountIn} />
+        <ul key={gate.id} className="mt-2 divide-y divide-line border-t border-line">
+          {gate.checks.map((c, i) => (
+            <RuleRow key={`${c.id}-${i}`} row={c} amountIn={job.intent?.amountIn} index={i} />
           ))}
         </ul>
       ) : (
@@ -168,12 +183,8 @@ export function ShieldPipeline({ job, variant = "compact" }: { job: JobDetailDto
         <span className="mono-label">Shield 1: our server · Shield 2: the contract</span>
       </div>
 
-      {/* The rail: one segment per gate, so how far the trade got reads at a glance. */}
-      <div aria-hidden className="grid grid-cols-4 gap-1.5">
-        {gates.map((g) => (
-          <span key={g.id} className={cn("h-1.5", GATE[g.look].bar)} />
-        ))}
-      </div>
+      {/* The trade walks the gates toward the vault, so how far it got reads at a glance. */}
+      <PipelineTrack ids={gates.map((g) => g.id)} looks={gates.map((g) => g.look)} label={packetLabel(job)} jobFailed={job.status === "failed"} />
 
       <div role={full ? undefined : "tablist"} aria-label={full ? undefined : "Checks by shield"} className="grid grid-cols-2 gap-1.5 sm:grid-cols-4">
         {gates.map((g, i) => {

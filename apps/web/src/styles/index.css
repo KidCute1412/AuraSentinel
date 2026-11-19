@@ -357,7 +357,27 @@
   .gate-move { transition: transform 600ms cubic-bezier(0.3, 0.8, 0.3, 1), fill 300ms ease-out; }
 }
 
+/* Shield pipeline: the trade's packet steps gate to gate; money-flow arrows draw from their source side. */
+@keyframes flow-draw {
+  from { transform: scaleX(0); }
+  to { transform: scaleX(1); }
+}
+@keyframes gate-flash {
+  0% { box-shadow: 0 0 0 0 var(--highlight); }
+  50% { box-shadow: 0 0 0 4px var(--highlight); }
+  100% { box-shadow: 0 0 0 0 var(--highlight); }
+}
+
+@layer utilities {
+  .track-move { transition: left 200ms ease-out; }
+  .flow-draw-r { transform-origin: left; animation: flow-draw 200ms ease-out both; }
+  .flow-draw-l { transform-origin: right; animation: flow-draw 200ms ease-out both; }
+  .animate-gate-flash { animation: gate-flash 200ms ease-out; }
+}
+
 @media (prefers-reduced-motion: reduce) {
+  .track-move { transition: none !important; }
+  .flow-draw-r, .flow-draw-l, .animate-gate-flash { animation: none !important; }
   .gate-move { transition: none !important; }
   .gate-spark { display: none; }
   .gate-jiggle { animation: none; }

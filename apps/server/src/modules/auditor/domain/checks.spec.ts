@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { SwapIntent } from '../../../core/types';
-import { failedReasons, invariantChecks, onchainChecks, precheckChecks, simulationChecks } from './checks';
+import { failedReasons, invariantChecks, netFlow, onchainChecks, precheckChecks, simulationChecks } from './checks';
 import { checkInvariants } from './invariants';
 import { precheck, type PrecheckSnapshot } from './precheck';
 import { tokenInfoFor } from './tokens';
@@ -103,5 +103,28 @@ describe('simulation, invariant and on-chain rows', () => {
     const rows = onchainChecks({ txHash: '0xabc', blockNumber: 42n, status: 'reverted', revertReason: 'GS104' });
     expect(rows.at(-1)).toEqual({ id: 'tx-result', pass: false, reasonCode: 'GS104', actual: { type: 'text', value: 'GS104' }, limit: null });
     expect(onchainChecks({ txHash: '0xabc', blockNumber: 42n, status: 'success' }).every((r) => r.pass)).toBe(true);
+  });
+
+  it('nets the Safe flows of one token from receipt transfers', () => {
+    const transfers = [
+      { token: USDC, from: SAFE, to: STRANGER, value: U(200) },
+      { token: WAVAX, from: STRANGER, to: SAFE.toUpperCase().replace('0X', '0x'), value: 5n },
+      { token: USDC, from: STRANGER, to: AGENT, value: U(7) },
+    ];
+    expect(netFlow(transfers, SAFE, USDC)).toBe(-U(200));
+    expect(netFlow(transfers, SAFE, WAVAX)).toBe(5n);
+    expect(netFlow([], SAFE, USDC)).toBe(0n);
+  });
+
+  it('records what a mined swap measurably moved, and nothing for a revert', () => {
+    const tx = { txHash: '0xabc', blockNumber: 42n, status: 'success' as const };
+    const rows = onchainChecks(tx, [{ token: USDC, delta: -U(200), balanceAfter: U(800) }, { token: WAVAX, delta: 5n, balanceAfter: null }], info);
+    expect(rows.slice(3).map((r) => [r.id, r.actual?.type === 'amount' ? r.actual.amount : null])).toEqual([
+      ['chain-paid', '-200000000'],
+      ['chain-balance', '800000000'],
+      ['chain-received', '5'],
+    ]);
+    expect(rows.every((r) => r.pass)).toBe(true);
+    expect(onchainChecks({ ...tx, status: 'reverted', revertReason: 'X' }, [{ token: USDC, delta: 0n, balanceAfter: 1n }])).toHaveLength(3);
   });
 });

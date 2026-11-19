@@ -83,13 +83,45 @@ export function invariantChecks(intent: Pick<SwapIntent, 'amountIn' | 'tokenIn' 
   ];
 }
 
-/** Shield 2: the transaction itself. The contract re-runs every gate; this records what the chain answered. */
-export function onchainChecks(tx: { txHash: string; blockNumber: bigint; status: 'success' | 'reverted'; revertReason?: string }): CheckRow[] {
-  return [
+/** What a mined swap really did to one of the Safe's tokens: the receipt's net flow, and the balance at that block. */
+export interface ChainMove {
+  token: string;
+  delta: bigint;
+  /** Safe balance at the receipt's block; null when the read failed (the delta still stands). */
+  balanceAfter: bigint | null;
+}
+
+/** Net amount of `token` the Safe gained (positive) or paid (negative) in a receipt's Transfer logs. */
+export function netFlow(transfers: readonly { token: string; from: string; to: string; value: bigint }[], safe: string, token: string): bigint {
+  let net = 0n;
+  for (const t of transfers) {
+    if (!same(t.token, token)) continue;
+    if (same(t.to, safe)) net += t.value;
+    if (same(t.from, safe)) net -= t.value;
+  }
+  return net;
+}
+
+/**
+ * Shield 2: the transaction itself. The contract re-runs every gate; this records what the chain answered and, for a
+ * mined swap, what it measurably moved (`moves`: tokenIn then tokenOut). Measured rows are facts, so they always pass.
+ */
+export function onchainChecks(
+  tx: { txHash: string; blockNumber: bigint; status: 'success' | 'reverted'; revertReason?: string },
+  moves: readonly ChainMove[] = [],
+  info: TokenInfo = unknownToken,
+): CheckRow[] {
+  const rows = [
     row('tx-sent', true, '', { type: 'text', value: tx.txHash }),
     row('tx-block', true, '', { type: 'text', value: tx.blockNumber.toString() }),
     row('tx-result', tx.status === 'success', tx.revertReason ?? 'UNKNOWN_REVERT', { type: 'text', value: tx.status === 'success' ? 'success' : (tx.revertReason ?? 'UNKNOWN_REVERT') }),
   ];
+  if (tx.status !== 'success') return rows;
+  for (const m of moves) {
+    rows.push(row(m.delta < 0n ? 'chain-paid' : 'chain-received', true, '', amount(m.delta, m.token, info)));
+    if (m.balanceAfter !== null) rows.push(row('chain-balance', true, '', amount(m.balanceAfter, m.token, info)));
+  }
+  return rows;
 }
 
 /** Reasons of the failed rows, in check order: reasons[0] is what the job reports. */

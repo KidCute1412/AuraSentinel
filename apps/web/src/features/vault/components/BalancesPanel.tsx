@@ -47,7 +47,7 @@ export function BalancesPanel({ state, lastChange }: { state: StateDto; lastChan
           })}
         </tbody>
       </table>
-      {!change && <p className="mt-3 text-xs text-muted">No swaps yet. Run a rebalance to see the before and after.</p>}
+      {!change && <p className="mt-3 text-xs text-muted">The before and after of the next swap appear here, measured on-chain.</p>}
       {change && (
         <p className="mt-3 text-xs text-muted">
           Current balance: {rows.map((r) => `${formatTokenAmount(fromAmount(r.amount), r.decimals, 3)} ${r.symbol}`).join(" · ")}

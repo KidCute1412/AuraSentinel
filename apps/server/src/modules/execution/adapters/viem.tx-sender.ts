@@ -1,6 +1,8 @@
 import { Logger } from '@nestjs/common';
 import {
   keccak256,
+  parseAbi,
+  parseEventLogs,
   zeroAddress,
   type Address,
   type Hash,
@@ -14,7 +16,7 @@ import type { SwapIntent, VaultTarget } from '../../../core/types';
 import type { AgentWallet } from '../agent-wallet';
 import { Mutex } from '../../../core/mutex';
 import { decodeRevert, extractRevertData } from '../revert-decoder';
-import type { RawCall, TxResult, TxSenderPort } from '../tx-sender.port';
+import type { Erc20Transfer, RawCall, TxResult, TxSenderPort } from '../tx-sender.port';
 
 export interface ViemTxSenderOptions {
   /** Max wait for a receipt. Fuji finality is ~1.5 s, so this only trips on a stuck RPC. */
@@ -33,6 +35,18 @@ const RETRYABLE = /timeout|timed out|fetch failed|ECONNRESET|ECONNREFUSED|socket
 
 const errMessage = (e: unknown) => (e instanceof Error ? `${e.message} ${String((e as { details?: unknown }).details ?? '')}` : String(e));
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+const TRANSFER_ABI = parseAbi(['event Transfer(address indexed from, address indexed to, uint256 value)']);
+
+/** ERC-20 Transfers in a receipt, i.e. what the transaction really moved. Logs that do not decode are skipped. */
+export function erc20Transfers(receipt: Pick<TransactionReceipt, 'logs'>): Erc20Transfer[] {
+  return parseEventLogs({ abi: TRANSFER_ABI, eventName: 'Transfer', logs: receipt.logs ?? [], strict: true }).map((l) => ({
+    token: l.address,
+    from: l.args.from,
+    to: l.args.to,
+    value: l.args.value,
+  }));
+}
 
 /**
  * Real TxSender (A4). One instance per process, shared by the swap and attack queues:
@@ -127,7 +141,7 @@ export class ViemTxSender implements TxSenderPort {
     }
 
     if (receipt.status === 'success') {
-      return { txHash: hash, status: 'success', blockNumber: receipt.blockNumber };
+      return { txHash: hash, status: 'success', blockNumber: receipt.blockNumber, transfers: erc20Transfers(receipt) };
     }
     const revertData = await this.replayRevertData(call, receipt);
     const revertReason = decodeRevert(revertData);
