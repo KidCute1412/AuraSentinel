@@ -41,10 +41,34 @@ export function nextStop(shown: number, target: number, bypass: boolean): number
   return shown + 1;
 }
 
-/** What a gate looks like while the packet is at `shown`: gates ahead of it wait, the real look shows once reached. */
-export function shownLook(real: GateLook, index: number, shown: number, target: TrackTarget): GateLook {
-  if (real === "bypassed") return "bypassed";
-  if (index < shown) return real;
-  if (index === shown && shown === target.stop) return real;
-  return real === "skipped" && shown === target.stop ? "skipped" : "pending";
+/**
+ * Where the packet is shown: at `stop`, and whether that gate's verdict is out yet. Each gate is first checked (the
+ * packet waits, the gate scans) and then answers: walk on, or a barrier. The vault answers on arrival.
+ */
+export interface TrackPos {
+  stop: number;
+  revealed: boolean;
 }
+
+export const settledAt = (target: TrackTarget): TrackPos => ({ stop: target.stop, revealed: true });
+export const isSettled = (pos: TrackPos, target: TrackTarget): boolean => pos.stop === target.stop && pos.revealed;
+
+/** One beat of the walk toward `target`. */
+export function nextPos(pos: TrackPos, target: TrackTarget): TrackPos {
+  if (pos.stop > target.stop) return settledAt(target);
+  if (pos.stop < target.stop) {
+    const stop = nextStop(pos.stop, target.stop, target.bypass);
+    return { stop, revealed: stop === VAULT_STOP };
+  }
+  return { stop: pos.stop, revealed: true };
+}
+
+/** What a gate looks like with the packet at `pos`: passed behind it, being checked at it, waiting ahead of it. */
+export function shownLook(real: GateLook, index: number, pos: TrackPos, target: TrackTarget): GateLook {
+  if (real === "bypassed") return "bypassed";
+  if (index < pos.stop || isSettled(pos, target)) return real;
+  return index === pos.stop ? "active" : "pending";
+}
+
+/** The gate whose table should be open while the packet walks: the one it is at (the last gate once in the vault). */
+export const gateAt = (stop: number): number => Math.min(stop, VAULT_STOP - 1);

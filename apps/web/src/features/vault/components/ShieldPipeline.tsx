@@ -9,8 +9,9 @@ import { clockTime } from "@/shared/lib/time";
 import { SnowtraceLink } from "@/shared/ui/SnowtraceLink";
 import { dailyBar, formatValue, GATE_INFO, ruleLabel, ruleOp } from "../lib/checks";
 import { moneyFlow } from "../lib/moneyFlow";
-import type { GateLook } from "../lib/pipelineMotion";
-import { timelineSteps, type StepId, type TimelineStep } from "../lib/timeline";
+import { gateAt, shownLook, trackTarget, type GateLook } from "../lib/pipelineMotion";
+import { isTerminal, timelineSteps, type StepId, type TimelineStep } from "../lib/timeline";
+import { useTrackReplay } from "../lib/useTrackReplay";
 import { MoneyFlowDiagram } from "./MoneyFlowDiagram";
 import { PipelineTrack } from "./PipelineTrack";
 
@@ -19,7 +20,7 @@ type GateState = GateLook;
 const GATE: Record<GateState, { word: string; box: string; bar: string; icon: typeof Check }> = {
   pass: { word: "Passed", box: "border-accent", bar: "bg-accent", icon: Check },
   fail: { word: "Stopped here", box: "border-danger bg-tint-pink", bar: "bg-danger", icon: X },
-  active: { word: "Checking…", box: "border-fg animate-pulse motion-reduce:animate-none", bar: "bg-line-strong", icon: Circle },
+  active: { word: "Checking…", box: "border-fg bg-hover", bar: "bg-line-strong", icon: Circle },
   pending: { word: "Waiting", box: "border-line", bar: "bg-line", icon: Circle },
   skipped: { word: "Not reached", box: "border-line border-dashed", bar: "bg-line", icon: Minus },
   bypassed: { word: "Bypassed", box: "border-line-strong border-dashed bg-hover", bar: "bg-line", icon: Ban },
@@ -142,9 +143,9 @@ function GateDetail({ gate, job, showTime }: { gate: Gate; job: JobDetailDto; sh
         )}
       </div>
       <p className="px-4 pt-2.5 text-sm text-soft">{info.what}</p>
-      {flow && <MoneyFlowDiagram key={gate.id} flow={flow} />}
+      {flow && <MoneyFlowDiagram flow={flow} />}
       {gate.checks.length > 0 ? (
-        <ul key={gate.id} className="mt-2 divide-y divide-line border-t border-line">
+        <ul className="mt-2 divide-y divide-line border-t border-line">
           {gate.checks.map((c, i) => (
             <RuleRow key={`${c.id}-${i}`} row={c} amountIn={job.intent?.amountIn} index={i} />
           ))}
@@ -162,9 +163,20 @@ function GateDetail({ gate, job, showTime }: { gate: Gate; job: JobDetailDto; sh
  * the rule allows. "full" lists every gate (job page). Text and icon on every state, never color alone.
  */
 export function ShieldPipeline({ job, variant = "compact" }: { job: JobDetailDto; variant?: "compact" | "full" }) {
-  const gates = gatesOf(job);
+  const recorded = gatesOf(job);
+  const target = trackTarget(
+    recorded.map((g) => g.look),
+    job.status === "failed",
+  );
+  // The packet walks gate by gate; tiles and tables follow it, so each gate's rules print as it gets there.
+  const { pos, playing } = useTrackReplay(job.id, target, isTerminal(job.status));
+  const gates = recorded.map((g, i): Gate => {
+    const look = shownLook(g.look, i, pos, target);
+    return { ...g, look, checks: look === "pending" ? [] : g.checks };
+  });
   const [picked, setPicked] = useState<StepId | null>(null);
-  const selected = picked ?? defaultGate(gates);
+  // While it walks, the open tab follows the packet; a tab the viewer picks wins at once.
+  const selected = picked ?? (playing ? gates[gateAt(pos.stop)]!.id : defaultGate(gates));
   const tabs = useRef<(HTMLButtonElement | null)[]>([]);
   const full = variant === "full";
 
@@ -184,7 +196,7 @@ export function ShieldPipeline({ job, variant = "compact" }: { job: JobDetailDto
       </div>
 
       {/* The trade walks the gates toward the vault, so how far it got reads at a glance. */}
-      <PipelineTrack ids={gates.map((g) => g.id)} looks={gates.map((g) => g.look)} label={packetLabel(job)} jobFailed={job.status === "failed"} />
+      <PipelineTrack ids={gates.map((g) => g.id)} looks={gates.map((g) => g.look)} pos={pos} target={target} label={packetLabel(job)} />
 
       <div role={full ? undefined : "tablist"} aria-label={full ? undefined : "Checks by shield"} className="grid grid-cols-2 gap-1.5 sm:grid-cols-4">
         {gates.map((g, i) => {
@@ -239,7 +251,8 @@ export function ShieldPipeline({ job, variant = "compact" }: { job: JobDetailDto
         </div>
       ) : (
         <div role="tabpanel" id={`gate-panel-${job.id}`} aria-labelledby={`gate-${job.id}-${selected}`}>
-          <GateDetail gate={gates.find((g) => g.id === selected)!} job={job} />
+          {/* Keyed by gate: switching tabs mounts a fresh table, so rows and arrows replay and never pile up. */}
+          <GateDetail key={selected} gate={gates.find((g) => g.id === selected)!} job={job} />
         </div>
       )}
     </div>

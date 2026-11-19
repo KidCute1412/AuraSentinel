@@ -19,9 +19,12 @@ import { Mutex } from '../../../core/mutex';
 import type { SimResult, SwapIntent } from '../../../core/types';
 import type { SimTarget, SimulatorPort } from '../simulator.port';
 
-/** Anvil test client with public + wallet actions (impersonated sends, no key). */
+/**
+ * Anvil test client with public + wallet actions (impersonated sends, no key). No transport retries: Anvil is local,
+ * and a retried `anvil_reset` would queue more resets behind a stuck one (Anvil retries the upstream itself).
+ */
 export function createAnvilClient(rpcUrl: string) {
-  return createTestClient({ chain: avalancheFuji, mode: 'anvil', transport: http(rpcUrl, { timeout: 15_000 }) })
+  return createTestClient({ chain: avalancheFuji, mode: 'anvil', transport: http(rpcUrl, { timeout: 15_000, retryCount: 0 }) })
     .extend(publicActions)
     .extend(walletActions);
 }
@@ -39,7 +42,32 @@ export interface AnvilSimulatorOptions {
   refreshIntervalMs?: number;
   /** AVAX given to the impersonated agent so a low-gas agent does not fail the sim. */
   agentGasBalance?: bigint;
+  /**
+   * Fuji RPCs the fork may follow, tried in turn when a reset fails or hangs (starting with the last one that
+   * worked). Empty = keep the fork URL Anvil was started with.
+   */
+  forkUrls?: readonly string[];
+  /** Longest a single `anvil_reset` may take before the next fork RPC is tried. */
+  resetTimeoutMs?: number;
 }
+
+/** Rejects after `ms`: a reset that hangs on a slow upstream must not hold the fork (and every queued sim). */
+function withTimeout<T>(p: Promise<T>, ms: number, what: string): Promise<T> {
+  let t: NodeJS.Timeout | undefined;
+  const timeout = new Promise<never>((_, reject) => {
+    t = setTimeout(() => reject(new Error(`${what} timed out after ${ms} ms`)), ms);
+  });
+  return Promise.race([p, timeout]).finally(() => clearTimeout(t));
+}
+
+/** Host only, for logs (RPC URLs may carry an API key in the path or query). */
+const hostOf = (url: string) => {
+  try {
+    return new URL(url).host;
+  } catch {
+    return 'fork rpc';
+  }
+};
 
 interface Balances {
   safeIn: bigint;
@@ -70,6 +98,8 @@ export class AnvilSimulator implements SimulatorPort, OnModuleDestroy {
   private last: { intent: SwapIntent; target: SimTarget } | undefined;
   private timer: NodeJS.Timeout | undefined;
   private refreshQueued = false;
+  /** Index in `forkUrls` of the RPC the fork last reset from successfully. */
+  private forkIndex = 0;
 
   constructor(
     private readonly client: AnvilClient,
@@ -80,6 +110,8 @@ export class AnvilSimulator implements SimulatorPort, OnModuleDestroy {
       maxForkAgeMs: opts.maxForkAgeMs ?? 60_000,
       refreshIntervalMs: opts.refreshIntervalMs ?? 20_000,
       agentGasBalance: opts.agentGasBalance ?? parseEther('100'),
+      forkUrls: opts.forkUrls ?? [],
+      resetTimeoutMs: opts.resetTimeoutMs ?? 10_000,
     };
     if (this.opts.resetFork && this.opts.refreshIntervalMs > 0) {
       this.timer = setInterval(() => this.refreshInBackground(false), this.opts.refreshIntervalMs);
@@ -145,9 +177,35 @@ export class AnvilSimulator implements SimulatorPort, OnModuleDestroy {
 
   private async refresh() {
     const t0 = performance.now();
-    await this.client.reset();
+    this.base = undefined; // the fork is being replaced: no snapshot of the old one is valid any more
+    await this.resetFork();
     this.base = { id: await this.client.snapshot(), at: Date.now() };
     this.log.debug(`fork reset in ${Math.round(performance.now() - t0)} ms`);
+  }
+
+  /**
+   * `anvil_reset` to the latest Fuji block, bounded. Each fork RPC gets one try of at most `resetTimeoutMs`, starting
+   * with the last one that worked, so a stuck public RPC costs seconds instead of holding every sim for minutes.
+   * Throws only when every RPC failed (the caller treats it as an infra error).
+   */
+  private async resetFork() {
+    const urls = this.opts.forkUrls;
+    if (urls.length === 0) return void (await withTimeout(this.client.reset(), this.opts.resetTimeoutMs, 'anvil_reset'));
+    let last: unknown;
+    for (let k = 0; k < urls.length; k++) {
+      const i = (this.forkIndex + k) % urls.length;
+      const url = urls[i]!;
+      try {
+        await withTimeout(this.client.reset({ jsonRpcUrl: url }), this.opts.resetTimeoutMs, `anvil_reset via ${hostOf(url)}`);
+        if (i !== this.forkIndex) this.log.warn(`fork now follows ${hostOf(url)}`);
+        this.forkIndex = i;
+        return;
+      } catch (e) {
+        last = e;
+        this.log.warn(`fork reset via ${hostOf(url)} failed: ${e instanceof Error ? e.message.slice(0, 160) : String(e)}`);
+      }
+    }
+    throw last;
   }
 
   private refreshInBackground(force: boolean) {

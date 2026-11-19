@@ -27,7 +27,8 @@ function Arrow({ dir, text, tone = "plain", delay = 0 }: { dir: "r" | "l"; text:
   const color = tone === "bad" ? "text-danger-text" : tone === "ok" ? "text-accent-text" : "text-fg";
   return (
     <div className={cn("flex flex-col items-stretch", color)}>
-      <span className="tabular truncate px-1 text-center font-mono text-xs font-bold">{text}</span>
+      {/* Wraps instead of truncating: an amount is never cut off on a phone. */}
+      <span className="tabular break-words px-1 text-center font-mono text-[11px] font-bold leading-tight sm:text-xs">{text}</span>
       <span className="flex items-center">
         {dir === "l" && <Head aria-hidden strokeWidth={3} className="-mr-1 size-4 shrink-0" />}
         <span
