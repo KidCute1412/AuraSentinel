@@ -1,9 +1,10 @@
 import { REASONS, formatReasonVi, type ReasonCode } from '@agentshield/shared';
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { Env } from '../../core/config/env.schema';
 import { GeminiExplainer } from './adapters/gemini.explainer';
 import { TemplateExplainer } from './adapters/template.explainer';
-import type { ExplainInput } from './explainer.port';
+import { OpenAiCompatibleExplainer } from './adapters/openai-compatible.explainer';
+import type { ExplainInput, LlmExplainer } from './explainer.port';
 import { ExplainerService } from './explainer.service';
 import { buildFacts, formatExpiryVi, formatPctVi } from './facts';
 import { ExplainTimeoutError, explainWithLlm, type GenerateFn } from './llm';
@@ -208,10 +209,10 @@ describe('ExplainerService', () => {
     source: 'llm',
   } as const;
   const service = (gemini: object) =>
-    new ExplainerService(gemini as unknown as GeminiExplainer, new TemplateExplainer(), env);
+    new ExplainerService({ label: 'test', rpm: env.GEMINI_RPM, ...gemini } as LlmExplainer, new TemplateExplainer());
 
   it('uses the template when no API key is configured', async () => {
-    const svc = new ExplainerService(new GeminiExplainer(env), new TemplateExplainer(), env);
+    const svc = new ExplainerService(new GeminiExplainer(env), new TemplateExplainer());
     const e = await svc.explain(overCap());
     expect(e.source).toBe('template');
     expect(e.messageVi).toBe('Lệnh 2.000 USDC vượt hạn mức mỗi lệnh là 500 USDC.');
@@ -254,5 +255,62 @@ describe('ExplainerService', () => {
     expect(gemini.explain).toHaveBeenCalledTimes(3); // GEMINI_RPM
     expect(results.filter((r) => r.source === 'template')).toHaveLength(7);
     expect(results.every((r) => r.verdict === 'safe' && r.budgetUsedPct === 13.3)).toBe(true);
+  });
+});
+
+describe('OpenAiCompatibleExplainer (LLM_BASE_URL)', () => {
+  const env = {
+    LLM_BASE_URL: 'http://127.0.0.1:18449/v1/',
+    LLM_KEY: 'test-key',
+    LLM_MODEL: 'google/gemma-4-26B-A4B-it',
+    LLM_RPM: 60,
+    EXPLAINER_TIMEOUT_MS: 50,
+  } as unknown as Env;
+  const messageVi = 'Đổi 200 USDC lấy khoảng 9,5 WAVAX, tiền vẫn ở trong két.';
+  const reply = (status: number, content?: string) =>
+    new Response(JSON.stringify({ choices: [{ message: { role: 'assistant', content } }] }), { status });
+  const stubFetch = (res: Response) => {
+    const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(res);
+    vi.stubGlobal('fetch', fetchMock);
+    return fetchMock;
+  };
+  afterEach(() => vi.unstubAllGlobals());
+
+  it('is off without a base URL, so the service uses the template', async () => {
+    const llm = new OpenAiCompatibleExplainer({ ...env, LLM_BASE_URL: undefined } as unknown as Env);
+    expect(llm.available).toBe(false);
+    expect((await new ExplainerService(llm, new TemplateExplainer()).explain(input())).source).toBe('template');
+  });
+
+  it('sends no Authorization header when LLM_KEY is unset', async () => {
+    const fetchMock = stubFetch(reply(200, JSON.stringify({ messageVi })));
+    await new OpenAiCompatibleExplainer({ ...env, LLM_KEY: undefined } as unknown as Env).explain(input());
+    expect(fetchMock.mock.calls[0]![1]?.headers).not.toHaveProperty('authorization');
+  });
+
+  it('posts the prompt to /chat/completions with the bearer key and returns the model sentence', async () => {
+    const fetchMock = stubFetch(reply(200, JSON.stringify({ messageVi })));
+    const llm = new OpenAiCompatibleExplainer(env);
+    expect(llm).toMatchObject({ available: true, label: 'google/gemma-4-26B-A4B-it', rpm: 60 });
+    expect(await llm.explain(input())).toEqual({ verdict: 'safe', budgetUsedPct: 13.3, messageVi, source: 'llm' });
+
+    const [url, init] = fetchMock.mock.calls[0]!;
+    expect(url).toBe('http://127.0.0.1:18449/v1/chat/completions');
+    expect(init?.headers).toMatchObject({ authorization: 'Bearer test-key' });
+    expect(init?.signal).toBeInstanceOf(AbortSignal);
+    const body = JSON.parse(init?.body as string);
+    expect(body).toMatchObject({ model: 'google/gemma-4-26B-A4B-it', response_format: { type: 'json_schema' } });
+    expect(body.messages.map((m: { role: string }) => m.role)).toEqual(['system', 'user']);
+    expect(body.messages[1].content).toContain('"amount": "200 USDC"');
+  });
+
+  it.each([
+    ['an HTTP error', reply(401)],
+    ['an empty answer', reply(200)],
+    ['a wrong number', reply(200, JSON.stringify({ messageVi: 'Đổi 999 USDC lấy khoảng 9,5 WAVAX, tiền vẫn ở trong két.' }))],
+  ])('falls back to the template on %s', async (_name, res) => {
+    stubFetch(res);
+    const e = await new ExplainerService(new OpenAiCompatibleExplainer(env), new TemplateExplainer()).explain(input());
+    expect(e).toMatchObject({ verdict: 'safe', budgetUsedPct: 13.3, source: 'template' });
   });
 });

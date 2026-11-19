@@ -32,3 +32,15 @@ export interface ExplainInput {
 export interface ExplainerPort {
   explain(input: ExplainInput): Promise<Explanation>;
 }
+
+/** The LLM adapter ExplainerService tries first (the LLM_BASE_URL endpoint when configured, else Gemini). */
+export const LLM_EXPLAINER = Symbol('LLM_EXPLAINER');
+
+export interface LlmExplainer extends ExplainerPort {
+  /** False when the adapter is not configured: the service then goes straight to the template. */
+  readonly available: boolean;
+  /** Model id, for logs. */
+  readonly label: string;
+  /** Max calls per minute to this provider. */
+  readonly rpm: number;
+}

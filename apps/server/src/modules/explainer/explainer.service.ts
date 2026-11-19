@@ -1,18 +1,15 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
-import { ENV } from '../../core/config/config.module';
-import type { Env } from '../../core/config/env.schema';
 import type { Explanation } from '../../core/types';
-import { GeminiExplainer } from './adapters/gemini.explainer';
 import { TemplateExplainer } from './adapters/template.explainer';
-import type { ExplainInput } from './explainer.port';
+import { LLM_EXPLAINER, type ExplainInput, type LlmExplainer } from './explainer.port';
 import { buildFacts } from './facts';
 import { promptFacts, sanitizeUntrusted } from './prompts/explain.prompt';
 import { RateLimiter, TtlCache } from './rate-control';
 
 /**
- * Gemini first; on timeout, bad JSON, a guard rejection or any error swap to the template
- * adapter. Never throws, so a slow or broken LLM can never delay or block a swap (P3).
- * Successful LLM answers are cached by their facts, and Gemini calls are capped per minute.
+ * The LLM adapter first (LLM_BASE_URL when configured, else Gemini); on timeout, bad JSON, a guard rejection
+ * or any error swap to the template adapter. Never throws, so a slow or broken LLM can never delay or
+ * block a swap (P3). Successful LLM answers are cached by their facts, and LLM calls are capped per minute.
  */
 @Injectable()
 export class ExplainerService {
@@ -21,26 +18,26 @@ export class ExplainerService {
   private readonly limiter: RateLimiter;
 
   constructor(
-    private readonly gemini: GeminiExplainer,
+    @Inject(LLM_EXPLAINER) private readonly llm: LlmExplainer,
     private readonly template: TemplateExplainer,
-    @Inject(ENV) env: Env,
   ) {
-    this.limiter = new RateLimiter(env.GEMINI_RPM);
+    this.limiter = new RateLimiter(llm.rpm);
+    this.log.log(llm.available ? `LLM explainer: ${llm.label} (max ${llm.rpm}/min)` : 'LLM explainer: off, template only');
   }
 
   async explain(input: ExplainInput): Promise<Explanation> {
-    if (!this.gemini.available) return this.template.explain(input);
+    if (!this.llm.available) return this.template.explain(input);
 
     const key = cacheKey(input);
     const cached = this.cache.get(key);
     if (cached) return cached;
 
     if (!this.limiter.tryTake()) {
-      this.log.debug('Gemini rate limit reached, using template');
+      this.log.debug('LLM rate limit reached, using template');
       return this.template.explain(input);
     }
     try {
-      const explanation = await this.gemini.explain(input);
+      const explanation = await this.llm.explain(input);
       this.cache.set(key, explanation);
       return explanation;
     } catch (err) {

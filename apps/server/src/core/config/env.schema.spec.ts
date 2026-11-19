@@ -34,6 +34,13 @@ describe('parseEnv defaults', () => {
     expect(env.SIWE_DOMAINS).toEqual([]); // the request Host, unless the deployment names its domain
   });
 
+  it('an LLM endpoint needs a model name', () => {
+    expect(() => parseEnv({ LLM_BASE_URL: 'http://127.0.0.1:18449/v1' })).toThrow(/LLM_MODEL/);
+    const env = parseEnv({ LLM_BASE_URL: 'http://127.0.0.1:18449/v1', LLM_MODEL: 'some/model', LLM_KEY: '' });
+    expect(env).toMatchObject({ LLM_MODEL: 'some/model', LLM_RPM: 60 });
+    expect(env.LLM_KEY).toBeUndefined(); // LLM_KEY= means unset: no Authorization header
+  });
+
   it('tests get no defaults, so a missing address can never reach the real Fuji contracts', () => {
     expect(() => parseEnv({ NODE_ENV: 'test' })).toThrow(/DATABASE_URL/);
     const env = parseEnv({ NODE_ENV: 'test', DATABASE_URL: 'postgres://u:p@h:1/d', REDIS_URL: 'redis://h:1', FUJI_RPC_URLS: 'http://127.0.0.1:1' });
