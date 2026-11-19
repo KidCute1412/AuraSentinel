@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { nextStop, shownLook, trackTarget, VAULT_STOP } from "./pipelineMotion";
+import { gateAt, isSettled, nextPos, nextStop, shownLook, trackTarget, VAULT_STOP } from "./pipelineMotion";
 
 describe("trackTarget", () => {
   it("lands in the vault when every gate passed", () => {
@@ -32,13 +32,50 @@ describe("nextStop", () => {
   });
 });
 
+describe("nextPos", () => {
+  it("checks each gate, then walks on; the last gate answers before the vault", () => {
+    const t = trackTarget(["pass", "pass", "pass", "pass"]);
+    const steps = [{ stop: 0, revealed: false }];
+    while (!isSettled(steps.at(-1)!, t)) steps.push(nextPos(steps.at(-1)!, t));
+    expect(steps).toEqual([
+      { stop: 0, revealed: false },
+      { stop: 1, revealed: false },
+      { stop: 2, revealed: false },
+      { stop: 3, revealed: false },
+      { stop: 4, revealed: true },
+    ]);
+  });
+  it("scans the gate that will block it before the barrier comes down", () => {
+    const t = trackTarget(["fail", "skipped", "skipped", "skipped"]);
+    expect(nextPos({ stop: 0, revealed: false }, t)).toEqual({ stop: 0, revealed: true });
+  });
+  it("jumps the website on a bypass, then the contract answers", () => {
+    const t = trackTarget(["bypassed", "bypassed", "bypassed", "fail"]);
+    expect(nextPos({ stop: 0, revealed: false }, t)).toEqual({ stop: 3, revealed: false });
+    expect(nextPos({ stop: 3, revealed: false }, t)).toEqual({ stop: 3, revealed: true });
+  });
+});
+
 describe("shownLook", () => {
   const target = trackTarget(["pass", "fail", "skipped", "skipped"]);
-  it("keeps gates ahead of the packet waiting, and reveals the stop gate only on arrival", () => {
-    expect(shownLook("pass", 0, 0, target)).toBe("pending");
-    expect(shownLook("pass", 0, 1, target)).toBe("pass");
-    expect(shownLook("fail", 1, 1, target)).toBe("fail");
-    expect(shownLook("skipped", 2, 1, target)).toBe("skipped");
-    expect(shownLook("skipped", 2, 0, target)).toBe("pending");
+  it("checks the gate the packet waits at, keeps later gates waiting, and reveals everything once settled", () => {
+    expect(shownLook("pass", 0, { stop: 0, revealed: false }, target)).toBe("active");
+    expect(shownLook("fail", 1, { stop: 0, revealed: false }, target)).toBe("pending");
+    expect(shownLook("pass", 0, { stop: 1, revealed: false }, target)).toBe("pass");
+    expect(shownLook("fail", 1, { stop: 1, revealed: false }, target)).toBe("active");
+    expect(shownLook("fail", 1, { stop: 1, revealed: true }, target)).toBe("fail");
+    expect(shownLook("skipped", 2, { stop: 1, revealed: true }, target)).toBe("skipped");
+  });
+  it("keeps bypassed gates bypassed the whole way", () => {
+    const bypass = trackTarget(["bypassed", "bypassed", "bypassed", "fail"]);
+    expect(shownLook("bypassed", 1, { stop: 0, revealed: false }, bypass)).toBe("bypassed");
+  });
+});
+
+describe("gateAt", () => {
+  it("opens the gate at the packet, and the last gate once it is in the vault", () => {
+    expect(gateAt(0)).toBe(0);
+    expect(gateAt(2)).toBe(2);
+    expect(gateAt(VAULT_STOP)).toBe(3);
   });
 });
