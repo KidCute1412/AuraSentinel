@@ -86,17 +86,21 @@ Ghi chú:
 - `/api/proxy` trả `503` problem+json khi `API_ORIGIN` chưa đặt hoặc sai dạng.
 - Bản Docker `web` (nginx, mục 2) mặc định build **live** (`VITE_DATA_SOURCE=live` trong `web.Dockerfile`), không còn rơi về mock.
 
-## 2c. Server trên Hetzner VM, tự deploy khi push `main`
+## 2c. Server trên Hetzner VM, tự deploy khi `main` có commit mới
 
 Thay laptop + tunnel ở §2b bằng VM Hetzner CX23 (2 vCPU x86, 4 GB, Ubuntu 24.04, IPv4 + IPv6, firewall chỉ mở 22/80/443). HTTPS bằng Caddy trên `<ip-gạch-ngang>.sslip.io`, không cần mua domain.
 
-1. Tạo key deploy trên laptop: `ssh-keygen -t ed25519 -C aurasentinel-deploy -f ~/.ssh/aurasentinel_deploy -N ""`.
-2. `scp infra/setup-vm.sh root@<IP>:/root/` rồi `ssh root@<IP> bash /root/setup-vm.sh "<nội dung aurasentinel_deploy.pub>"`. Script in ra `API_ORIGIN`.
-3. `scp infra/.env.prod root@<IP>:/opt/aurasentinel/infra/.env.prod`, rồi `chown deploy` + `chmod 600` (lệnh in ở cuối script). Điền `SIWE_DOMAINS` (domain Vercel), `ADMIN_ADDRESSES`, chạy `pnpm env:prod` trước để có `WEB_PROXY_SECRET`.
-4. GitHub → Settings → Secrets → Actions: `DEPLOY_HOST` = IP, `DEPLOY_SSH_KEY` = private key `aurasentinel_deploy`.
-5. Vercel: `API_ORIGIN` = URL ở bước 2, `WEB_PROXY_SECRET` như `.env.prod`, redeploy.
+1. `scp -r infra/setup-vm.sh infra/autodeploy root@<IP>:/root/` rồi `ssh root@<IP> bash /root/setup-vm.sh`. Script in ra `API_ORIGIN`.
+2. Điền `infra/.env.prod` (`pnpm env:prod` để có `WEB_PROXY_SECRET`; `SIWE_DOMAINS` = domain web; `ADMIN_ADDRESSES`), `scp` lên `/opt/aurasentinel/infra/.env.prod`, `chown deploy` + `chmod 600`. **Không bao giờ commit file này** (repo public).
+3. Vercel (Production): `API_ORIGIN` = URL ở bước 1, `WEB_PROXY_SECRET` như `.env.prod`, rồi redeploy **dòng Production** (biến chỉ vào deployment tạo sau khi lưu).
 
-Từ đó: push `main` → `ci` xanh → `.github/workflows/deploy.yml` SSH vào VM, `git reset` về đúng commit, `compose up -d --build --wait`, kiểm tra `/api/health`. Chạy tay: Actions → deploy → Run workflow. **Không chạy compose prod ở nơi khác** cùng lúc (cùng agent key: tranh nonce, P4).
+**Tự deploy (pull, không secret):** timer systemd `aurasentinel-deploy.timer` chạy `infra/autodeploy/autodeploy.sh` mỗi 2 phút bằng user `deploy`. Chỉ deploy khi `main` có SHA **mới** và check `ci-pass` của SHA đó `success`; SHA cũ thì thoát ngay (một lệnh `git ls-remote`), CI đang chạy thì chờ lượt sau, CI đỏ hoặc build hỏng thì ghi nhớ và không thử lại SHA đó. GitHub không cần quyền vào server.
+- Log: `journalctl -u aurasentinel-deploy -f` · deploy ngay: `systemctl start aurasentinel-deploy` · thử lại SHA hỏng: `rm ~deploy/.autodeploy/failed`
+- Sửa script: copy lại vào `/usr/local/bin/aurasentinel-autodeploy` (timer chạy bản copy để `git reset` không ghi đè script đang chạy).
+- Đổi biến env: sửa `/opt/aurasentinel/infra/.env.prod` rồi `docker compose -f infra/docker-compose.prod.yml --env-file infra/.env.prod up -d --wait` (chạy bằng `deploy`).
+- **Không chạy compose prod ở nơi khác** cùng lúc (cùng agent key: tranh nonce, P4).
+
+Bản đang chạy (19/11): VM `2.29.105.1` (Helsinki), `API_ORIGIN=https://2-29-105-1.sslip.io`, web `https://aura-sentinel.lok1412.site` (`SIWE_DOMAINS`).
 
 ## 3. Thao tác thường gặp
 
