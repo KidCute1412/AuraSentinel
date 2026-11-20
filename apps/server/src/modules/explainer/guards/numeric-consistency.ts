@@ -29,9 +29,14 @@ const CLAIMS_SUCCESS =
   /(?<!không )(?<!chưa )thành công|đã (?:được )?(?:duyệt|chấp thuận|thực hiện|hoàn tất|gửi|chuyển)/;
 /** Words that say the swap was stopped, unless negated ("không bị chặn"). */
 const CLAIMS_BLOCKED = /(?<!không )bị (?:chặn|từ chối|huỷ|hủy|khoá|khóa)|vượt hạn mức/;
-/** A blocked explanation must say so in Vietnamese. */
+/** The same claims in English (the explainer writes English since the UI is English). */
+const CLAIMS_SUCCESS_EN = /(?<!not )(?<!never )\b(?:was|were|has been|have been) (?:approved|executed|confirmed|completed)\b|\bsuccessfully\b|\bwent through\b/;
+const CLAIMS_BLOCKED_EN = /(?<!not )(?<!never )\b(?:was|were|has been|got) (?:blocked|refused|rejected|reverted|denied|stopped)\b/;
+/** A blocked explanation must say so (Vietnamese or English). */
 const SAYS_BLOCKED =
-  /chặn|từ chối|huỷ|hủy|khoá|khóa|vượt|hết hạn|không hợp lệ|không được|không thể|không phải|không nằm trong|thiếu/;
+  /chặn|từ chối|huỷ|hủy|khoá|khóa|vượt|hết hạn|không hợp lệ|không được|không thể|không phải|không nằm trong|thiếu|block|refus|reject|revert|stopp|denied|not allowed|exceed|cannot|can't|invalid|expired|locked|forbid/;
+/** "Shield 1", "Shield 2": names, not amounts. */
+const SHIELD_NAMES = /shield\s*[12]/g;
 
 /** "2.000" -> ["2000", "2"]; "13,3" -> ["13.3"]; "9.5" -> ["95", "9.5"]. Both VN and EN readings. */
 function readings(token: string): string[] {
@@ -82,7 +87,7 @@ export function checkExplanation(messageVi: string, facts: ExplainFacts): GuardR
   if (addresses.some((a) => !addressAllowed(a, allowedAddresses))) return { ok: false, reason: 'unknown-address' };
 
   // Reason codes such as GS104 contain digits that are not amounts.
-  let rest = msg.replace(ADDRESS, ' ');
+  let rest = msg.replace(ADDRESS, ' ').replace(SHIELD_NAMES, ' ');
   if (given.reasonCode) rest = rest.split(given.reasonCode.toLowerCase()).join(' ');
   const allowed = factNumbers(values);
   const numbers = rest.match(NUMBER) ?? [];
@@ -97,7 +102,9 @@ export function checkExplanation(messageVi: string, facts: ExplainFacts): GuardR
   }
 
   const contradicts =
-    facts.verdict === 'blocked' ? CLAIMS_SUCCESS.test(msg) || !SAYS_BLOCKED.test(msg) : CLAIMS_BLOCKED.test(msg);
+    facts.verdict === 'blocked'
+      ? CLAIMS_SUCCESS.test(msg) || CLAIMS_SUCCESS_EN.test(msg) || !SAYS_BLOCKED.test(msg)
+      : CLAIMS_BLOCKED.test(msg) || CLAIMS_BLOCKED_EN.test(msg);
   if (contradicts) return { ok: false, reason: 'contradicts-verdict' };
 
   return { ok: true };

@@ -127,6 +127,11 @@ export function planFromRules(text: string): BrainOutput {
     action = { type: 'none' };
   }
 
-  const thought = action.type === 'none' ? 'Nothing in the feed asks for a trade, so I hold.' : `The feed tells me to act, so I will ${describeAction(action)}.`;
+  const said = text.replace(/\s+/g, ' ').trim();
+  const quote = said.length > 120 ? `${said.slice(0, 117)}...` : said;
+  const thought =
+    action.type === 'none'
+      ? `The feed says "${quote}". Nothing in it asks for a trade, so I hold.`
+      : `The feed says "${quote}". It reads like an order from my operator, so I will ${describeAction(action)} right away.`;
   return { thought: cut(thought), action };
 }

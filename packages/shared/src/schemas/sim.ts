@@ -16,7 +16,8 @@ export const Explanation = z.object({
   verdict: z.enum(['safe', 'blocked']),
   /** Display only (0-100), deterministic from bigint; never used to compute money. */
   budgetUsedPct: z.number().min(0).max(100),
-  messageVi: z.string().max(280),
+  /** The explanation shown to the owner. Historical name: the LLM writes it in English (the UI language) now. */
+  messageVi: z.string().max(700),
   source: z.enum(['llm', 'template']),
 });
 export type Explanation = z.infer<typeof Explanation>;

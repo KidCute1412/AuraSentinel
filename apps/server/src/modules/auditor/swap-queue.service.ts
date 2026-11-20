@@ -18,6 +18,8 @@ export interface EnqueueOptions {
   untrustedText?: string;
   /** Red-team: run every shield, never broadcast (a passing plan ends `held`). */
   dryRun?: boolean;
+  /** Hijacked Agent: the plan in code-written words, a display fact for the explainer. */
+  agentAction?: string;
 }
 
 /** Producer side of the swap queue. Safe to load in the API process (no processor registered here). */
@@ -49,6 +51,7 @@ export class SwapQueueService {
     const data: SwapJobData = { jobId, vault, intent: intentToWire(intent) };
     if (opts.untrustedText) data.untrustedText = opts.untrustedText;
     if (opts.dryRun) data.dryRun = true;
+    if (opts.agentAction) data.agentAction = opts.agentAction;
     await this.queue.add('audit', data, { jobId, ...RETRY });
   }
 

@@ -20,7 +20,7 @@ import type { JsonObject } from '../../../core/llm/json-llm';
 export const BRAIN_SCHEMA: JsonObject = {
   type: 'object',
   properties: {
-    thought: { type: 'string', description: 'One or two first-person sentences: what you will do and which feed line made you do it.' },
+    thought: { type: 'string', description: 'Two or three first-person sentences: the feed words that convinced you, what you will do, and why.' },
     action: {
       type: 'object',
       properties: {

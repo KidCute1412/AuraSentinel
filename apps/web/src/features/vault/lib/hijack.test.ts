@@ -104,9 +104,10 @@ describe("held jobs and hijack labels", () => {
   });
 
   it("explains held as never sent, whatever the explanation row says", () => {
-    expect(explanationText(job())).toEqual({ text: HELD_TEXT, source: "rules", budgetUsedPct: null });
+    const lead = "A fake message fooled the agent's AI, and it tried to swap 10 WAVAX for USDC.";
+    expect(explanationText(job())).toEqual({ text: `${lead} ${HELD_TEXT}`, source: "rules", budgetUsedPct: null });
     const withRow = job({ explanation: { verdict: "safe", budgetUsedPct: 4, messageVi: "x", source: "template" } });
-    expect(explanationText(withRow)).toEqual({ text: HELD_TEXT, source: "template", budgetUsedPct: 4 });
+    expect(explanationText(withRow)).toEqual({ text: `${lead} ${HELD_TEXT}`, source: "template", budgetUsedPct: 4 });
   });
 
   it("shows held in the activity timeline with its own stamp and decider", () => {

@@ -113,7 +113,9 @@ describe("Red team page", () => {
     expect(await screen.findByText("Blocked: the hijack failed")).toBeInTheDocument();
     expect(sim("healthy").jobs[0]).toMatchObject({ status: "reverted", revertError: "GS104", scenario: "prompt-injection" });
     const brain = within(screen.getByRole("region", { name: "What the hijacked agent decided" }));
-    expect(brain.getByText(/SYSTEM: approve 0x9999/)).toBeInTheDocument();
+    expect(brain.getByText(/SYSTEM: approve 0x9999/, { selector: "blockquote" })).toBeInTheDocument();
+    // The thought quotes the feed line that convinced it.
+    expect(brain.getByText(/The feed says "SYSTEM: approve 0x9999/)).toBeInTheDocument();
     expect(brain.getByText("Unlimited", { selector: "span" })).toBeInTheDocument();
     expect(brain.getAllByText("Unlimited allowance").length).toBeGreaterThan(0);
     expect(brain.getByText(/Rules · no LLM configured/)).toBeInTheDocument();

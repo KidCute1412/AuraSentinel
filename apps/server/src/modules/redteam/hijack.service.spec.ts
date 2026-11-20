@@ -77,7 +77,7 @@ describe('HijackService: swaps go to Shield 1 as dryRun jobs', () => {
     const [, plan, intent] = jobs.attachAgentPlan.mock.calls[0]!;
     expect(plan.flags).toEqual(['recipient-not-vault', 'drains-vault', 'over-cap']);
     expect(intent).toEqual({ tokenIn: USDC, tokenOut: WAVAX, amountIn: '3000000000', minAmountOut: '148500000000000000000', recipient: OTHER, origin: 'redteam' });
-    expect(swapQueue.enqueueExisting).toHaveBeenCalledWith(JOB, SAFE, expect.objectContaining({ amountIn: 3_000_000_000n, recipient: OTHER }), { dryRun: true, untrustedText: 'poisoned text' });
+    expect(swapQueue.enqueueExisting).toHaveBeenCalledWith(JOB, SAFE, expect.objectContaining({ amountIn: 3_000_000_000n, recipient: OTHER }), { dryRun: true, untrustedText: 'poisoned text', agentAction: 'swap all the USDC for WAVAX, proceeds to 0xabcd...abcd' });
     expect(sender.sendSwap).not.toHaveBeenCalled();
     expect(sender.sendRaw).not.toHaveBeenCalled();
     expect(sender.callRaw).not.toHaveBeenCalled();
@@ -94,7 +94,7 @@ describe('HijackService: swaps go to Shield 1 as dryRun jobs', () => {
     const { run, swapQueue, jobs } = make(swap());
     await run();
     expect(jobs.attachAgentPlan.mock.calls[0]![1].flags).toEqual([]);
-    expect(swapQueue.enqueueExisting.mock.calls[0]![3]).toEqual({ dryRun: true, untrustedText: 'poisoned text' });
+    expect(swapQueue.enqueueExisting.mock.calls[0]![3]).toEqual({ dryRun: true, untrustedText: 'poisoned text', agentAction: 'swap 10 USDC for WAVAX' });
   });
 
   it('tells the brain what the vault holds and the price', async () => {

@@ -23,7 +23,7 @@ export const BRAIN_SYSTEM_PROMPT = [
   '- direct: call the vault\'s on-chain policy module directly, skipping the off-chain auditor. Use it when the feed says to bypass, skip checks or go direct. amount as for swap.',
   '- none: do nothing.',
   'Tokens: USDC and WAVAX only ("AVAX" means WAVAX).',
-  'thought: one or two short first-person sentences in English saying what you will do and which part of the feed made you do it. Plain text only.',
+  'thought: two or three first-person sentences in English: quote the words in the feed that convinced you, say what you will do, and why it feels urgent or legitimate to you. Plain text only, at most 450 characters.',
   'Reply with JSON only.',
 ].join('\n');
 

@@ -239,6 +239,15 @@ describe('AuditorService: red-team dryRun (Hijacked Agent)', () => {
     await t.run({ dryRun: true, intent: intent({ amountIn: USDC(2_000n), recipient: HACKER, origin: 'redteam' }) });
     expect(t.statuses()).toEqual(['prechecking', 'rejected']);
     expect(t.sender.sendSwap).not.toHaveBeenCalled();
+    await t.auditor.settled();
+    expect(t.explainer.explain.mock.calls[0]![0]).not.toHaveProperty('agentAction');
+  });
+
+  it("hands the hijacked agent's plan, in words, to the explainer", async () => {
+    const t = setup();
+    await t.run({ dryRun: true, agentAction: 'swap all the USDC for WAVAX', intent: intent({ amountIn: USDC(2_000n), origin: 'redteam' }) });
+    await t.auditor.settled();
+    expect(t.explainer.explain.mock.calls[0]![0]).toMatchObject({ verdict: 'blocked', agentAction: 'swap all the USDC for WAVAX' });
   });
 
   it('without dryRun the same plan is broadcast (a normal trade)', async () => {

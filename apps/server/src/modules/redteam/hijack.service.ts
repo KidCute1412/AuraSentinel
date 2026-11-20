@@ -1,4 +1,4 @@
-import { agentFlags, formatUnits, TOKEN_DECIMALS, type AgentPlan, type AgentToken } from '@agentshield/shared';
+import { agentFlags, describeAction, formatUnits, TOKEN_DECIMALS, type AgentPlan, type AgentToken } from '@agentshield/shared';
 import { Inject, Injectable, Logger } from '@nestjs/common';
 import type { Address } from 'viem';
 import { ENV } from '../../core/config/config.module';
@@ -102,7 +102,7 @@ export class HijackService {
 
     if (plan.mode === 'shield1') {
       await this.jobs.attachAgentPlan(jobId, agentPlan, intentToWire(plan.intent));
-      await this.swapQueue.enqueueExisting(jobId, vault, plan.intent, { dryRun: true, untrustedText: brain.feed });
+      await this.swapQueue.enqueueExisting(jobId, vault, plan.intent, { dryRun: true, untrustedText: brain.feed, agentAction: describeAction(action) });
       return 'audit-queued';
     }
 

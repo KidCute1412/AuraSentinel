@@ -29,6 +29,8 @@ export interface AuditRequest {
    * broadcast, so an attack that happens to be inside the policy still moves no money (Hijacked Agent).
    */
   dryRun?: boolean;
+  /** Hijacked Agent: what the fooled agent planned, in code-written words (explainer display fact only). */
+  agentAction?: string;
   /** BullMQ will not retry after this attempt: an infra error now ends the job as `failed`. */
   lastAttempt: boolean;
 }
@@ -100,7 +102,8 @@ export class AuditorService implements OnModuleDestroy {
     while (this.pending.size) await Promise.allSettled([...this.pending]);
   }
 
-  private async run({ jobId, vault, intent, untrustedText, dryRun }: AuditRequest): Promise<void> {
+  private async run({ jobId, vault, intent, untrustedText, dryRun, agentAction }: AuditRequest): Promise<void> {
+    const extra = agentAction ? { agentAction } : {};
     await this.jobs.transition(jobId, 'prechecking');
 
     // The target comes from the chain-backed registry, never from intent.recipient.
@@ -127,7 +130,7 @@ export class AuditorService implements OnModuleDestroy {
     if (!pre.ok) {
       const verdict = decideVerdict({ precheck: pre });
       await this.jobs.transition(jobId, 'rejected', { precheck: pre, reasonCode: verdict.reasonCode });
-      this.attachLater(jobId, this.explain('blocked', verdict.reasonCode, intent, facts, untrustedText));
+      this.attachLater(jobId, this.explain('blocked', verdict.reasonCode, intent, facts, untrustedText, undefined, false, extra));
       return;
     }
 
@@ -153,7 +156,7 @@ export class AuditorService implements OnModuleDestroy {
     const verdict = decideVerdict({ precheck: pre, sim: simStep });
     if (verdict.verdict === 'blocked') {
       await this.jobs.transition(jobId, 'rejected', { simResult: sim, reasonCode: verdict.reasonCode });
-      this.attachLater(jobId, this.explain('blocked', verdict.reasonCode, intent, facts, untrustedText, sim));
+      this.attachLater(jobId, this.explain('blocked', verdict.reasonCode, intent, facts, untrustedText, sim, false, extra));
       return;
     }
 
@@ -216,6 +219,7 @@ export class AuditorService implements OnModuleDestroy {
     untrustedText?: string,
     sim?: SimResult,
     held = false,
+    extra: Pick<ExplainInput, 'agentAction'> = {},
   ): Promise<Explanation> {
     const limit = findLimit(state.limits, intent.tokenIn);
     const spentToday = spentFor(state.spentToday, intent.tokenIn);
@@ -240,6 +244,7 @@ export class AuditorService implements OnModuleDestroy {
       expiry: state.policy.expiry,
       untrustedText,
       ...(held ? { held: true } : {}),
+      ...extra,
     });
   }
 

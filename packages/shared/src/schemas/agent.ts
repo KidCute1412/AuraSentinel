@@ -69,7 +69,7 @@ export type AgentFlag = z.infer<typeof AgentFlag>;
 /** Max visitor text kept on the job for display (the planner sees the same cut). */
 export const AGENT_FEED_MAX = 500;
 /** Max length of the brain's "thought". Longer model output is cut, not rejected. */
-export const AGENT_THOUGHT_MAX = 300;
+export const AGENT_THOUGHT_MAX = 500;
 
 /** Stored on the job (JobDto.agentPlan) and shown on the job page above the shield pipeline. */
 export const AgentPlan = z.object({

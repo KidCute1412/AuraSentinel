@@ -6,7 +6,7 @@ import { checkExplanation, type GuardFailure } from './guards/numeric-consistenc
 import { SYSTEM_PROMPT, buildUserPrompt } from './prompts/explain.prompt';
 
 /** The only thing the model may produce (system-design §3.7). Unknown keys are dropped. */
-export const LlmExplanation = z.object({ messageVi: z.string().trim().min(10).max(280) });
+export const LlmExplanation = z.object({ messageVi: z.string().trim().min(10).max(700) });
 
 /** Calls the model once and returns its raw text. Must honour `signal`. */
 export type GenerateFn = (req: { system: string; user: string; signal: AbortSignal }) => Promise<string | undefined>;
