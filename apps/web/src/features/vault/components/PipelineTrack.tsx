@@ -1,4 +1,4 @@
-import { Ban, Check, Landmark, Minus, X } from "lucide-react";
+import { Ban, Check, Hand, Landmark, Minus, X } from "lucide-react";
 import { cn } from "@/shared/lib/cn";
 import { Stamp } from "@/shared/ui/Stamp";
 import { GATE_INFO } from "../lib/checks";
@@ -20,6 +20,7 @@ const POST: Record<GateLook, { box: string; icon: typeof Check | null; name: str
   pending: { box: "border-line-strong bg-surface text-muted", icon: null, name: "text-muted" },
   skipped: { box: "border-line border-dashed bg-surface text-muted", icon: Minus, name: "text-muted" },
   bypassed: { box: "border-line-strong border-dashed bg-hover text-muted", icon: Ban, name: "text-muted" },
+  held: { box: "border-accent border-dashed bg-surface text-accent-text", icon: Hand, name: "font-bold text-accent-text" },
 };
 
 /**
@@ -33,12 +34,19 @@ export function PipelineTrack({ ids, looks, pos, target, label }: { ids: readonl
   const inVault = arrived && shown === VAULT_STOP;
   const stopped = arrived && target.blocked;
   const halted = arrived && target.halted;
+  // A red-team plan inside the policy: it waits in front of the chain and never enters the vault.
+  const parked = arrived && target.held;
 
   return (
     // The whole track jolts once when the packet hits a barrier (the class appears at that moment).
     <div aria-hidden className={cn("relative h-[4.5rem] select-none", stopped && "animate-shake")}>
       {/* The packet's tag rides above it. In the vault a SAFE stamp takes over; at a barrier, BLOCKED. */}
-      {!stopped && !inVault && (
+      {parked && (
+        <Stamp tone="ok" animate className="absolute -top-1 right-0 whitespace-nowrap bg-bg">
+          {`Held · not sent`}
+        </Stamp>
+      )}
+      {!stopped && !inVault && !parked && (
         <span className="track-move absolute top-0 -translate-x-1/2 whitespace-nowrap font-mono text-[10px] font-bold uppercase tracking-widest" style={{ left: `${PACKET_AT[shown]}%` }}>
           {label}
         </span>
@@ -124,7 +132,7 @@ export function PipelineTrack({ ids, looks, pos, target, label }: { ids: readonl
         <span
           className={cn(
             "track-move absolute top-[1.95rem] size-3.5 -translate-x-1/2 border-2",
-            stopped ? "border-danger bg-danger" : halted ? "border-line-strong bg-hover" : "border-fg bg-fg shadow-hard-sm",
+            stopped ? "border-danger bg-danger" : halted ? "border-line-strong bg-hover" : parked ? "border-accent bg-surface" : "border-fg bg-fg shadow-hard-sm",
           )}
           style={{ left: `${PACKET_AT[shown]}%` }}
         />

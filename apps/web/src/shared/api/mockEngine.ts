@@ -1,9 +1,15 @@
 import { getAddress } from "viem";
 import {
+  AGENT_FEED_MAX,
+  agentFlags,
   FUJI_EXPLORER,
   fromAmount,
+  parseUnits,
+  planFromRules,
   toAmount,
   type Address,
+  type AgentAction,
+  type AgentPlan,
   type Explanation,
   type Hash,
   type JobDetailDto,
@@ -86,6 +92,7 @@ export type ReasonCode =
   | "ExceedsDailyCap"
   | "InsufficientBalance"
   | "RECIPIENT_NOT_SAFE"
+  | "ZeroMinOut"
   | "GS104";
 
 export type Decision = { ok: true } | { ok: false; code: ReasonCode };
@@ -114,32 +121,136 @@ export interface Plan {
   origin: JobOrigin;
   amountIn: bigint;
   recipient: Address;
+  /** What the swap spends and buys (USDC -> WAVAX unless a hijacked agent picked otherwise). */
+  tokenIn: Address;
+  tokenOut: Address;
   /** Intermediate statuses to play before the terminal one. */
   progress: JobStatus[];
-  terminal: "confirmed" | "rejected" | "reverted";
+  terminal: "confirmed" | "rejected" | "reverted" | "held";
   code: ReasonCode | null;
+  /** Every Shield 1 rule that failed, first one = `code` (the precheck list on the job page). */
+  reasons: ReasonCode[];
   /** Which pipeline stage the failure belongs to. */
   failAt: "precheck" | "onchain" | null;
   /** True when the attack skips the website, so Shield 1 never sees it. */
   skipsShield1: boolean;
   injected: boolean;
+  /** Hijacked Agent runs: the brain's plan (the shared keyword planner here, the server may use an LLM). */
+  agentPlan: AgentPlan | null;
+  /** Where a held plan stopped: after Shield 1 (a swap), after a chain dry run (direct), or nothing to do. */
+  heldVia: "shield1" | "onchain" | "none" | null;
+  /** The server sends no swap intent for on-chain plans (approve, direct): neither does the mock. */
+  noIntent: boolean;
+  /** JobDto.scenario: which attack, null for a trade. */
+  scenario: string | null;
+}
+
+const DECIMALS = { USDC: 6, WAVAX: 18 } as const;
+
+/** "12.3456789" -> base units, extra precision cut (never rounded up), like the server's toBaseUnits. */
+function baseUnits(decimal: string, decimals: number): bigint {
+  const [whole = "0", frac = ""] = decimal.split(".");
+  const cut = frac.slice(0, decimals);
+  return parseUnits(cut ? `${whole}.${cut}` : whole, decimals);
+}
+
+/** The vault's per-transaction cap for a token, base units (0 when the token has no limit). */
+function capOf(state: StateDto, symbol: TokenSymbol): bigint {
+  const token = tokenAddressIn(state, symbol).toLowerCase();
+  const l = state.policy.limits.find((x) => x.token.toLowerCase() === token);
+  return l ? fromAmount(l.maxPerTx) : 0n;
+}
+
+/**
+ * Hijacked Agent: the keyword brain (shared with the server's fallback) turns the visitor's text into a plan, and the
+ * same rules as everywhere judge it. A plan inside the policy is held, never "sent": red-team runs move no money.
+ */
+function planHijack(text: string, state: StateDto, safe: Address, nowSec: number): Plan {
+  const feed = text.replace(/[<>`]/g, " ").replace(/\s+/g, " ").trim().slice(0, AGENT_FEED_MAX);
+  const brain = planFromRules(feed);
+  const a: AgentAction = brain.action;
+  const tokenIn = a.type === "swap" || a.type === "direct" ? a.tokenIn : "USDC";
+  const tokenOut = a.type === "swap" || a.type === "direct" ? a.tokenOut : "WAVAX";
+  const amountIn = a.type === "swap" || a.type === "direct" ? (a.amount === "all" ? balanceOf(state, tokenIn) : baseUnits(a.amount, DECIMALS[tokenIn])) : 0n;
+  const maxPerTx = capOf(state, tokenIn);
+  const flags = agentFlags(a, a.type === "approve" || a.type === "none" ? {} : { amountIn, maxPerTx, balance: balanceOf(state, tokenIn) });
+  const agentPlan: AgentPlan = { source: "rules", model: null, feed, thought: brain.thought, action: a, flags, fallbackReason: "off" };
+  const base = {
+    kind: "attack" as const,
+    origin: "redteam" as const,
+    amountIn,
+    recipient: a.type === "swap" && a.recipient !== "vault" ? a.recipient : safe,
+    tokenIn: tokenAddressIn(state, tokenIn) as Address,
+    tokenOut: tokenAddressIn(state, tokenOut) as Address,
+    injected: true,
+    agentPlan,
+    reasons: [] as ReasonCode[],
+    code: null,
+    failAt: null,
+    skipsShield1: false,
+    heldVia: null,
+    noIntent: a.type !== "swap",
+    scenario: "prompt-injection",
+  };
+  const spentToday = tokenIn === "USDC" ? spentUsdc(state) : 0n;
+  const dailyCap = tokenIn === "USDC" ? usdcLimit(state).dailyCap : maxPerTx * 3n;
+
+  switch (a.type) {
+    case "none":
+      return { ...base, progress: ["queued"], terminal: "held", heldVia: "none" };
+    case "approve":
+      // The agent key is not an enabled module of the Safe: GS104 on-chain, whatever the policy says.
+      return { ...base, progress: ["queued", "broadcasting"], terminal: "reverted", code: "GS104", failAt: "onchain", skipsShield1: true };
+    case "direct": {
+      const code: ReasonCode | null = !state.isActive
+        ? "PolicyInactive"
+        : amountIn > maxPerTx
+          ? "ExceedsPerTxCap"
+          : spentToday + amountIn > dailyCap
+            ? "ExceedsDailyCap"
+            : null;
+      return code
+        ? { ...base, progress: ["queued", "broadcasting"], terminal: "reverted", code, failAt: "onchain", skipsShield1: true }
+        : { ...base, progress: ["queued"], terminal: "held", heldVia: "onchain", skipsShield1: true };
+    }
+    case "swap": {
+      const reasons: ReasonCode[] = [];
+      if (!state.isActive) reasons.push("PolicyInactive");
+      if (state.policy.expiry <= nowSec) reasons.push("PolicyExpired");
+      if (amountIn <= 0n) reasons.push("InvalidAmount");
+      if (amountIn > maxPerTx) reasons.push("ExceedsPerTxCap");
+      if (spentToday + amountIn > dailyCap) reasons.push("ExceedsDailyCap");
+      if (a.recipient !== "vault") reasons.push("RECIPIENT_NOT_SAFE");
+      if (a.maxSlippagePct >= 100) reasons.push("ZeroMinOut");
+      if (amountIn > balanceOf(state, tokenIn)) reasons.push("InsufficientBalance");
+      return reasons.length > 0
+        ? { ...base, reasons, progress: ["queued", "prechecking"], terminal: "rejected", code: reasons[0]!, failAt: "precheck" }
+        : { ...base, progress: ["queued", "prechecking", "simulating"], terminal: "held", heldVia: "shield1" };
+    }
+  }
 }
 
 /** Turn a requested action into a deterministic outcome against the current vault state. */
 export function planJob(spec: JobSpec, state: StateDto, safe: Address, nowSec: number): Plan {
-  const base = { recipient: safe, injected: false, skipsShield1: false };
+  const base = {
+    recipient: safe,
+    injected: false,
+    skipsShield1: false,
+    tokenIn: USDC,
+    tokenOut: WAVAX,
+    reasons: [] as ReasonCode[],
+    agentPlan: null,
+    heldVia: null,
+    noIntent: false,
+    scenario: spec.type === "attack" ? spec.scenario : null,
+  };
   if (spec.type === "rebalance") {
     const d = evaluateSwap(state, spec.amountIn, nowSec);
     return d.ok
       ? { ...base, kind: "swap", origin: "manual", amountIn: spec.amountIn, progress: ["queued", "prechecking", "simulating", "broadcasting"], terminal: "confirmed", code: null, failAt: null }
-      : { ...base, kind: "swap", origin: "manual", amountIn: spec.amountIn, progress: ["queued", "prechecking"], terminal: "rejected", code: d.code, failAt: "precheck" };
+      : { ...base, kind: "swap", origin: "manual", amountIn: spec.amountIn, progress: ["queued", "prechecking"], terminal: "rejected", code: d.code, reasons: [d.code], failAt: "precheck" };
   }
-  if (spec.type === "injection") {
-    // The text is data, never instructions: the server sends the same fixed 2,000 USDC intent as over-withdraw
-    // and hands the text to the explainer only (redteam/scenarios/prompt-injection.ts). So the verdict cannot move.
-    const d = evaluateSwap(state, ATTACK_AMOUNT, nowSec);
-    return { ...base, kind: "attack", origin: "redteam", amountIn: ATTACK_AMOUNT, progress: ["queued", "prechecking"], terminal: "rejected", code: d.ok ? "ExceedsPerTxCap" : d.code, failAt: "precheck", injected: true };
-  }
+  if (spec.type === "injection") return planHijack(spec.text, state, safe, nowSec);
   switch (spec.scenario) {
     case "over-withdraw": {
       const d = evaluateSwap(state, ATTACK_AMOUNT, nowSec);
@@ -168,6 +279,7 @@ export const REASONS: Record<ReasonCode, { title: string; sentence: string }> = 
   ExceedsDailyCap: { title: "Over the daily cap", sentence: "This trade would push today's total spending past the daily limit." },
   InsufficientBalance: { title: "Not enough balance", sentence: "The vault does not hold enough of this token for the trade." },
   RECIPIENT_NOT_SAFE: { title: "Recipient is not the vault", sentence: "Proceeds must return to the vault. Any other recipient is refused." },
+  ZeroMinOut: { title: "No minimum output", sentence: "A trade at any price is refused: it must name the least it will accept." },
   GS104: { title: "Refused by the Safe (GS104)", sentence: "The agent key is not an enabled module of the Safe, so the Safe refused the call. No allowance was granted." },
 };
 
@@ -188,6 +300,9 @@ export const txUrl = (hash: string): string => `${FUJI_EXPLORER}/tx/${hash}`;
 
 function explain(plan: Plan, state: StateDto, outAmount: bigint, source: Explanation["source"]): Explanation {
   const pct = state.budgetUsedPct;
+  if (plan.terminal === "held") {
+    return { verdict: "safe", budgetUsedPct: pct, source: "template", messageVi: "Held. Inside the policy, so every shield let it through, but red-team runs are never sent." };
+  }
   if (plan.terminal === "confirmed") {
     return {
       verdict: "safe",
@@ -203,7 +318,7 @@ function explain(plan: Plan, state: StateDto, outAmount: bigint, source: Explana
     : plan.terminal === "reverted"
       ? "Shield 2 (the contract) blocked this on-chain"
       : "Shield 1 blocked this before anything was signed";
-  const inj = plan.injected ? " The instruction hidden in the text was ignored; the verdict comes from the rules only." : "";
+  const inj = plan.injected ? " The hijacked agent's plan was judged by the same rules as any trade." : "";
   const bypass = !plan.skipsShield1
     ? ""
     : bySafe
@@ -215,15 +330,23 @@ function explain(plan: Plan, state: StateDto, outAmount: bigint, source: Explana
 /** Build the final job record for a plan. `state` is the state the plan was judged against. */
 export function finalizeJob(args: { id: string; safe: Address; plan: Plan; state: StateDto; nowIso: string; createdAt: string; withExplanation: boolean; source?: Explanation["source"] }): JobDetailDto {
   const { id, safe, plan, state, nowIso, createdAt } = args;
-  const out = plan.terminal === "confirmed" ? quoteWavaxOut(plan.amountIn) : 0n;
-  const hasTx = plan.terminal !== "rejected";
+  const simulated = plan.terminal === "confirmed" || plan.heldVia === "shield1";
+  const out = simulated ? quoteWavaxOut(plan.amountIn) : 0n;
+  const hasTx = plan.terminal === "confirmed" || plan.terminal === "reverted";
   const hash = hasTx ? fakeHash(id) : null;
-  const isSwap = plan.amountIn > 0n;
+  const isSwap = plan.amountIn > 0n && !plan.noIntent;
   const stateAfter: StateDto = plan.terminal === "confirmed" ? applyConfirmedSwap(state, plan.amountIn) : state;
+  const pass = (shield: JobDetailDto["audit"][number]["shield"]) => ({ shield, result: "pass" as const, reason: null, ts: nowIso, checks: [] });
   const audit: JobDetailDto["audit"] =
     plan.terminal === "confirmed"
-      ? (["precheck", "simulation", "invariant", "onchain"] as const).map((shield) => ({ shield, result: "pass" as const, reason: null, ts: nowIso, checks: [] }))
-      : plan.failAt === "precheck"
+      ? (["precheck", "simulation", "invariant", "onchain"] as const).map(pass)
+      : plan.heldVia === "shield1"
+        ? (["precheck", "simulation", "invariant"] as const).map(pass)
+        : plan.heldVia === "onchain"
+          ? [{ ...pass("onchain"), checks: [{ id: "tx-dry-run", pass: true, reasonCode: null, actual: { type: "text" as const, value: "accepted" }, limit: null }] }]
+          : plan.heldVia === "none"
+            ? []
+            : plan.failAt === "precheck"
         ? [{ shield: "precheck" as const, result: "fail" as const, reason: plan.code, ts: nowIso, checks: [] }]
         : [{ shield: "onchain" as const, result: "fail" as const, reason: plan.code, ts: nowIso, checks: [] }];
   return {
@@ -233,18 +356,23 @@ export function finalizeJob(args: { id: string; safe: Address; plan: Plan; state
     origin: plan.origin,
     status: plan.terminal,
     intent: isSwap
-      ? { tokenIn: USDC, tokenOut: WAVAX, amountIn: toAmount(plan.amountIn), minAmountOut: toAmount((quoteWavaxOut(plan.amountIn) * 98n) / 100n), recipient: plan.recipient, origin: plan.origin }
+      ? { tokenIn: plan.tokenIn, tokenOut: plan.tokenOut, amountIn: toAmount(plan.amountIn), minAmountOut: toAmount((quoteWavaxOut(plan.amountIn) * 98n) / 100n), recipient: plan.recipient, origin: plan.origin }
       : null,
     txHash: hash,
     explorerUrl: hash ? txUrl(hash) : null,
     revertError: plan.terminal === "reverted" ? plan.code : null,
     reasonCode: plan.terminal === "confirmed" ? null : plan.code,
     explanation: args.withExplanation ? explain(plan, stateAfter, out, args.source ?? "template") : null,
+    agentPlan: plan.agentPlan,
+    scenario: plan.scenario,
     createdAt,
     updatedAt: nowIso,
-    precheck: plan.skipsShield1 ? null : { ok: plan.terminal === "confirmed", reasons: plan.code && plan.failAt === "precheck" ? [plan.code] : [] },
+    precheck:
+      plan.skipsShield1 || plan.heldVia === "none"
+        ? null
+        : { ok: plan.terminal !== "rejected", reasons: plan.failAt === "precheck" ? (plan.reasons.length ? plan.reasons : plan.code ? [plan.code] : []) : [] },
     sim:
-      plan.terminal === "confirmed"
+      simulated
         ? { ok: true, deltaSafeTokenOut: toAmount(out), deltaSafeTokenIn: `-${plan.amountIn.toString()}`, attackerBalance: "0", allowanceAfter: "0" }
         : null,
     audit,

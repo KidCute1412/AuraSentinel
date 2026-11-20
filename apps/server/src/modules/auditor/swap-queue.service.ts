@@ -14,6 +14,12 @@ import type { SwapJobData } from './auditor.processor';
  */
 const RETRY = { attempts: 3, backoff: { type: 'exponential', delay: 1_000 } } as const;
 
+export interface EnqueueOptions {
+  untrustedText?: string;
+  /** Red-team: run every shield, never broadcast (a passing plan ends `held`). */
+  dryRun?: boolean;
+}
+
 /** Producer side of the swap queue. Safe to load in the API process (no processor registered here). */
 @Injectable()
 export class SwapQueueService {
@@ -28,13 +34,22 @@ export class SwapQueueService {
    * (red-team injection box) travels with the job so the Auditor can hand it to the explainer as
    * <untrusted_input>; it never reaches precheck, simulation or signing.
    */
-  async enqueue(vault: Address, kind: string, intent: SwapIntent, opts: { untrustedText?: string } = {}): Promise<string> {
+  async enqueue(vault: Address, kind: string, intent: SwapIntent, opts: EnqueueOptions = {}): Promise<string> {
     const wire = intentToWire(intent);
     const job = await this.jobs.create(vault, kind, wire);
-    const data: SwapJobData = { jobId: job.id, vault, intent: wire };
-    if (opts.untrustedText) data.untrustedText = opts.untrustedText;
-    await this.queue.add('audit', data, { jobId: job.id, ...RETRY });
+    await this.enqueueExisting(job.id, vault, intent, opts);
     return job.id;
+  }
+
+  /**
+   * Queues an audit for a job row that already exists (the Hijacked Agent creates the row first, while its brain is
+   * still thinking). Same retry rules; BullMQ refuses a second job with the same id.
+   */
+  async enqueueExisting(jobId: string, vault: Address, intent: SwapIntent, opts: EnqueueOptions = {}): Promise<void> {
+    const data: SwapJobData = { jobId, vault, intent: intentToWire(intent) };
+    if (opts.untrustedText) data.untrustedText = opts.untrustedText;
+    if (opts.dryRun) data.dryRun = true;
+    await this.queue.add('audit', data, { jobId, ...RETRY });
   }
 
   /** A swap for this vault is waiting or running (409 QUEUE_BUSY, rebalancer idempotency). */

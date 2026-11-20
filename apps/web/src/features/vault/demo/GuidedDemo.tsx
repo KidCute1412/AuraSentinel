@@ -21,6 +21,7 @@ import { Stamp } from "@/shared/ui/Stamp";
 import type { SentTx } from "@/shared/ui/TxButton";
 import { BalancesPanel } from "../components/BalancesPanel";
 import { BudgetBar } from "../components/BudgetBar";
+import { AgentBrainCard } from "../components/AgentBrainCard";
 import { ShieldPipeline } from "../components/ShieldPipeline";
 import { KillSwitch } from "../components/KillSwitch";
 import { useOwnerControl } from "../hooks/useOwnerControl";
@@ -30,10 +31,10 @@ import { checkTradeAmount, doneSteps, firstOpenStep, GUIDED_STEPS, normalTradeAm
 
 const STEP_GROUND = "guided-step";
 
-/** The four steps in a row: number, short name, done tick. Any step can be opened; the next one is marked. */
+/** The steps in a row: number, short name, done tick. Any step can be opened; the next one is marked. */
 function StepRail({ current, done, onPick }: { current: number; done: ReadonlySet<GuidedId>; onPick: (i: number) => void }) {
   return (
-    <ol aria-label="Steps" className="grid grid-cols-4 border border-line-strong bg-surface">
+    <ol aria-label="Steps" className="grid grid-cols-5 border border-line-strong bg-surface">
       {GUIDED_STEPS.map((s, i) => {
         const isDone = done.has(s.id);
         const isCurrent = i === current;
@@ -43,7 +44,7 @@ function StepRail({ current, done, onPick }: { current: number; done: ReadonlySe
               type="button"
               onClick={() => onPick(i)}
               aria-current={isCurrent ? "step" : undefined}
-              className={cn("flex min-h-14 w-full flex-col items-start gap-1 px-2 py-2 text-left sm:flex-row sm:items-center sm:gap-3 sm:px-3", isCurrent ? "bg-ink text-bg" : "hover:bg-hover")}
+              className={cn("flex min-h-14 w-full flex-col items-start gap-1 px-1.5 py-2 text-left sm:flex-row sm:items-center sm:gap-3 sm:px-3", isCurrent ? "bg-ink text-bg" : "hover:bg-hover")}
             >
               <span
                 className={cn(
@@ -53,7 +54,7 @@ function StepRail({ current, done, onPick }: { current: number; done: ReadonlySe
               >
                 {isDone ? <Check aria-hidden strokeWidth={3} className="size-4" /> : `0${i + 1}`}
               </span>
-              <span className="text-xs font-bold leading-tight sm:text-sm">{s.short}</span>
+              <span className="text-[11px] font-bold leading-tight sm:text-sm">{s.short}</span>
               <span className="sr-only">{isDone ? "(done)" : ""}</span>
             </button>
           </li>
@@ -64,15 +65,16 @@ function StepRail({ current, done, onPick }: { current: number; done: ReadonlySe
 }
 
 /** The verdict of the step's job, in plain words, with every check behind a toggle and the public proof link. */
-function ResultBlock({ result, job }: { result: StepResult; job: Parameters<typeof ShieldPipeline>[0]["job"] | undefined }) {
+function ResultBlock({ result, job, brain }: { result: StepResult; job: Parameters<typeof ShieldPipeline>[0]["job"] | undefined; brain: boolean }) {
   if (result.kind === "idle" || !job) return null;
+  // The hijack step: first what the fooled AI decided, then the shields that judged it.
+  const thinking = brain && <AgentBrainCard plan={job.agentPlan} />;
   if (result.kind === "running") {
     return (
-      <div className="border border-line-strong bg-bg p-4">
-        <p className="mono-label">Checking it now, step by step</p>
-        <div className="mt-3">
-          <ShieldPipeline job={job} />
-        </div>
+      <div className="space-y-3 border border-line-strong bg-bg p-4">
+        <p className="mono-label">{brain && !job.agentPlan ? "The AI is reading the fake message" : "Checking it now, step by step"}</p>
+        {thinking}
+        {(!brain || job.agentPlan) && <ShieldPipeline job={job} />}
       </div>
     );
   }
@@ -92,6 +94,7 @@ function ResultBlock({ result, job }: { result: StepResult; job: Parameters<type
         <p className="text-lg font-bold leading-tight">{result.headline}</p>
       </div>
       <p className="mt-2 text-soft">{result.detail}</p>
+      {thinking && <div className="mt-3">{thinking}</div>}
       {job.txHash && (
         <p className="mt-3">
           <SnowtraceLink kind="tx" value={job.txHash}>{job.status === "reverted" ? "See the failed transaction" : "See it on Snowtrace"}</SnowtraceLink>
@@ -261,8 +264,10 @@ export function GuidedDemo({ view, onFreePlay }: { view: VaultView; onFreePlay: 
         {finale && allDone ? (
           <Finale onFreePlay={onFreePlay} onRestart={() => go(0)} />
         ) : (
-          <Chamfer code={`STEP 0${current + 1} / 04`} ground={STEP_GROUND} innerClassName="p-5 pb-10 sm:p-7 sm:pb-12">
-            <span className="mono-label">Step {current + 1} of 4</span>
+          <Chamfer code={`STEP 0${current + 1} / 0${GUIDED_STEPS.length}`} ground={STEP_GROUND} innerClassName="p-5 pb-10 sm:p-7 sm:pb-12">
+            <span className="mono-label">
+              Step {current + 1} of {GUIDED_STEPS.length}
+            </span>
             <h2 ref={headingRef} tabIndex={-1} className="mt-2 text-2xl leading-tight outline-none sm:text-3xl">
               {step.title}
             </h2>
@@ -301,7 +306,7 @@ export function GuidedDemo({ view, onFreePlay }: { view: VaultView; onFreePlay: 
             </div>
 
             <div ref={resultRef} aria-live="polite" className="mt-5">
-              <ResultBlock key={jobId ?? "none"} result={result} job={job} />
+              <ResultBlock key={jobId ?? "none"} result={result} job={job} brain={step.id === "hijack"} />
             </div>
 
             <div className="mt-6 flex flex-wrap items-center justify-between gap-3 border-t border-line pt-4">
@@ -424,10 +429,10 @@ function KillStep({ canKill, isActive, send, done, onDone }: { canKill: boolean;
   );
 }
 
-/** All four done: the summary, then where to go next. */
+/** Every step done: the summary, then where to go next. */
 function Finale({ onFreePlay, onRestart }: { onFreePlay: () => void; onRestart: () => void }) {
   return (
-    <Chamfer code="RESULT / 04 OF 04" ground={STEP_GROUND} edge="bg-accent" innerClassName="p-5 pb-10 sm:p-7 sm:pb-12">
+    <Chamfer code={`RESULT / 0${GUIDED_STEPS.length} OF 0${GUIDED_STEPS.length}`} ground={STEP_GROUND} edge="bg-accent" innerClassName="p-5 pb-10 sm:p-7 sm:pb-12">
       <Stamp tone="ok" animate>
         Held
       </Stamp>
@@ -439,6 +444,7 @@ function Finale({ onFreePlay, onRestart }: { onFreePlay: () => void; onRestart: 
         {[
           ["Normal trade", "went through"],
           ["Taking too much", "stopped before signing"],
+          ["Fooling the AI", "its plan was refused"],
           ["Hacking around the website", "stopped by the contract"],
           ["Emergency stop", "one signature, agent locked"],
         ].map(([what, how]) => (
@@ -450,7 +456,7 @@ function Finale({ onFreePlay, onRestart }: { onFreePlay: () => void; onRestart: 
           </li>
         ))}
       </ul>
-      <p className="mt-5 text-soft">The AI could trade all day, but it never had a way to take the money. That is the whole idea.</p>
+      <p className="mt-5 text-soft">Even a fooled AI never had a way to take the money. It trades all day, inside your rules. That is the whole idea.</p>
       <div className="mt-6 flex flex-wrap items-center gap-4">
         <span className="drop-hard">
           <Link to="/vaults/new" className={primaryCta}>Create your own vault</Link>

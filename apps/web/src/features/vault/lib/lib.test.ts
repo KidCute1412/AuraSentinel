@@ -143,6 +143,21 @@ describe("tourProgress", () => {
   it("detects rebalance, over-withdraw and bypass from the jobs, and the kill from the visit", () => {
     const since = Date.parse("2026-01-01T00:00:00Z");
     const steps = tourProgress(jobsAt("2026-06-01T00:00:00Z"), safe, since, true);
-    expect(steps.map((s) => s.done)).toEqual([true, true, true, true]);
+    expect(steps.map((s) => s.id)).toEqual(["rebalance", "over-withdraw", "hijack", "bypass", "kill"]);
+    // The seeded history has no Hijacked Agent run.
+    expect(steps.map((s) => s.done)).toEqual([true, true, false, true, true]);
+  });
+
+  it("counts a hijack the shields answered, and never counts its on-chain revert as the bypass step", () => {
+    const since = Date.parse("2026-01-01T00:00:00Z");
+    const at = "2026-06-01T00:00:00Z";
+    const base = { ...sim.jobs[0]!, createdAt: at, origin: "redteam" as const, kind: "attack" as const };
+    const plan = { source: "rules" as const, model: null, feed: "x", thought: "x", flags: [], fallbackReason: null };
+    const approve = { ...base, id: "h1", status: "reverted" as const, revertError: "GS104", agentPlan: { ...plan, action: { type: "approve" as const, token: "USDC" as const, spender: safe, amount: "unlimited" as const } } };
+    const steps = tourProgress([approve], safe, since, false);
+    expect(steps.find((s) => s.id === "hijack")?.done).toBe(true);
+    expect(steps.find((s) => s.id === "bypass")?.done).toBe(false);
+    const held = { ...approve, status: "held" as const, revertError: null };
+    expect(tourProgress([held], safe, since, false).find((s) => s.id === "hijack")?.done).toBe(true);
   });
 });

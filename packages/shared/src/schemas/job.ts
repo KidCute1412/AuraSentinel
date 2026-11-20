@@ -1,10 +1,15 @@
 import { z } from 'zod';
 import { Address, Hash } from '../chain';
 import { Amount } from '../money';
+import { AgentPlan } from './agent';
 import { Explanation, SimResult } from './sim';
 import { JobOrigin, SwapIntent } from './intent';
 
-/** D1 state machine. Terminal: rejected, confirmed, reverted, failed. */
+/**
+ * D1 state machine. Terminal: rejected, confirmed, reverted, failed, held.
+ * `held` = a red-team plan the shields would have let through (it is inside the owner's policy), stopped before
+ * broadcast on purpose: red-team runs never send a transaction that could succeed.
+ */
 export const JobStatus = z.enum([
   'queued',
   'prechecking',
@@ -14,10 +19,11 @@ export const JobStatus = z.enum([
   'rejected',
   'reverted',
   'failed',
+  'held',
 ]);
 export type JobStatus = z.infer<typeof JobStatus>;
 
-export const JOB_TERMINAL_STATUSES: readonly JobStatus[] = ['rejected', 'confirmed', 'reverted', 'failed'];
+export const JOB_TERMINAL_STATUSES: readonly JobStatus[] = ['rejected', 'confirmed', 'reverted', 'failed', 'held'];
 
 export const JobKind = z.enum(['swap', 'attack']);
 export type JobKind = z.infer<typeof JobKind>;
@@ -34,6 +40,13 @@ export const JobDto = z.object({
   revertError: z.string().nullable(),
   reasonCode: z.string().nullable(),
   explanation: Explanation.nullable(),
+  /** Hijacked Agent runs only: what the agent's brain decided after reading the poisoned feed. */
+  agentPlan: AgentPlan.nullish(),
+  /**
+   * Red-team jobs: which attack ("over-withdraw", ..., "prompt-injection"); null for trades. A plain string here, not
+   * the AttackScenario enum, so job.ts and attack.ts do not import each other.
+   */
+  scenario: z.string().max(40).nullish(),
   createdAt: z.string().datetime(),
   updatedAt: z.string().datetime(),
 });

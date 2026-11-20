@@ -1,4 +1,4 @@
-import { Ban, Check, CircleSlash, Clock, TriangleAlert, X, type LucideIcon } from "lucide-react";
+import { Ban, Check, CircleSlash, Clock, Hand, TriangleAlert, X, type LucideIcon } from "lucide-react";
 import type { JobStatus } from "@agentshield/shared";
 import { cn } from "@/shared/lib/cn";
 
@@ -30,6 +30,7 @@ const JOB: Record<JobStatus, Spec> = {
   rejected: { label: "Shield 1 blocked", tone: "danger", icon: X },
   reverted: { label: "Shield 2 blocked", tone: "danger", icon: Ban },
   failed: { label: "Infra error", tone: "neutral", icon: CircleSlash },
+  held: { label: "Held · not sent", tone: "info", icon: Hand },
 };
 
 const VAULT: Record<VaultStatus, Spec> = {

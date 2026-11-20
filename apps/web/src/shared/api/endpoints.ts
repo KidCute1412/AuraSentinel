@@ -1,6 +1,7 @@
 import {
   CreateAttackRequest,
   CreateAttackResponse,
+  CreateAutoRedTeamResponse,
   CreateJobRequest,
   CreateJobResponse,
   CreateSessionRequest,
@@ -73,6 +74,10 @@ export const createRebalanceJob = (safe: string, body: CreateJobRequest) =>
 /** #12: launch one red-team attack. Every attack parameter is fixed on the server; we only pick the scenario. */
 export const createAttack = (safe: string, body: CreateAttackRequest) =>
   apiRequest(`/vaults/${safe}/attacks`, CreateAttackResponse, { method: "POST", json: CreateAttackRequest.parse(body) });
+
+/** #12b: Auto red-team. The attacker model on the server writes the prompts; the client sends nothing else. */
+export const createAutoRedTeam = (safe: string) =>
+  apiRequest(`/vaults/${safe}/attacks/auto`, CreateAutoRedTeamResponse, { method: "POST", json: {} });
 
 /** #15: scheduler state for the admin console (AdminGuard on the server). */
 export const getRebalancerStatus = (signal?: AbortSignal) => apiRequest("/admin/rebalancer", RebalancerStatusDto, { signal });

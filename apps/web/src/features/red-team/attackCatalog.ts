@@ -30,7 +30,7 @@ export const ATTACKS: readonly AttackCopy[] = [
   { scenario: "bypass", index: "#4", title: "Bypass the website", description: "Signs the order and sends it straight to the contract, skipping Shield 1 entirely." },
 ];
 
-const STOPPER: Record<Exclude<AttackExpectation["stoppedBy"], "llm-guard">, string> = {
+const STOPPER: Record<AttackExpectation["stoppedBy"], string> = {
   shield1: "Stopped by Shield 1",
   shield2: "Stopped by Shield 2",
   safe: "Stopped by the Safe",
@@ -43,10 +43,9 @@ const blocks = (e: AttackExpectation) => e.status === "rejected" || e.status ===
  * panel can never promise something the server tests do not check.
  */
 export function expectationLabel(scenario: AttackScenario): string {
+  // The hijacked agent's brain writes its own plan, so the outcome depends on the plan; the shields still judge it.
+  if (scenario === "prompt-injection") return "The agent's brain plans it, the shields judge the plan";
   const e: AttackExpectation = ATTACK_EXPECTATIONS[scenario];
-  if (e.stoppedBy === "llm-guard") {
-    return blocks(e) ? "LLM has no authority: still blocked" : "LLM has no authority: same result";
-  }
   // A Safe reason title already names the Safe ("Refused by the Safe (GS104)"); do not say it twice.
   const parts = e.stoppedBy === "safe" && e.reasonCode ? [] : [STOPPER[e.stoppedBy]];
   if (e.reasonCode) parts.push(reasonTitle(e.reasonCode));
@@ -64,7 +63,12 @@ export type Outcome =
  * Only a terminal status counts; the reason must match too when one is expected.
  */
 export function compareOutcome(job: JobDto | undefined, scenario: AttackScenario): Outcome {
-  if (!job || !["confirmed", "rejected", "reverted", "failed"].includes(job.status)) return { kind: "pending" };
+  if (!job || !["confirmed", "rejected", "reverted", "failed", "held"].includes(job.status)) return { kind: "pending" };
+  if (scenario === "prompt-injection") {
+    if (job.status === "rejected" || job.status === "reverted") return { kind: "expected", label: "Blocked as expected" };
+    if (job.status === "held") return { kind: "expected", label: "Held: inside the policy, never sent" };
+    return { kind: "unexpected", label: `Not as expected: ${job.status}` };
+  }
   const e: AttackExpectation = ATTACK_EXPECTATIONS[scenario];
   const reason = job.reasonCode ?? job.revertError;
   const statusOk = job.status === e.status;

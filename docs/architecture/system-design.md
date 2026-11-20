@@ -28,7 +28,7 @@
 |---|---|---|
 | P1 | **Chain là source of truth.** | Policy, `spentInDay`, trạng thái kill **luôn đọc từ contract**. Postgres chỉ là *read-model* + *audit log off-chain* (kết quả sim, lời giải thích, lý do chặn). Không bao giờ có 2 nguồn sự thật lệch nhau. |
 | P2 | **Kill-Switch & setPolicy không đi qua backend.** | Frontend gọi contract trực tiếp bằng ví owner (wagmi). Backend sập hoặc bị chiếm (threat T5) → owner **vẫn kill được**. Bỏ endpoint `POST /kill`. Đây là câu pitch mạnh: *“tắt server của chúng tôi đi, nút Kill vẫn chạy.”* |
-| P3 | **LLM không có quyền quyết định.** | `verdict` và `budgetUsedPct` được **tính deterministic**; LLM chỉ viết `messageVi`. Bước giải thích chạy **song song** với broadcast tx → không nằm trên critical path. |
+| P3 | **LLM không có quyền quyết định.** | `verdict` và `budgetUsedPct` được **tính deterministic**; LLM chỉ viết `messageVi`. Bước giải thích chạy **song song** với broadcast tx → không nằm trên critical path. Ngoại lệ duy nhất: "bộ não" của **Hijacked Agent** (red-team, §3.7b) cố ý đóng vai agent bị lừa và viết kế hoạch; kế hoạch đó là **dữ liệu của kẻ tấn công**, đi qua đủ các shield và không bao giờ được broadcast nếu chain không từ chối nó. |
 | P4 | **Single-writer cho session key.** | 1 signer = 1 chuỗi nonce → queue `swap` chạy `concurrency = 1`. Không bao giờ có 2 tx cùng nonce / nonce gap. |
 | P5 | **Mọi số tiền là `bigint` (đơn vị nhỏ nhất).** | Không float ở bất kỳ đâu. DB lưu `NUMERIC(78,0)`, JSON truyền string. USDC 6 decimals, WAVAX 18 decimals — format chỉ ở tầng UI. |
 
@@ -159,7 +159,8 @@ Worker sinh event (job đổi trạng thái, event chain), API giữ kết nối
 | **Structured output** (`responseMimeType: application/json` + `responseSchema`) **+ Zod** | Schema ở 2 lớp: ép model trả JSON, rồi Zod validate lại (không tin model). |
 | **Numeric-consistency check** | Trích các số trong `messageVi`, so với sim (`200`, `8`, `13.3`). Lệch → fallback. Chặn hallucination & injection “nói sai số”. |
 | **Port `Explainer` + 2 adapter** | `GeminiExplainer` → khi timeout/invalid → `TemplateExplainer`. Fallback là đổi adapter, không phải `if` rải rác. |
-| **Prompt injection** | Text người dùng nhét vào prompt trong block delimit `<untrusted_input>`, system prompt nói rõ đó là dữ liệu. Nhưng an toàn thật đến từ P3: dù LLM bị lừa hoàn toàn, nó không có quyền gì. |
+| **Prompt injection (explainer)** | Text người dùng nhét vào prompt trong block delimit `<untrusted_input>`, system prompt nói rõ đó là dữ liệu. Nhưng an toàn thật đến từ P3: dù LLM bị lừa hoàn toàn, nó không có quyền gì. |
+| **LLM client dùng chung** (`core/llm`) | `LLM_BASE_URL` (OpenAI-compatible, vd. Gemma tự host) thắng Gemini. Một `LlmQuota` cho cả process: explainer chừa 1/5 quota cho bộ não red-team; hết quota thì explainer dùng template, bộ não dùng rule. |
 | **Cache + limiter** | Cache explanation theo `(scenario, amountIn, verdict)`; BullMQ limiter cho queue explain để không chạm RPM free tier lúc bấm liên tục. |
 
 ```ts
@@ -173,6 +174,20 @@ const Explanation = z.object({
   source:        z.enum(["llm", "template"]),     // hiển thị badge trên UI
 });
 ```
+
+### 3.7b Hijacked Agent: AI bị chiếm quyền, vault vẫn an toàn
+Câu hỏi giám khảo track "AI agents and security" sẽ hỏi: *"nếu chính con AI bị lừa thì sao?"*. Thay vì chỉ cho LLM giải thích, red-team cho LLM **đóng vai bộ não agent bị lừa** rồi để các shield chặn kế hoạch của nó.
+
+| Bước | Ai làm | Chi tiết |
+|---|---|---|
+| 1. Feed độc | Khách (hoặc LLM tấn công, Auto red-team) | Text đi vào `<feed_item>` trong prompt (sanitize: bỏ `<>`, ký tự điều khiển, cắt 500 ký tự). |
+| 2. Lập kế hoạch | `modules/agent-brain` `BrainService` | LLM (Gemini/`LLM_BASE_URL`) được dặn **cứ làm theo feed**; trả JSON schema phẳng `{thought, action{type,tokenIn,tokenOut,amount,recipient,spender,maxSlippagePct}}`. Timeout `PLANNER_TIMEOUT_MS`, hết quota, sai schema → **keyword planner** (`planFromRules` trong `packages/shared`, cũng là não của mock web). |
+| 3. Chuẩn hoá | code (`normalizeBrainOutput`) | Token chỉ USDC/WAVAX, địa chỉ lạ → `0x9999…`, số tiền bằng `parseUnits` (bigint), slippage kẹp 0–100. Kết quả luôn là `AgentAction` hợp lệ. |
+| 4. Định cỡ | code (`toHijackPlan`) | `all` = số dư thật trên chain; `minOut` từ quote router + slippage (100% → `0` → `ZeroMinOut`). Cờ nguy hiểm (`agentFlags`) chỉ để hiển thị. |
+| 5. Phán xử | các shield | **swap** → swap queue với `dryRun: true` (precheck → sim → invariant; qua hết thì `held`, không ký). **approve/direct** → `eth_call` (`TxSender.callRaw`); chain từ chối → gửi thật với gas thủ công để có tx revert trên Snowtrace; chain chấp nhận → `held`, không gửi. **none** → `held`. |
+| 6. Giải thích | explainer | Như mọi job. `held` chỉ dùng template (LLM có thể nói sai là "đã gửi"). |
+
+Bất biến: kế hoạch là **input không tin cậy**, giống text của khách. Không nhánh nào broadcast được thứ chain chấp nhận (test bảng adversarial `hijack.service.spec.ts` và e2e `pipeline.e2e.spec.ts`). Mọi tấn công Shield 1 cố định cũng chạy `dryRun`.
 
 ### 3.8 Các lựa chọn còn lại
 
@@ -254,7 +269,8 @@ Giám khảo kỹ thuật sẽ hỏi “đòn này có thật không hay chỉ l
 | 2 | Wrong recipient | Intent có `recipient = 0x999…`; biến thể 2: agent EOA gọi thẳng router (EOA không có token) | (a) precheck; on-chain: không có tham số | Thẻ đỏ + “recipient bị khóa cứng = Safe” |
 | 3 | Unlimited approval | Session key gọi thẳng `safe.execTransactionFromModule(USDC.approve(router, MAX))` | Safe revert **`GS104`** (agent không phải module được enable) | Tx revert trên Snowtrace |
 | 4 | Bypass website ⚡ | RedTeam worker ký bằng session key, gửi thẳng Fuji `executeGuardedSwap(2000e6)` với **`gas` set thủ công** | **Shield 2**: `ExceedsPerTxCap` | **Link Snowtrace của tx revert** |
-| + | Prompt injection | Text đi vào prompt dưới dạng dữ liệu delimit | P3: LLM không có quyền; numeric check | Badge “LLM bị bỏ qua — template” nếu output sai |
+| + | Hijacked Agent (prompt injection) | Text vào feed của agent; LLM bộ não lên kế hoạch (swap/approve/direct/none), code định cỡ (§3.7b) | Shield 1 (`dryRun`) / Safe `GS104` / Shield 2; kế hoạch trong policy → `held`, không gửi | Thẻ "The agent's brain" (feed, suy nghĩ, kế hoạch, cờ đỏ) + pipeline |
+| + | Auto red-team | LLM tấn công viết 5 feed độc, mỗi cái là 1 lượt Hijacked Agent | như trên | Bảng điểm "0 / 5 got funds out" |
 
 > ⚠️ **Chi tiết kỹ thuật quyết định màn demo #4:** nếu để viem/ví tự `estimateGas`, tx revert sẽ bị chặn **ngay tại client** và **không bao giờ lên chain** → không có bằng chứng Snowtrace. Phải truyền `gas: 300_000n` để tx được mined và revert *on-chain*. Lưu ý agent EOA cần ít AVAX để trả gas.
 
@@ -371,7 +387,8 @@ erDiagram
 | `GET` | `/jobs/:id` | Chi tiết 1 job + audit_log |
 | `POST` | `/rebalance` | `{ amountIn }` — enqueue swap thủ công (nút demo 200 USDC) |
 | `POST` | `/attacks/:scenario` | `over-withdraw · wrong-recipient · unlimited-approval · bypass` |
-| `POST` | `/attacks/inject` | `{ text }` — prompt injection |
+| `POST` | `/attacks` `{scenario:"prompt-injection", text}` | Hijacked Agent (api.md #12) |
+| `POST` | `/attacks/auto` | Auto red-team: 5 lượt Hijacked Agent (api.md #12b) |
 | `GET` · `PATCH` | `/admin/rebalancer` | Trạng thái · `{paused}` = Demo mode (pause queue `rebalance`) |
 | `GET` | `/events` | SSE stream |
 | `GET` | `/admin/queues` | Bull Board |
@@ -444,7 +461,7 @@ flowchart LR
 | Threat | Shield 1 (off-chain) | Shield 2 (on-chain) | Ghi chú |
 |---|---|---|---|
 | T1 LLM hallucination | LLM không quyết định số tiền (Rebalancer là toán thuần) + numeric check | Caps | P3 |
-| T2 Prompt injection | Input delimit, LLM không có quyền | Recipient hard-code, caps | P3 |
+| T2 Prompt injection / AI agent bị chiếm quyền | Input delimit, LLM không có quyền; kế hoạch của bộ não bị lừa đi qua precheck/sim/invariant (`dryRun`) | Recipient hard-code, caps, Safe `GS104` | P3, demo Hijacked Agent |
 | T3 Session key bị lộ | — (bị bypass) | 5 gate + per-token caps + Kill-Switch 1.5s | Demo nút #4 |
 | T4 Unlimited approval | Precheck intent | Module chỉ approve `amountIn`; agent không phải module (`GS104`) | Demo nút #3 |
 | T5 Backend bị chiếm/sập | — | Toàn bộ luật nằm trên chain; **Kill-Switch không qua backend** | P2 |

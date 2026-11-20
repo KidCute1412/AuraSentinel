@@ -5,7 +5,7 @@ import type { JobDetailDto } from "@agentshield/shared";
  * ?status=confirmed|rejected|reverted|failed&type=rebalance|attack&page=N. Anything else is ignored, never an error.
  */
 
-export const ACTIVITY_STATUSES = ["confirmed", "rejected", "reverted", "failed"] as const;
+export const ACTIVITY_STATUSES = ["confirmed", "rejected", "reverted", "held", "failed"] as const;
 export type ActivityStatus = (typeof ACTIVITY_STATUSES)[number];
 
 export const ACTIVITY_TYPES = ["rebalance", "attack"] as const;

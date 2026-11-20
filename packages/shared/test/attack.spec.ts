@@ -1,8 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import {
   ATTACK_EXPECTATIONS,
-  AttackScenario,
+  AUTO_REDTEAM_SIZE,
   CreateAttackRequest,
+  CreateAutoRedTeamRequest,
+  CreateAutoRedTeamResponse,
+  FIXED_ATTACK_SCENARIOS,
   CreateAttackResponse,
   INJECTION_TEXT_MAX,
   isReasonCode,
@@ -39,8 +42,10 @@ describe('CreateAttackRequest (api.md #12)', () => {
 });
 
 describe('ATTACK_EXPECTATIONS', () => {
-  it('covers every scenario with a known reason code', () => {
-    for (const s of AttackScenario.options) {
+  it('covers every fixed scenario with a known reason code, and not prompt injection', () => {
+    expect(FIXED_ATTACK_SCENARIOS).not.toContain('prompt-injection');
+    expect(Object.keys(ATTACK_EXPECTATIONS).sort()).toEqual([...FIXED_ATTACK_SCENARIOS].sort());
+    for (const s of FIXED_ATTACK_SCENARIOS) {
       const e = ATTACK_EXPECTATIONS[s];
       expect(e, s).toBeDefined();
       if (e.reasonCode) expect(isReasonCode(e.reasonCode)).toBe(true);
@@ -51,5 +56,21 @@ describe('ATTACK_EXPECTATIONS', () => {
     expect(ATTACK_EXPECTATIONS.bypass).toMatchObject({ stoppedBy: 'shield2', status: 'reverted', onchainEvidence: true });
     expect(ATTACK_EXPECTATIONS['unlimited-approval'].reasonCode).toBe('GS104');
     expect(ATTACK_EXPECTATIONS['over-withdraw'].onchainEvidence).toBe(false);
+  });
+});
+
+describe('Auto red-team (api.md #12b)', () => {
+  const id = (n: number) => `7f9c0a52-1d2e-4c3b-9a8f-01234567890${n}`;
+
+  it('takes no parameters', () => {
+    expect(CreateAutoRedTeamRequest.safeParse({}).success).toBe(true);
+    expect(CreateAutoRedTeamRequest.safeParse({ prompts: ['x'] }).success).toBe(false);
+  });
+
+  it('answers with one job per prompt, at most AUTO_REDTEAM_SIZE', () => {
+    const jobs = Array.from({ length: AUTO_REDTEAM_SIZE }, (_, n) => ({ jobId: id(n), text: `attack ${n}` }));
+    expect(CreateAutoRedTeamResponse.safeParse({ source: 'llm', jobs }).success).toBe(true);
+    expect(CreateAutoRedTeamResponse.safeParse({ source: 'llm', jobs: [...jobs, { jobId: id(9), text: 'one more' }] }).success).toBe(false);
+    expect(CreateAutoRedTeamResponse.safeParse({ source: 'rules', jobs: [] }).success).toBe(false);
   });
 });

@@ -174,3 +174,28 @@ describe('ViemTxSender', () => {
     );
   });
 });
+
+describe('ViemTxSender.callRaw (Hijacked Agent dry run)', () => {
+  const call = { to: MODULE as Hex, data: '0x1234' as Hex, gas: 300_000n };
+  const capData = encodeErrorResult({ abi: POLICY_MODULE_ABI, errorName: 'ExceedsPerTxCap' });
+
+  it('reports a revert with its decoded reason, from the session key, without signing', async () => {
+    const t = setup({ revertData: capData });
+    await expect(t.sender.callRaw(call)).resolves.toEqual({ reverted: true, revertReason: 'ExceedsPerTxCap' });
+    expect(t.publicClient.call).toHaveBeenCalledWith({ account: AGENT, ...call });
+    expect(t.wallet.signTransaction).not.toHaveBeenCalled();
+    expect(t.publicClient.sendRawTransaction).not.toHaveBeenCalled();
+  });
+
+  it('reports a call the chain would accept', async () => {
+    const t = setup();
+    t.publicClient.call.mockResolvedValueOnce({ data: '0x' } as never);
+    await expect(t.sender.callRaw(call)).resolves.toEqual({ reverted: false });
+  });
+
+  it('throws an RPC failure instead of calling it a revert (the caller then sends nothing)', async () => {
+    const t = setup();
+    t.publicClient.call.mockRejectedValueOnce(new Error('fetch failed'));
+    await expect(t.sender.callRaw(call)).rejects.toThrow('fetch failed');
+  });
+});

@@ -1,10 +1,10 @@
 import { useRef, useState, type KeyboardEvent } from "react";
-import { Ban, Check, Circle, Minus, X } from "lucide-react";
-import { fromAmount, type CheckRow, type JobDetailDto } from "@agentshield/shared";
+import { Ban, Check, Circle, Hand, Minus, X } from "lucide-react";
+import type { CheckRow, JobDetailDto } from "@agentshield/shared";
 import { reasonTitle } from "@/shared/api/mockEngine";
 import { cn } from "@/shared/lib/cn";
 import { formatTokenAmount } from "@/shared/lib/format";
-import { jobLabel } from "@/shared/lib/jobLabel";
+import { amountLabel, jobLabel } from "@/shared/lib/jobLabel";
 import { clockTime } from "@/shared/lib/time";
 import { SnowtraceLink } from "@/shared/ui/SnowtraceLink";
 import { dailyBar, formatValue, GATE_INFO, ruleLabel, ruleOp } from "../lib/checks";
@@ -24,6 +24,7 @@ const GATE: Record<GateState, { word: string; box: string; bar: string; icon: ty
   pending: { word: "Waiting", box: "border-line", bar: "bg-line", icon: Circle },
   skipped: { word: "Not reached", box: "border-line border-dashed", bar: "bg-line", icon: Minus },
   bypassed: { word: "Bypassed", box: "border-line-strong border-dashed bg-hover", bar: "bg-line", icon: Ban },
+  held: { word: "Held · not sent", box: "border-accent border-dashed", bar: "bg-accent", icon: Hand },
 };
 
 interface Gate extends TimelineStep {
@@ -40,13 +41,20 @@ function gatesOf(job: JobDetailDto): Gate[] {
   }));
 }
 
-/** The packet's tag on the track: the amount, else what the job was. */
-const packetLabel = (job: JobDetailDto): string =>
-  job.intent && job.intent.amountIn !== "0" ? `${formatTokenAmount(fromAmount(job.intent.amountIn), 6)} USDC` : job.kind === "attack" ? "Attack" : "Trade";
+/** The packet's tag on the track: the amount, else what the hijacked agent tried, else what the job was. */
+function packetLabel(job: JobDetailDto): string {
+  const amount = amountLabel(job);
+  if (amount) return amount;
+  const action = job.agentPlan?.action.type;
+  if (action === "approve") return "Approve";
+  if (action === "direct") return "Direct call";
+  if (action === "none") return "No action";
+  return job.kind === "attack" ? "Attack" : "Trade";
+}
 
 /** Where to look first: the gate that stopped it, else the furthest gate that ran. */
 function defaultGate(gates: Gate[]): StepId {
-  return (gates.find((g) => g.look === "fail") ?? [...gates].reverse().find((g) => g.look === "pass" || g.look === "active") ?? gates[0]!).id;
+  return (gates.find((g) => g.look === "fail" || g.look === "held") ?? [...gates].reverse().find((g) => g.look === "pass" || g.look === "active") ?? gates[0]!).id;
 }
 
 /** Bar width in percent (display only, from bigint). */
@@ -116,6 +124,12 @@ function RuleRow({ row, amountIn, index }: { row: CheckRow; amountIn: string | u
 
 /** Why a gate shows no table: never invent numbers. */
 function emptyText(g: Gate, job: JobDetailDto): string {
+  if (g.look === "held") {
+    return g.checks.length > 0
+      ? "A dry run on the chain says it would be accepted: it is inside the policy. Red-team runs are never sent, so nothing moved."
+      : "Every earlier gate accepted it: it is inside the policy. Red-team runs are never sent, so it stopped here and nothing moved.";
+  }
+  if (job.agentPlan?.action.type === "none" && g.look === "skipped") return "The agent chose to do nothing, so there was nothing to check.";
   if (g.look === "bypassed") return "The attacker sent the transaction straight to the blockchain, so the website's checks never saw it. Shield 2 is what has to stop it.";
   if (g.look === "skipped") return job.status === "failed" ? "This step did not run: something on our side failed first. No funds moved." : "This step did not run: an earlier shield already stopped the trade.";
   if (g.look === "pending") return "Waiting for the earlier steps.";
@@ -208,10 +222,10 @@ export function ShieldPipeline({ job, variant = "compact" }: { job: JobDetailDto
             <>
               <span className="flex items-center justify-between gap-1">
                 <span className="font-mono text-[10px] uppercase tracking-widest text-muted">{g.shield}</span>
-                <Icon aria-hidden strokeWidth={3} className={cn("size-3.5", g.look === "pass" ? "text-accent-text" : g.look === "fail" ? "text-danger-text" : "text-muted")} />
+                <Icon aria-hidden strokeWidth={3} className={cn("size-3.5", g.look === "pass" || g.look === "held" ? "text-accent-text" : g.look === "fail" ? "text-danger-text" : "text-muted")} />
               </span>
               <span className="mt-1 block text-sm font-bold leading-tight">{GATE_INFO[g.id].title}</span>
-              <span className={cn("mt-0.5 block font-mono text-[11px] uppercase tracking-widest", g.look === "fail" ? "text-danger-text" : g.look === "pass" ? "text-accent-text" : "text-muted")}>
+              <span className={cn("mt-0.5 block font-mono text-[11px] uppercase tracking-widest", g.look === "fail" ? "text-danger-text" : g.look === "pass" || g.look === "held" ? "text-accent-text" : "text-muted")}>
                 {look.word}
                 {g.checks.length > 0 && g.look !== "fail" && ` · ${g.checks.length}`}
                 {failed > 0 && ` · ${failed} rule${failed === 1 ? "" : "s"}`}

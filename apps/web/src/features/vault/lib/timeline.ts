@@ -2,7 +2,8 @@ import { JOB_TERMINAL_STATUSES, type JobDetailDto } from "@agentshield/shared";
 import { reasonTitle } from "@/shared/api/mockEngine";
 
 export type StepId = JobDetailDto["audit"][number]["shield"];
-export type StepState = "pending" | "active" | "pass" | "fail" | "skipped";
+/** "held": a red-team plan every earlier gate accepted; it was stopped before the chain on purpose (job status held). */
+export type StepState = "pending" | "active" | "pass" | "fail" | "skipped" | "held";
 
 export interface TimelineStep {
   id: StepId;
@@ -29,14 +30,19 @@ const ACTIVE: Partial<Record<JobDetailDto["status"], StepId>> = { prechecking: "
  * Driven entirely by the audit trail + status, so a step that never ran after a block shows as "skipped",
  * and an attack that bypasses the website shows its Shield 1 steps as skipped with the reason.
  */
-export function timelineSteps(job: Pick<JobDetailDto, "status" | "audit" | "precheck" | "kind" | "origin">): TimelineStep[] {
+export function timelineSteps(job: Pick<JobDetailDto, "status" | "audit" | "precheck" | "kind" | "origin"> & Partial<Pick<JobDetailDto, "agentPlan">>): TimelineStep[] {
   const terminal = (JOB_TERMINAL_STATUSES as readonly string[]).includes(job.status);
   const active = ACTIVE[job.status];
-  const bypassed = terminal && job.origin === "redteam" && job.precheck === null;
+  const idle = job.agentPlan?.action.type === "none";
+  const bypassed = terminal && job.origin === "redteam" && job.precheck === null && !idle;
+  const held = job.status === "held";
   return STEPS.map((s) => {
     const entry = job.audit.find((a) => a.shield === s.id);
+    // A held plan never reaches the chain: its last gate says so, even when a dry run of it passed.
+    if (held && s.id === "onchain" && !idle) return { ...s, state: "held", note: "Held: inside the policy, so it was never sent", ts: entry?.ts ?? null };
     if (entry) return { ...s, state: entry.result === "pass" ? "pass" : "fail", note: entry.result === "fail" ? reasonTitle(entry.reason) : null, ts: entry.ts } as TimelineStep;
     if (!terminal) return { ...s, state: s.id === active ? "active" : "pending", note: null, ts: null };
+    if (idle) return { ...s, state: "skipped", note: "Nothing to check: the agent chose to do nothing", ts: null };
     return { ...s, state: "skipped", note: bypassed && s.shield === "Shield 1" ? "Skipped: the website was bypassed" : "Not reached", ts: null };
   });
 }

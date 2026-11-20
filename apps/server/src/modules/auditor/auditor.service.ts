@@ -24,6 +24,11 @@ export interface AuditRequest {
   intent: SwapIntent;
   /** Red-team injection text: explainer prompt data only, never a decision input. */
   untrustedText?: string;
+  /**
+   * Red-team jobs: judge with every shield but never sign. A plan the shields accept ends `held` instead of being
+   * broadcast, so an attack that happens to be inside the policy still moves no money (Hijacked Agent).
+   */
+  dryRun?: boolean;
   /** BullMQ will not retry after this attempt: an infra error now ends the job as `failed`. */
   lastAttempt: boolean;
 }
@@ -39,8 +44,10 @@ const message = (e: unknown) => (e instanceof Error ? e.message : String(e));
 /**
  * Shield 1 state machine (auditor-pipeline skill, A6):
  *
- *   queued -> prechecking -> (rejected | simulating) -> (rejected | broadcasting)
+ *   queued -> prechecking -> (rejected | simulating) -> (rejected | broadcasting | held)
  *          -> (confirmed | reverted | failed)
+ *
+ * `held` only for dryRun (red-team) jobs whose plan every shield accepted: they are never broadcast.
  *
  * precheck (live chain state) -> Anvil sim -> post-sim invariants -> deterministic verdict ->
  * broadcast || explain. The verdict, amounts and the decision to sign never depend on the LLM
@@ -93,7 +100,7 @@ export class AuditorService implements OnModuleDestroy {
     while (this.pending.size) await Promise.allSettled([...this.pending]);
   }
 
-  private async run({ jobId, vault, intent, untrustedText }: AuditRequest): Promise<void> {
+  private async run({ jobId, vault, intent, untrustedText, dryRun }: AuditRequest): Promise<void> {
     await this.jobs.transition(jobId, 'prechecking');
 
     // The target comes from the chain-backed registry, never from intent.recipient.
@@ -150,6 +157,13 @@ export class AuditorService implements OnModuleDestroy {
       return;
     }
 
+    if (dryRun) {
+      // A red-team plan inside the policy: every shield said yes, and that is the finding. Nothing is signed.
+      await this.jobs.transition(jobId, 'held', { simResult: sim });
+      this.attachLater(jobId, this.explain('approved', null, intent, facts, untrustedText, sim, true));
+      return;
+    }
+
     // Verdict safe: broadcast || explain. The explanation starts now but is attached only once
     // the receipt says what really happened, so a Shield 2 revert never shows "safe".
     await this.jobs.transition(jobId, 'broadcasting', { simResult: sim });
@@ -201,6 +215,7 @@ export class AuditorService implements OnModuleDestroy {
     { state }: Facts,
     untrustedText?: string,
     sim?: SimResult,
+    held = false,
   ): Promise<Explanation> {
     const limit = findLimit(state.limits, intent.tokenIn);
     const spentToday = spentFor(state.spentToday, intent.tokenIn);
@@ -224,6 +239,7 @@ export class AuditorService implements OnModuleDestroy {
       limits: limit ? { maxPerTx: limit.maxPerTx, dailyCap: limit.dailyCap, spentToday } : undefined,
       expiry: state.policy.expiry,
       untrustedText,
+      ...(held ? { held: true } : {}),
     });
   }
 

@@ -2,7 +2,7 @@ import type { JobDetailDto, JobListDto, StateDto } from "@agentshield/shared";
 import { QueryClient } from "@tanstack/react-query";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { explanation, job, jobDetail, SAFE, state, TX } from "@/test/apiFixtures";
-import { applyServerEvent } from "./cache";
+import { applyServerEvent, keepFresherJobs } from "./cache";
 import { queryKeys } from "./queryKeys";
 
 let qc: QueryClient;
@@ -58,6 +58,15 @@ describe("applyServerEvent: jobs", () => {
     expect(spy).toHaveBeenCalledWith({ queryKey: queryKeys.vaultState(SAFE) });
   });
 
+  it("ignores an event older than what the cache already has (out-of-order delivery)", () => {
+    qc.setQueryData<JobListDto>(queryKeys.vaultJobs(SAFE), { items: [job({ status: "reverted", updatedAt: "2026-11-20T00:00:02.000Z" })], nextCursor: null });
+    applyServerEvent(qc, SAFE, { type: "job.updated", vault: SAFE, job: job({ status: "broadcasting", updatedAt: "2026-11-20T00:00:01.000Z" }) });
+    expect(list()!.items[0]!.status).toBe("reverted");
+    // Same instant: a finished job never goes back to running.
+    applyServerEvent(qc, SAFE, { type: "job.updated", vault: SAFE, job: job({ status: "broadcasting", updatedAt: "2026-11-20T00:00:02.000Z" }) });
+    expect(list()!.items[0]!.status).toBe("reverted");
+  });
+
   it("does not invent caches that were never loaded", () => {
     applyServerEvent(qc, SAFE, { type: "job.updated", vault: SAFE, job: job() });
     applyServerEvent(qc, SAFE, { type: "job.explained", vault: SAFE, jobId: job().id, explanation });
@@ -96,5 +105,23 @@ describe("applyServerEvent: chain", () => {
     qc.setQueryData<StateDto>(queryKeys.vaultState(SAFE.toUpperCase().replace("0X", "0x")), state);
     applyServerEvent(qc, SAFE, { type: "chain.revoked", vault: SAFE, txHash: TX });
     expect(qc.getQueryData<StateDto>(queryKeys.vaultState(SAFE))!.isActive).toBe(false);
+  });
+});
+
+describe("keepFresherJobs (useJobs structural sharing)", () => {
+  it("a slow refetch cannot undo a verdict the stream already delivered", () => {
+    const old: JobListDto = { items: [job({ status: "reverted", updatedAt: "2026-11-20T00:00:02.000Z" }), job({ id: ID_2, status: "queued" })], nextCursor: null };
+    const stale: JobListDto = {
+      items: [job({ status: "broadcasting", updatedAt: "2026-11-20T00:00:01.000Z" }), job({ id: ID_2, status: "held", updatedAt: "2026-11-20T00:00:05.000Z" })],
+      nextCursor: "c",
+    };
+    const merged = keepFresherJobs(old, stale) as JobListDto;
+    expect(merged.items.map((j) => j.status)).toEqual(["reverted", "held"]);
+    expect(merged.nextCursor).toBe("c");
+  });
+
+  it("passes the first page through", () => {
+    const page: JobListDto = { items: [job()], nextCursor: null };
+    expect(keepFresherJobs(undefined, page)).toBe(page);
   });
 });

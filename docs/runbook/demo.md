@@ -9,7 +9,7 @@
 - [ ] **Demo mode bật:** ở mục 02 của `/admin` chọn `Demo mode` (hoặc `PATCH /api/v1/admin/rebalancer {"paused":true}`); rebalancer không tự swap nữa, chỉ bấm tay
 - [ ] Safe có đủ MockUSDC; agent EOA có AVAX trả gas
 - [ ] Policy đang `isActive`, `spentToday = 0` (lưu ý `dayId` theo UTC: 00:00 UTC = 7h sáng VN)
-- [ ] Gemini key còn quota; thử 1 lần ra badge `llm`
+- [ ] Gemini key còn quota (free tier ~10 RPM, ~250 lượt/ngày); thử 1 lần ra badge `llm`, và 1 lượt **Hijack the AI** ra nhãn `LLM · gemini-2.5-flash` trên thẻ "The agent's brain" (nếu ra `Rules · …` là LLM chưa chạy)
 - [ ] Thử ngắt Wi-Fi: giải thích chuyển sang `template` < 2s, UI không vỡ
 - [ ] Mở sẵn tab Snowtrace Fuji; ví owner đã kết nối và đủ gas
 - [ ] Có RPC dự phòng; laptop dự phòng hoặc bản cloud
@@ -21,12 +21,13 @@
 |---|---|---|---|
 | **1** · Chạy chuẩn | Guided bước 01: chọn số USDC (mặc định 20, tối đa 100 trên vault demo dùng chung) rồi bấm **Make the trade** | Track đi qua 4 cổng; thẻ xanh SAFE (badge `llm`); budget tăng đúng số đã chọn; Before→After đổi | AI chỉ giải thích; số tiền do toán quyết định; tiền về lại Safe |
 | **2** · Tấn công | Bấm đỏ **#1 Over-withdraw 2,000** | Thẻ đỏ, reason code `ExceedsPerTxCap`, giải thích tiếng Việt; không có tx on-chain | Shield 1 chặn ngoài cửa |
+| | Guided bước 03 **Hijack the AI**: bấm **Plant the fake message** | Thẻ "The agent's brain": tin độc trong feed, suy nghĩ của AI, kế hoạch "swap all the USDC → 0x9999…" tô đỏ; rồi Shield 1 chặn (`RECIPIENT_NOT_SAFE`, vượt cap) | "Chính con AI bị lừa và thật sự cố rút tiền. Vault vẫn an toàn, vì luật nằm ngoài AI." |
 | | Bấm đỏ **#4 Bypass website ⚡** | Thẻ đỏ + **link Snowtrace của tx revert** `ExceedsPerTxCap`; số dư Safe không đổi | Bỏ qua cả web của chúng tôi, chain vẫn chặn: đây là Shield 2 |
 | **3** · Kill | Bấm **KILL-SWITCH** (ví owner ký) | `PolicyRevoked`, hiển thị độ trễ ~1.5s, trạng thái chuyển 🔴 | Ký từ browser, không qua backend: "tắt server đi, nút Kill vẫn chạy" |
 | | (tuỳ chọn) bấm lại Rebalance | Bị chặn `PolicyInactive` | Session key đã vô hiệu |
 | | Chiếu kết quả `forge test --fuzz-runs 10000` | 10,000 runs xanh, invariant xanh | Kỹ thuật: fuzz + invariant testing |
 
-Nếu còn thời gian: #2 Wrong recipient, #3 Unlimited approval (Safe revert `GS104`), ô prompt-injection (badge "LLM bị bỏ qua — template" nếu output sai số).
+Nếu còn thời gian: #2 Wrong recipient, #3 Unlimited approval (Safe revert `GS104`), Free play tab **Hijack the AI** → **Auto red-team · 5 attacks** (AI tấn công tự viết 5 đòn, bảng điểm "0 / 5 got funds out"; cooldown 60s mỗi vault, tốn khoảng 6 lượt gọi LLM).
 
 ## 3. Câu thoại Avalanche (điểm tích hợp 25%)
 
@@ -39,6 +40,7 @@ Nếu còn thời gian: #2 Wrong recipient, #3 Unlimited approval (Safe revert `
 | Sự cố | Cách xử lý |
 |---|---|
 | Gemini chậm | Để nguyên: badge `template` là tính năng, nói luôn |
+| Hijack ra `Rules · LLM busy/too slow` | Vẫn đúng: rule planner đóng vai AI bị lừa, các shield chặn y như vậy. Nói: "kể cả khi LLM sập, demo vẫn chạy" |
 | RPC chậm | Fallback transport tự chuyển; nếu treo, mở tx trên Snowtrace bằng link đã chuẩn bị |
 | Job `failed` (hạ tầng) | Bấm lại; không retry revert: revert là kết quả đúng |
 | Hết budget ngày | Dùng policy mới / lùi sang bản backup đã seed |

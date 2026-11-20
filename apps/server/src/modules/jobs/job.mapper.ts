@@ -1,4 +1,5 @@
 import {
+  AgentPlan,
   type AuditEntry,
   CheckRow,
   Explanation,
@@ -52,6 +53,8 @@ export function toJobDto(row: JobRow): JobDto {
     revertError: row.status === 'reverted' ? (row.reasonCode ?? 'UNKNOWN_REVERT') : null,
     reasonCode: row.reasonCode ?? null,
     explanation: parsed<Explanation>(Explanation, row.explanation),
+    agentPlan: parsed<AgentPlan>(AgentPlan, row.agentPlan),
+    scenario: isAttack(row) ? row.kind.slice('attack:'.length) || null : null,
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),
   };

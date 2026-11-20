@@ -1,4 +1,6 @@
-import { Inject, Injectable, Logger } from '@nestjs/common';
+import { Inject, Injectable, Logger, Optional } from '@nestjs/common';
+import { LLM_QUOTA } from '../../core/llm/llm.module';
+import type { LlmQuota } from '../../core/llm/quota';
 import type { Explanation } from '../../core/types';
 import { TemplateExplainer } from './adapters/template.explainer';
 import { LLM_EXPLAINER, type ExplainInput, type LlmExplainer } from './explainer.port';
@@ -15,18 +17,23 @@ import { RateLimiter, TtlCache } from './rate-control';
 export class ExplainerService {
   private readonly log = new Logger(ExplainerService.name);
   private readonly cache = new TtlCache<Explanation>();
-  private readonly limiter: RateLimiter;
+  private readonly limiter: Pick<RateLimiter, 'tryTake'>;
 
   constructor(
     @Inject(LLM_EXPLAINER) private readonly llm: LlmExplainer,
     private readonly template: TemplateExplainer,
+    /** The process-wide LLM budget shared with the red-team brain (LlmModule); its own limiter when absent (tests). */
+    @Optional() @Inject(LLM_QUOTA) quota?: LlmQuota,
   ) {
-    this.limiter = new RateLimiter(llm.rpm);
+    // The explainer leaves a fifth of the shared budget to the red-team brain: a template sentence is a fine fallback,
+    // a rules-planned attack is a weaker demo.
+    this.limiter = quota ? { tryTake: () => quota.tryTake(Math.floor(quota.max / 5)) } : new RateLimiter(llm.rpm);
     this.log.log(llm.available ? `LLM explainer: ${llm.label} (max ${llm.rpm}/min)` : 'LLM explainer: off, template only');
   }
 
   async explain(input: ExplainInput): Promise<Explanation> {
-    if (!this.llm.available) return this.template.explain(input);
+    // A held red-team run was never sent; only the template is sure to say so (the guard cannot catch "it was sent").
+    if (!this.llm.available || input.held) return this.template.explain(input);
 
     const key = cacheKey(input);
     const cached = this.cache.get(key);

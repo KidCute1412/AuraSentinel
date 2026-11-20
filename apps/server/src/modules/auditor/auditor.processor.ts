@@ -12,6 +12,8 @@ export interface SwapJobData {
   intent: SwapIntentWire;
   /** Red-team prompt-injection text. Goes to ExplainInput.untrustedText, nowhere else. */
   untrustedText?: string;
+  /** Red-team job: run every shield, never broadcast. A plan that passes ends `held` (AuditRequest.dryRun). */
+  dryRun?: boolean;
 }
 
 /** concurrency: 1 because this path signs; serializes nonce usage (P4). */
@@ -22,8 +24,8 @@ export class AuditorProcessor extends WorkerHost {
   }
 
   async process(job: Job<SwapJobData>): Promise<void> {
-    const { jobId, vault, intent, untrustedText } = job.data;
+    const { jobId, vault, intent, untrustedText, dryRun } = job.data;
     const lastAttempt = job.attemptsMade + 1 >= (job.opts.attempts ?? 1);
-    await this.auditor.audit({ jobId, vault, intent: intentFromWire(intent), untrustedText, lastAttempt });
+    await this.auditor.audit({ jobId, vault, intent: intentFromWire(intent), untrustedText, dryRun: dryRun === true, lastAttempt });
   }
 }

@@ -15,20 +15,25 @@ export interface TrackTarget {
   halted: boolean;
   /** An on-chain attack: the packet jumps straight over the Shield 1 gates. */
   bypass: boolean;
+  /** A red-team plan stopped before the chain on purpose: the packet waits at `stop`, no barrier, never in the vault. */
+  held: boolean;
 }
 
 export const VAULT_STOP = 4;
 
 export function trackTarget(looks: readonly GateLook[], jobFailed = false): TrackTarget {
   const bypass = looks[0] === "bypassed";
+  const base = { blocked: false, halted: false, bypass, held: false };
   const fail = looks.indexOf("fail");
-  if (fail >= 0) return { stop: fail, blocked: true, halted: false, bypass };
+  if (fail >= 0) return { ...base, stop: fail, blocked: true };
+  const held = looks.indexOf("held");
+  if (held >= 0) return { ...base, stop: held, held: true };
   const active = looks.indexOf("active");
-  if (active >= 0) return { stop: active, blocked: false, halted: false, bypass };
+  if (active >= 0) return { ...base, stop: active };
   const ran = looks.map((l) => l === "pass" || l === "bypassed");
-  if (ran.every(Boolean)) return { stop: VAULT_STOP, blocked: false, halted: false, bypass };
+  if (ran.every(Boolean)) return { ...base, stop: VAULT_STOP };
   const firstOpen = ran.indexOf(false);
-  return { stop: jobFailed ? firstOpen : looks.every((l) => l === "pending") ? 0 : firstOpen, blocked: false, halted: jobFailed, bypass };
+  return { ...base, stop: jobFailed ? firstOpen : looks.every((l) => l === "pending") ? 0 : firstOpen, halted: jobFailed };
 }
 
 /**

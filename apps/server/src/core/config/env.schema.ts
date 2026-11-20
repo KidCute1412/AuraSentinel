@@ -59,6 +59,14 @@ export const envSchema = z.object({
   /** Max calls per minute to LLM_BASE_URL (button spam must not load the box); above it the explainer uses the template. */
   LLM_RPM: z.coerce.number().int().positive().default(60),
 
+  /**
+   * Hijacked Agent brain (red-team prompt injection): max wait for the LLM plan before the keyword planner takes over.
+   * Longer than the explainer's: the plan is the whole point of the run, and nothing is waiting to broadcast.
+   */
+  PLANNER_TIMEOUT_MS: z.coerce.number().int().positive().default(8_000),
+  /** One Auto red-team run (5 LLM-written attacks) per vault per this long. 0 disables it (e2e tests). */
+  AUTO_REDTEAM_COOLDOWN_MS: z.coerce.number().int().nonnegative().default(60_000),
+
   /** Contract test summary written by the L5 CI job; GET /proof reads it. */
   PROOF_TESTS_FILE: z.string().default('../../packages/contracts/proof/tests.json'),
 

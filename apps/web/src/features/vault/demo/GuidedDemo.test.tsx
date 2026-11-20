@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { setMockDelays, useMockChain } from "@/shared/api/mockChain";
@@ -55,8 +55,18 @@ describe("GuidedDemo (simulation)", () => {
   it("a step can be skipped, and Back returns to the previous one", () => {
     renderGuided();
     fireEvent.click(screen.getByRole("button", { name: /Skip this step/ }));
-    expect(screen.getByText("Step 2 of 4")).toBeInTheDocument();
+    expect(screen.getByText("Step 2 of 5")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: /Back/ }));
-    expect(screen.getByText("Step 1 of 4")).toBeInTheDocument();
+    expect(screen.getByText("Step 1 of 5")).toBeInTheDocument();
+  });
+
+  it("step 3 hijacks the AI: its plan shows, and the pre-check refuses it", async () => {
+    renderGuided();
+    fireEvent.click(screen.getByRole("button", { name: /Hijack the AI/ }));
+    expect(screen.getByRole("heading", { name: "Hijack the AI's brain" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: /Plant the fake message/ }));
+    expect(await screen.findByText("The AI was fooled. The vault was not.")).toBeInTheDocument();
+    const brain = within(screen.getByRole("region", { name: "What the hijacked agent decided" }));
+    expect(brain.getAllByText("Proceeds to a stranger").length).toBeGreaterThan(0);
   });
 });

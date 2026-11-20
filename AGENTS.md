@@ -12,7 +12,7 @@ pnpm workspaces + Turborepo · `apps/server` NestJS 11 (entrypoints: api, worker
 ## Non-negotiables (details: skill `agentshield-invariants`)
 1. Chain is the source of truth; never mirror policy/spend state in Postgres.
 2. Kill-Switch and setPolicy are signed by the owner in the browser, never via backend.
-3. The LLM only writes `messageVi`; verdict, amounts, signing are deterministic.
+3. The LLM only writes `messageVi`; verdict, amounts, signing are deterministic. One exception: the red-team Hijacked Agent brain (`modules/agent-brain`) plays a fooled agent and writes a plan, which is attacker data: code sizes it, every shield judges it, and it is never broadcast unless the chain refuses it.
 4. All money is `bigint`/string in base units. No floats.
 5. Only `modules/execution` touches the session key. Owner key never enters backend/env.
 6. All UI follows `docs/product/design-system.md` ("Sentinel Terminal": dark, square corners, hard shadows, green accent with red reserved for danger, Hanken Grotesk + Geist Mono). Read skill `ui-design-system` before touching `apps/web`; no colors, fonts or rounded corners outside its tokens.

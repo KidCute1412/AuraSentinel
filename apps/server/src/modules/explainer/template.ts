@@ -6,6 +6,10 @@ import { buildFacts, type ExplainFacts } from './facts';
 /** Sentence for an approved swap. Uses only the facts that are present. */
 function safeMessageVi(f: ExplainFacts): string {
   const amount = f.params.amount;
+  if (f.held) {
+    const what = amount ? ` (${amount})` : '';
+    return `Kế hoạch${what} nằm trong policy nên các lớp kiểm tra cho qua. Đây là lượt red-team nên lệnh không được gửi lên chain, tiền vẫn nằm trong két.`;
+  }
   const what = amount && f.received ? `: đổi ${amount} lấy khoảng ${f.received}` : '';
   const budget = f.budgetPct ? ` Sau lệnh này đã dùng ${f.budgetPct} hạn mức hôm nay.` : '';
   return `Lệnh đã qua đủ các lớp kiểm tra${what}, tiền vẫn nằm trong két.${budget}`;

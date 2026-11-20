@@ -1,6 +1,6 @@
 import type { Address } from 'viem';
 import type { SwapIntent, VaultTarget } from '../../../core/types';
-import type { RawCall, TxResult, TxSenderPort } from '../tx-sender.port';
+import type { RawCall, RawCallResult, TxResult, TxSenderPort } from '../tx-sender.port';
 
 export const FAKE_TX_HASH = `0x${'00'.repeat(32)}` as const;
 
@@ -19,5 +19,9 @@ export class FakeTxSender implements TxSenderPort {
 
   async sendRaw(_call: RawCall): Promise<TxResult> {
     throw new Error('FakeTxSender cannot send raw transactions: set AGENT_PRIVATE_KEY to run on-chain attacks');
+  }
+
+  async callRaw(_call: RawCall): Promise<RawCallResult> {
+    throw new Error('FakeTxSender cannot dry-run raw calls: set AGENT_PRIVATE_KEY to run on-chain attacks');
   }
 }
