@@ -64,7 +64,8 @@ export function readAmount(raw: string | number | undefined): string | 'all' | '
   if (raw === undefined) return null;
   if (typeof raw === 'number') {
     if (!Number.isFinite(raw) || raw < 0) return null;
-    raw = Number.isInteger(raw) ? raw.toFixed(0) : String(raw);
+    // A JSON number from the model: its plain digits are read as text below; exponent forms ("1e+21") are refused.
+    raw = String(raw);
   }
   const s = raw
     .trim()
