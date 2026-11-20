@@ -137,10 +137,23 @@ function emptyText(g: Gate, job: JobDetailDto): string {
   return g.note ?? (g.look === "pass" ? "Passed." : "Stopped here.");
 }
 
-function GateDetail({ gate, job, showTime }: { gate: Gate; job: JobDetailDto; showTime?: boolean }) {
+/** A gate with more rules than this shows the deciding ones first (compact card only). */
+const FOLD_OVER = 5;
+
+/**
+ * One gate's evidence. `focus` (the compact card): when rules failed, only those show first, the rest are one click
+ * away, so the card stays short and the deciding rule is what you read. The job page (`full`) lists every rule.
+ */
+function GateDetail({ gate, job, showTime, focus = false }: { gate: Gate; job: JobDetailDto; showTime?: boolean; focus?: boolean }) {
   const info = GATE_INFO[gate.id];
   const failed = gate.checks.filter((c) => !c.pass).length;
   const flow = moneyFlow(gate.id, gate.checks);
+  const [showAll, setShowAll] = useState(false);
+  // Kept even when folded: failed rules, the transaction evidence (Snowtrace link, block) and the daily-budget bar.
+  const keep = (c: CheckRow) => !c.pass || c.id.startsWith("tx-") || dailyBar(c, job.intent?.amountIn) !== null;
+  const kept = gate.checks.filter(keep);
+  const folded = focus && !showAll && failed > 0 && gate.checks.length > FOLD_OVER && kept.length < gate.checks.length;
+  const rows = folded ? kept : gate.checks;
   return (
     <div className={cn("border border-line bg-bg", gate.look === "fail" && "border-danger")}>
       <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1 border-b border-line px-4 py-2.5">
@@ -159,11 +172,22 @@ function GateDetail({ gate, job, showTime }: { gate: Gate; job: JobDetailDto; sh
       <p className="px-4 pt-2.5 text-sm text-soft">{info.what}</p>
       {flow && <MoneyFlowDiagram flow={flow} />}
       {gate.checks.length > 0 ? (
-        <ul className="mt-2 divide-y divide-line border-t border-line">
-          {gate.checks.map((c, i) => (
-            <RuleRow key={`${c.id}-${i}`} row={c} amountIn={job.intent?.amountIn} index={i} />
-          ))}
-        </ul>
+        <>
+          <ul className="mt-2 divide-y divide-line border-t border-line">
+            {rows.map((c, i) => (
+              <RuleRow key={`${c.id}-${i}`} row={c} amountIn={job.intent?.amountIn} index={i} />
+            ))}
+          </ul>
+          {folded && (
+            <button
+              type="button"
+              onClick={() => setShowAll(true)}
+              className="w-full border-t border-line px-4 py-2 text-left font-mono text-[11px] font-bold uppercase tracking-widest text-soft hover:bg-hover hover:text-fg"
+            >
+              Show all {gate.checks.length} rules ({gate.checks.length - kept.length} more passed)
+            </button>
+          )}
+        </>
       ) : (
         <p className="px-4 pb-3 pt-1.5 text-sm">{emptyText(gate, job)}</p>
       )}
@@ -266,7 +290,7 @@ export function ShieldPipeline({ job, variant = "compact" }: { job: JobDetailDto
       ) : (
         <div role="tabpanel" id={`gate-panel-${job.id}`} aria-labelledby={`gate-${job.id}-${selected}`}>
           {/* Keyed by gate: switching tabs mounts a fresh table, so rows and arrows replay and never pile up. */}
-          <GateDetail key={selected} gate={gates.find((g) => g.id === selected)!} job={job} />
+          <GateDetail key={selected} gate={gates.find((g) => g.id === selected)!} job={job} focus />
         </div>
       )}
     </div>

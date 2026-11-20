@@ -22,6 +22,27 @@ const precheckRows = (amount: number): CheckRow[] => [
 const detail = (over: Partial<JobDetailDto>): JobDetailDto => ({ ...jobDetail(job()), ...over });
 
 describe("ShieldPipeline", () => {
+  it("a long rule table shows the deciding rules first; the passed ones are one click away", () => {
+    const rows = [...precheckRows(2_000), ok("min-out"), ok("tokens-allowed"), ok("different-tokens")];
+    render(
+      <ShieldPipeline
+        job={detail({
+          status: "rejected",
+          reasonCode: "ExceedsPerTxCap",
+          intent: { ...job().intent!, amountIn: "2000000000" },
+          precheck: { ok: false, reasons: ["ExceedsPerTxCap"] },
+          audit: [{ shield: "precheck", result: "fail", reason: "ExceedsPerTxCap", ts, checks: rows }],
+        })}
+      />,
+    );
+    // The failed rule and the daily-budget bar stay; the other passed rules fold away.
+    expect(screen.getByText("Per-trade cap")).toBeInTheDocument();
+    expect(screen.queryByText("Signed by the vault's own agent")).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: /Show all 8 rules/ }));
+    expect(screen.getByText("Signed by the vault's own agent")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Show all/ })).toBeNull();
+  });
+
   it("over-withdraw: stops at pre-check and shows the trade against the per-trade cap", () => {
     render(
       <ShieldPipeline

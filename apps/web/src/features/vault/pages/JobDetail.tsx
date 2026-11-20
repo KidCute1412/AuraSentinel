@@ -9,6 +9,7 @@ import { timeAgo } from "@/shared/lib/time";
 import { AddressChip } from "@/shared/ui/AddressChip";
 import { Panel } from "@/shared/ui/Panel";
 import { Skeleton } from "@/shared/ui/Skeleton";
+import { StickyColumn } from "@/shared/ui/StickyColumn";
 import { sectionPath } from "../guards/access";
 import { VerdictCard } from "../components/VerdictCard";
 
@@ -153,7 +154,8 @@ export function JobDetail({ view, jobId }: { view: VaultView; jobId: string | un
       </div>
       <div className="grid grid-cols-[minmax(0,1fr)] gap-6 lg:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)]">
         <VerdictCard job={job} showTimes />
-        <div className="space-y-6">
+        {/* Short beside the full verdict: it follows the reader down while it fits on the screen. */}
+        <StickyColumn offset="app" className="space-y-6">
           <BalancePanel job={job} feed={feed} />
           <Panel title="Job facts">
             <dl className="space-y-3 text-sm">
@@ -181,7 +183,7 @@ export function JobDetail({ view, jobId }: { view: VaultView; jobId: string | un
               )}
             </dl>
           </Panel>
-        </div>
+        </StickyColumn>
       </div>
     </div>
   );

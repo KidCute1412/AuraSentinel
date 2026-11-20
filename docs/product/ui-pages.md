@@ -128,7 +128,7 @@ Wizard `/vaults/new/*`, bước hoàn thành đọc từ chain:
 | Toast | Thành công/thất bại tx, 429 cooldown |
 | Footer | Link repo, Snowtrace, `/proof` |
 
-Responsive ≥ 375px: 3 cột → xếp dọc theo thứ tự Policy → Vault → Activity → Red-team (xem §4).
+Responsive ≥ 375px: dưới 1024px các cột xếp dọc theo thứ tự trong mã (xem §4.1).
 
 ---
 
@@ -162,6 +162,14 @@ Responsive ≥ 375px: 3 cột → xếp dọc theo thứ tự Policy → Vault �
 **Thanh điều hướng vault (chỉ ở `/vaults/:safe/*`):** `Tổng quan · Hoạt động · Policy · Quỹ · Red-team · Cài đặt`; `Cài đặt` chỉ hiện với owner. **Nút Kill-Switch nằm ở `VaultHeader` của mọi trang con** (owner mới thấy), không phải chỉ ở Tổng quan, vì khi khẩn cấp không ai muốn tìm trong menu.
 
 ### 4.1 Layout (desktop ≥ 1024px)
+
+**Cập nhật 2026-11-20 (bố cục cân):** bỏ 3 cột cũ (cột giữa dài gấp 4-5 lần hai cột bên, verdict bị ép hẹp ~430px nên nhãn pipeline đè nhau). Tổng quan `/vaults/:safe` giờ có 2 hàng:
+
+1. **Vault** (3 cột đều): Budget + Balances · Policy · Kill-Switch + Deposit/Withdraw. Khách không có Kill-Switch/Funds thì Budget · Balances · Policy mỗi thẻ một cột, không để cột trống.
+2. **Jobs** (2 cột, giống Free play): `RedTeamPanel layout="tabs"` + Recent jobs (4 dòng, còn 2 khi bảng Auto red-team đang mở vì bảng đã liệt kê 5 lượt) · VerdictCard của job đang chọn (rộng ~570px).
+
+Cột nào ngắn hơn màn hình thì dính theo khi cuộn (`shared/ui/StickyColumn`, đo bằng `ResizeObserver`); cột cao hơn màn hình cuộn bình thường, vì cột sticky cao hơn màn hình sẽ che mất đáy của nó. Cùng cơ chế ở: cột vault của Guided, hai cột Free play, hai cột trang Red team, cột Before/after + Job facts của trang job. Sơ đồ dưới là bản gốc, giữ để tra tên component.
+
 
 ```
 ┌ VaultHeader: 0xSafe..  [● Active]  Agent: 0xAgent..  [Snowtrace ↗] ─┐
@@ -256,9 +264,10 @@ Mỗi reason code → câu tiếng Việt từ `shared/errors.ts` (Q1); UI khôn
 - **Free play**: cho giám khảo hoặc người muốn thử mọi thứ. Bố cục theo vòng "bấm → đọc kết quả" để màn đầu (1320×778) chứa cả nút lẫn verdict, không phải cuộn:
   - Hero thu gọn (bỏ đoạn mô tả, h1 nhỏ hơn) vì người vào Free play đã biết ý tưởng.
   - **01 Pick a move** (cột trái): `RedTeamPanel layout="tabs"`, một thẻ với 3 tab Attacks (mặc định, 4 attack lưới 2×2) / Hijack the AI / Normal trade, bên dưới là Recent jobs (4 dòng). Tab **Hijack the AI**: ô "Poisoned feed item", 5 mẫu (`HIJACK_PRESETS`), nút **Hijack the agent** và **Auto red-team · 5 attacks**; Auto red-team hiện `AutoRedTeamBoard` (5 dòng, mỗi dòng bấm để mở verdict, tổng "N / 5 got funds out" khi xong).
-  - **02 Read the verdict** (cột phải, sticky trên desktop): VerdictCard của job vừa bấm hoặc job chọn trong Recent jobs. Trên điện thoại verdict nằm dưới, bấm xong tự cuộn tới.
+  - **02 Read the verdict** (cột phải; hai cột dính theo khi cuộn nếu vừa màn hình, §4.1): VerdictCard của job vừa bấm hoặc job chọn trong Recent jobs. Trên điện thoại verdict nằm dưới, bấm xong tự cuộn tới.
   - **03 Watch the vault**: header vault (`VaultHeaderBar`, không tạo thêm query observer), Budget + Balances, Policy, Kill-Switch.
-  - Trang `/vaults/:safe` (owner) và trang Red team giữ nguyên bố cục cũ. Thẻ "Try it in 4 steps" cũ đã bỏ vì Guided thay nó.
+  - Trang `/vaults/:safe` dùng cùng cặp "bấm → đọc" này, đặt dưới hàng Vault (§4.1). Thẻ "Try it in 4 steps" cũ đã bỏ vì Guided thay nó.
+  - Thẻ verdict gọn: nhãn `LLM`/`TEMPLATE` và mã lý do (`ExceedsPerTxCap · …`) chung một dòng; bảng luật của gate bị chặn chỉ hiện luật quyết định khi gate có hơn 5 luật (nút "Show all N rules"); pipeline track chỉ hiện chữ khi chính nó rộng ≥ 32rem (container query), nên cột hẹp không bị chữ đè.
 
 ---
 

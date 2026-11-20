@@ -2,7 +2,6 @@ import { Link } from "react-router-dom";
 import type { JobDetailDto } from "@agentshield/shared";
 import { REASONS, type ReasonCode } from "@/shared/api/mockEngine";
 import { shortAddress } from "@/shared/lib/address";
-import { cn } from "@/shared/lib/cn";
 import { explanationText } from "@/shared/lib/explanationText";
 import { formatPct } from "@/shared/lib/format";
 import { Chamfer } from "@/shared/ui/Chamfer";
@@ -11,7 +10,7 @@ import { SnowtraceLink } from "@/shared/ui/SnowtraceLink";
 import { Stamp } from "@/shared/ui/Stamp";
 import { StatusBadge } from "@/shared/ui/StatusBadge";
 import { isTerminal } from "../lib/timeline";
-import { AgentBrainCard } from "./AgentBrainCard";
+import { AgentBrainCard, AttackStep } from "./AgentBrainCard";
 import { ShieldPipeline } from "./ShieldPipeline";
 
 function headline(job: JobDetailDto): string {
@@ -36,6 +35,13 @@ export function VerdictCard({ job, detailsTo, showTimes = false, expectBrain = f
   const blocked = job.status === "rejected" || job.status === "reverted";
   const reason = job.reasonCode && job.reasonCode in REASONS ? REASONS[job.reasonCode as ReasonCode] : null;
   const shown = done ? explanationText(job) : null;
+  const reasonChip = reason && job.reasonCode && (
+    <span className="inline-flex items-center gap-2 border-l-4 border-danger bg-bg px-2 py-0.5 text-xs text-soft">
+      <span className="font-mono font-bold text-danger-text">{job.reasonCode}</span>
+      <span aria-hidden className="text-muted">·</span>
+      {reason.title}
+    </span>
+  );
 
   return (
     <Chamfer
@@ -55,10 +61,12 @@ export function VerdictCard({ job, detailsTo, showTimes = false, expectBrain = f
         {shown ? (
           <>
             <p className="text-sm text-soft">{shown.text}</p>
-            <p className="mt-2">
+            {/* Who wrote the words, and the rule's code name for the technical reader, on one line. */}
+            <p className="mt-2 flex flex-wrap items-center gap-2">
               <span className="mono-label border border-line-strong px-1.5 py-0.5" title={shown.source === "llm" ? "Wording written by the language model. The verdict is computed by rules." : "Wording from a fixed template. The verdict is computed by rules."}>
                 {shown.source === "llm" ? "LLM" : "TEMPLATE"}
               </span>
+              {reasonChip}
             </p>
           </>
         ) : job.status === "failed" ? (
@@ -71,23 +79,22 @@ export function VerdictCard({ job, detailsTo, showTimes = false, expectBrain = f
         )}
       </div>
 
-      {reason && job.reasonCode && (
-        <p className={cn("mt-3 border-l-4 px-3 py-2 text-xs", "border-danger bg-bg text-soft")}>
-          <span className="font-mono font-bold text-danger-text">{job.reasonCode}</span>
-          <span className="mx-2 text-muted">·</span>
-          {reason.title}
-        </p>
-      )}
+      {!shown && reasonChip && <p className="mt-2">{reasonChip}</p>}
 
-      {(job.agentPlan || ((expectBrain || job.scenario === "prompt-injection") && !done)) && (
-        <div className="mt-5">
+      {job.agentPlan || ((expectBrain || job.scenario === "prompt-injection") && !done) ? (
+        // A hijack reads as a story: the bait, what the fooled AI planned, then the shields that judged it.
+        <div className="mt-5 space-y-4 border-t border-line pt-4">
+          <p className="mono-label">How the attack went</p>
           <AgentBrainCard plan={job.agentPlan} />
+          <AttackStep n={3} title="The shields">
+            <ShieldPipeline job={job} variant={showTimes ? "full" : "compact"} />
+          </AttackStep>
+        </div>
+      ) : (
+        <div className="mt-5 border-t border-line pt-4">
+          <ShieldPipeline job={job} variant={showTimes ? "full" : "compact"} />
         </div>
       )}
-
-      <div className="mt-5 border-t border-line pt-4">
-        <ShieldPipeline job={job} variant={showTimes ? "full" : "compact"} />
-      </div>
 
       <div className="mt-4 flex flex-wrap items-center gap-x-5 gap-y-2">
         {job.txHash && <SnowtraceLink kind="tx" value={job.txHash}>{job.status === "reverted" ? "See the revert on Snowtrace" : "View on Snowtrace"}</SnowtraceLink>}
