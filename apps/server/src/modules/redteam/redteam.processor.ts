@@ -1,5 +1,5 @@
 import { Processor, WorkerHost } from '@nestjs/bullmq';
-import { Inject, Logger } from '@nestjs/common';
+import { Inject, Logger, Optional } from '@nestjs/common';
 import type { Job } from 'bullmq';
 import { ENV } from '../../core/config/config.module';
 import type { Env } from '../../core/config/env.schema';
@@ -8,13 +8,15 @@ import { TX_SENDER, type TxResult, type TxSenderPort } from '../execution/tx-sen
 import { onchainChecks } from '../auditor/domain/checks';
 import { JobsService } from '../jobs/jobs.service';
 import { VaultRegistryService } from '../vault/vault-registry.service';
+import { HijackService } from './hijack.service';
 import { buildOnchainCall } from './onchain-calls';
 import type { AttackJobData } from './redteam.controller';
 import { attackContext, SCENARIOS } from './scenarios';
 
 /**
- * Worker side of the on-chain attacks (#3 unlimited approval, #4 bypass). concurrency 1, and the
- * same TxSender instance as swaps (one mutex, one nonce chain: P4).
+ * Worker side of the on-chain attacks (#3 unlimited approval, #4 bypass) and of every Hijacked Agent run
+ * (prompt injection, HijackService). concurrency 1, and the same TxSender instance as swaps (one mutex, one nonce
+ * chain: P4).
  *
  * The call skips Shield 1 and goes straight to Fuji with manual gas, so Shield 2's revert is mined:
  * - reverted  -> job `reverted` with txHash + decoded reason (the expected outcome);
@@ -30,13 +32,19 @@ export class RedteamProcessor extends WorkerHost {
     @Inject(ENV) private readonly env: Env,
     @Inject(TX_SENDER) private readonly sender: TxSenderPort,
     private readonly vaults: VaultRegistryService,
+    @Optional() private readonly hijack?: HijackService,
   ) {
     super();
   }
 
   /** Returns a JSON-safe summary: BullMQ stores the return value with JSON.stringify (no bigint). */
-  async process(job: Job<AttackJobData>): Promise<{ txHash: string; status: TxResult['status']; revertReason?: string } | null> {
-    const { jobId, vault, scenario } = job.data;
+  async process(job: Job<AttackJobData>): Promise<{ txHash: string; status: TxResult['status']; revertReason?: string } | { hijack: string } | null> {
+    const data = job.data;
+    if (data.scenario === 'prompt-injection') {
+      if (!this.hijack) throw new Error('HijackService is not provided');
+      return { hijack: await this.hijack.run(data.jobId, data.vault, data.text) };
+    }
+    const { jobId, vault, scenario } = data;
     const plan = SCENARIOS[scenario].plan(attackContext(this.env, vault));
     // The module that guards THIS vault (chain-backed registry), so the bypass hits the vault under
     // attack and its Snowtrace link shows that vault's own Shield 2. Never the env demo module by default.

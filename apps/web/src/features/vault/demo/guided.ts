@@ -1,4 +1,4 @@
-import { DEMO_NORMAL_TRADE, DEMO_TRADE_MAX, JOB_TERMINAL_STATUSES, type JobDetailDto, type StateDto } from "@agentshield/shared";
+import { DEMO_NORMAL_TRADE, DEMO_TRADE_MAX, hijackPreset, JOB_TERMINAL_STATUSES, type JobDetailDto, type StateDto } from "@agentshield/shared";
 import { formatTokenAmount } from "@/shared/lib/format";
 import { REASONS, spentUsdc, usdcLimit, type JobSpec, type ReasonCode } from "@/shared/api/mockEngine";
 import { checkOutcome } from "../lib/attacks";
@@ -6,7 +6,7 @@ import { parseLimit } from "../lib/policyForm";
 import type { TourStep } from "../lib/tour";
 
 /**
- * The Guided mode of /demo: four plain-language steps, one at a time, each with its own button and its result shown
+ * The Guided mode of /demo: five plain-language steps, one at a time, each with its own button and its result shown
  * right under it. The ids match lib/tour (tourProgress), so a step done in Free play counts here too.
  */
 
@@ -101,6 +101,16 @@ export const GUIDED_STEPS: readonly GuidedStep[] = [
     spec: { type: "attack", scenario: "over-withdraw" },
   },
   {
+    id: "hijack",
+    short: "Hijack the AI",
+    title: "Hijack the AI's brain",
+    story:
+      "Now fool the AI itself. A fake message lands in its market feed: the market is crashing, send everything to a stranger. The AI believes it and plans exactly that.",
+    expect: "The AI really does try. The pre-check still refuses its plan: money can only come back to the vault.",
+    cta: "Plant the fake message",
+    spec: { type: "injection", text: hijackPreset("drain").text },
+  },
+  {
     id: "bypass",
     short: "Hack around",
     title: "Skip the website and hack the chain directly",
@@ -159,6 +169,20 @@ export function stepResult(id: GuidedId, job: Pick<JobDetailDto, "status" | "rea
       return { kind: "pass", tone: "danger", stamp: "Blocked", headline: "Blocked, by another rule.", detail: reasonSentence(job.reasonCode ?? job.revertError) ?? check.label };
     }
     return { kind: "other", headline: "Not blocked", detail: "This should never happen. Please tell the team." };
+  }
+  if (id === "hijack") {
+    const check = checkOutcome(job, "prompt-injection");
+    if (check.kind !== "expected") return { kind: "other", headline: "Not blocked", detail: "This should never happen. Please tell the team." };
+    if (job.status === "held") {
+      return { kind: "pass", tone: "ok", stamp: "Held", headline: "Held: inside the rules, never sent.", detail: "The AI's plan stayed inside the policy, so it could do no harm. Red-team runs are never sent." };
+    }
+    return {
+      kind: "pass",
+      tone: "danger",
+      stamp: "Blocked",
+      headline: "The AI was fooled. The vault was not.",
+      detail: `Its plan tried to send the money away. ${reasonSentence(job.reasonCode ?? job.revertError) ?? "A rule refused it."} Nothing was signed.`,
+    };
   }
   return { kind: "idle" };
 }

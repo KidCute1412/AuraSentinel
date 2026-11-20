@@ -1,3 +1,4 @@
+import { LlmQuota } from '../../core/llm/quota';
 import { REASONS, formatReasonVi, type ReasonCode } from '@agentshield/shared';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { Env } from '../../core/config/env.schema';
@@ -100,6 +101,14 @@ describe('template explainer (fallback)', () => {
       overCap({ reasonCode: 'RECIPIENT_NOT_SAFE', intent: { ...input().intent, recipient: HACKER } }),
     );
     expect(e.messageVi).toContain(HACKER);
+  });
+
+  it('explains a held red-team plan: it passed, and it was never sent', () => {
+    const e = explainWithTemplate(input({ held: true }));
+    expect(e).toMatchObject({ verdict: 'safe', source: 'template' });
+    expect(e.messageVi).toBe('Kế hoạch (200 USDC) nằm trong policy nên các lớp kiểm tra cho qua. Đây là lượt red-team nên lệnh không được gửi lên chain, tiền vẫn nằm trong két.');
+    // `held` never turns a blocked verdict into a pass.
+    expect(explainWithTemplate(overCap({ held: true })).verdict).toBe('blocked');
   });
 
   it('still writes a sentence with no display context at all', () => {
@@ -210,6 +219,23 @@ describe('ExplainerService', () => {
   } as const;
   const service = (gemini: object) =>
     new ExplainerService({ label: 'test', rpm: env.GEMINI_RPM, ...gemini } as LlmExplainer, new TemplateExplainer());
+
+  it('never asks the LLM about a held red-team plan (it could claim the trade was sent)', async () => {
+    const gemini = { available: true, explain: vi.fn().mockResolvedValue(llm) };
+    const e = await service(gemini).explain(input({ held: true }));
+    expect(e.source).toBe('template');
+    expect(gemini.explain).not.toHaveBeenCalled();
+  });
+
+  it('draws from the shared LLM quota and leaves a fifth of it to the red-team brain', async () => {
+    const quota = new LlmQuota(5);
+    const gemini = { available: true, explain: vi.fn().mockResolvedValue(llm) };
+    const svc = new ExplainerService({ label: 'test', rpm: 5, ...gemini } as unknown as LlmExplainer, new TemplateExplainer(), quota);
+    const sources = [];
+    for (let i = 0; i < 6; i++) sources.push((await svc.explain(input({ budgetUsedPct: i }))).source);
+    expect(sources).toEqual(['llm', 'llm', 'llm', 'llm', 'template', 'template']);
+    expect(quota.tryTake()).toBe(true); // the brain's reserved call is still there
+  });
 
   it('uses the template when no API key is configured', async () => {
     const svc = new ExplainerService(new GeminiExplainer(env), new TemplateExplainer());

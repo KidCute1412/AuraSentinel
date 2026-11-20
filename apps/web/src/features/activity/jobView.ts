@@ -32,8 +32,11 @@ export function tokenBook(state: StateDto | undefined): TokenBook {
 
 export type JobTone = "ok" | "danger" | "warn" | "pending";
 
-/** Who made the final call: Shield 1 (off-chain), Shield 2 (on-chain), both let it through, or infra failed. */
-export type Decider = "shield1" | "shield2" | "both" | "infra" | null;
+/**
+ * Who made the final call: Shield 1 (off-chain), Shield 2 (on-chain), both let it through, infra failed, or a red-team
+ * plan inside the policy was held back on purpose.
+ */
+export type Decider = "shield1" | "shield2" | "both" | "infra" | "held" | null;
 
 export interface JobReason {
   code: ReasonCode;
@@ -49,7 +52,7 @@ export interface JobView {
   tone: JobTone;
   terminal: boolean;
   /** Verdict stamp text; null while the job is still running. */
-  stamp: "APPROVE" | "BLOCKED" | "ERROR" | null;
+  stamp: "APPROVE" | "BLOCKED" | "ERROR" | "HELD" | null;
   /** Short mono status line, security-report voice. */
   statusLabel: string;
   title: string;
@@ -74,6 +77,7 @@ const STATUS: Record<JobStatus, { tone: JobTone; label: string; decider: Decider
   rejected: { tone: "danger", label: "Blocked by Shield 1", decider: "shield1" },
   reverted: { tone: "danger", label: "Blocked by Shield 2", decider: "shield2" },
   failed: { tone: "warn", label: "Infra error", decider: "infra" },
+  held: { tone: "ok", label: "Held · not sent", decider: "held" },
 };
 
 const DECIDER_LABEL: Record<Exclude<Decider, null>, string> = {
@@ -81,6 +85,7 @@ const DECIDER_LABEL: Record<Exclude<Decider, null>, string> = {
   shield2: "The contract blocked it on-chain · transaction reverted, no funds moved",
   both: "Passed both shields",
   infra: "RPC failed after retries · this is not a block",
+  held: "Inside the policy, so the shields let it through · red-team runs are never sent",
 };
 
 const short = (addr: string) => `${addr.slice(0, 6)}…${addr.slice(-4)}`;
@@ -123,6 +128,8 @@ function titleOf(status: JobStatus, amount: string | null): string {
       return `Shield 2 blocked ${order}`;
     case "failed":
       return "Order failed on infrastructure";
+    case "held":
+      return amount ? `Held ${order} · never sent` : "Held · nothing was sent";
     case "queued":
       return "Waiting in the queue";
     case "prechecking":
@@ -145,7 +152,7 @@ export function jobView(job: JobDto, tokens: TokenBook): JobView {
     status: job.status,
     tone: s.tone,
     terminal: JOB_TERMINAL_STATUSES.includes(job.status),
-    stamp: job.status === "confirmed" ? "APPROVE" : blocked ? "BLOCKED" : job.status === "failed" ? "ERROR" : null,
+    stamp: job.status === "confirmed" ? "APPROVE" : blocked ? "BLOCKED" : job.status === "failed" ? "ERROR" : job.status === "held" ? "HELD" : null,
     statusLabel: s.label,
     title: titleOf(job.status, amount),
     decider: s.decider,

@@ -1,11 +1,11 @@
 import { useMemo } from "react";
-import type { JobDetailDto, JobDto, StateDto } from "@agentshield/shared";
+import type { CreateAutoRedTeamResponse, JobDetailDto, JobDto, StateDto } from "@agentshield/shared";
 import { sameAddress } from "@/shared/lib/address";
 import { ApiError } from "./client";
 import { measuredChange } from "./measuredChange";
 import { isLive, type DataSource } from "./dataSource";
-import { useCreateRebalance, useJob, useJobs, useLaunchAttack, useVaultEvents, useVaultState } from "./hooks";
-import { startJob, useVaultSim } from "./mockChain";
+import { useAutoRedTeam, useCreateRebalance, useJob, useJobs, useLaunchAttack, useVaultEvents, useVaultState } from "./hooks";
+import { startAutoRedTeam, startJob, useVaultSim } from "./mockChain";
 import type { JobSpec, VaultSim } from "./mockEngine";
 import type { VaultView } from "./vaultSource";
 
@@ -118,10 +118,12 @@ export function useLiveJobDetail(view: VaultView, id: string | null | undefined)
 /** Starts a rebalance, an attack or an injection and resolves with the new job id. */
 export interface JobLauncher {
   launch: (spec: JobSpec) => Promise<string>;
+  /** Auto red-team: AUTO_REDTEAM_SIZE attacks written by the attacker model (or the preset list), all queued. */
+  autoRedTeam: () => Promise<CreateAutoRedTeamResponse>;
 }
 
 export function useMockJobLauncher(view: VaultView): JobLauncher {
-  return useMemo(() => ({ launch: async (spec: JobSpec) => startJob(view, spec) }), [view]);
+  return useMemo(() => ({ launch: async (spec: JobSpec) => startJob(view, spec), autoRedTeam: async () => startAutoRedTeam(view) }), [view]);
 }
 
 /**
@@ -131,8 +133,10 @@ export function useMockJobLauncher(view: VaultView): JobLauncher {
 export function useLiveJobLauncher(view: VaultView): JobLauncher {
   const { mutateAsync: rebalance } = useCreateRebalance(view.safe);
   const { mutateAsync: attack } = useLaunchAttack(view.safe);
+  const { mutateAsync: auto } = useAutoRedTeam(view.safe);
   return useMemo(
     () => ({
+      autoRedTeam: () => auto(),
       launch: async (spec: JobSpec) => {
         switch (spec.type) {
           case "rebalance":
@@ -144,7 +148,7 @@ export function useLiveJobLauncher(view: VaultView): JobLauncher {
         }
       },
     }),
-    [rebalance, attack],
+    [rebalance, attack, auto],
   );
 }
 

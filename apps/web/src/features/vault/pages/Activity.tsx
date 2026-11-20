@@ -17,6 +17,7 @@ const STATUS_OPTIONS: { value: ActivityStatus | null; label: string }[] = [
   { value: "confirmed", label: "Safe" },
   { value: "rejected", label: "Shield 1 blocked" },
   { value: "reverted", label: "Shield 2 blocked" },
+  { value: "held", label: "Held" },
   { value: "failed", label: "Infra error" },
 ];
 

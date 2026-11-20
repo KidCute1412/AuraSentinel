@@ -2,8 +2,8 @@ import type { PolicyInput } from "@/shared/lib/policy";
 import { useEffect } from "react";
 import { zeroAddress } from "viem";
 import { create } from "zustand";
-import type { Address, JobDetailDto, JobStatus, StateDto } from "@agentshield/shared";
-import { toAmount, fromAmount } from "@agentshield/shared";
+import type { Address, CreateAutoRedTeamResponse, JobDetailDto, JobStatus, StateDto } from "@agentshield/shared";
+import { AUTO_REDTEAM_FALLBACK, toAmount, fromAmount } from "@agentshield/shared";
 import type { VaultView } from "./vaultSource";
 import {
   applyConfirmedSwap,
@@ -160,7 +160,7 @@ function auditUpTo(status: JobStatus, iso: string): JobDetailDto["audit"] {
  * Start a job and return its id immediately; the pipeline keeps playing in the background
  * (queued -> checking -> simulating -> broadcasting -> verdict, then the explanation a moment later).
  */
-export function startJob(view: VaultView, spec: JobSpec): string {
+export function startJob(view: VaultView, spec: JobSpec, opts: { startDelayMs?: number } = {}): string {
   const store = useMockChain.getState();
   store.ensure(view);
   const sim = store.sims[key(view.safe)];
@@ -169,13 +169,33 @@ export function startJob(view: VaultView, spec: JobSpec): string {
   const created = new Date().toISOString();
   const plan = planJob(spec, sim.state, view.safe, nowSec());
   const shell = finalizeJob({ id, safe: view.safe, plan, state: sim.state, nowIso: created, createdAt: created, withExplanation: false });
-  const pending: JobDetailDto = { ...shell, status: plan.progress[0], txHash: null, explorerUrl: null, revertError: null, reasonCode: null, sim: null, precheck: null, audit: [] };
+  // A hijack starts as a bare row while the brain "reads the feed": no plan and no intent yet, like the server.
+  const hijack = spec.type === "injection";
+  const pending: JobDetailDto = {
+    ...shell,
+    status: plan.progress[0]!,
+    txHash: null,
+    explorerUrl: null,
+    revertError: null,
+    reasonCode: null,
+    sim: null,
+    precheck: null,
+    audit: [],
+    ...(hijack ? { agentPlan: null, intent: null } : {}),
+  };
   store.patch(view.safe, (s) => ({ ...s, jobs: [pending, ...s.jobs] }));
 
   void (async () => {
+    if (opts.startDelayMs) await sleep(opts.startDelayMs);
     for (const status of plan.progress.slice(1)) {
       await sleep(delays.step);
-      patchJob(view.safe, id, (j) => ({ ...j, status, audit: auditUpTo(status, new Date().toISOString()), updatedAt: new Date().toISOString() }));
+      patchJob(view.safe, id, (j) => ({
+        ...j,
+        status,
+        audit: auditUpTo(status, new Date().toISOString()),
+        updatedAt: new Date().toISOString(),
+        ...(hijack ? { agentPlan: shell.agentPlan, intent: shell.intent } : {}),
+      }));
     }
     await sleep(delays.step);
     // Judge again against the state as it is NOW: a job that raced another one must not overspend.
@@ -198,6 +218,18 @@ export function startJob(view: VaultView, spec: JobSpec): string {
   })();
 
   return id;
+}
+
+/**
+ * Auto red-team in the simulation: the fallback attack list (there is no attacker model here), one run after the
+ * other like the server's attack queue.
+ */
+export function startAutoRedTeam(view: VaultView): CreateAutoRedTeamResponse {
+  const perRun = delays.step * 4 + delays.explain;
+  return {
+    source: "rules",
+    jobs: AUTO_REDTEAM_FALLBACK.map((text, i) => ({ jobId: startJob(view, { type: "injection", text }, { startDelayMs: i * perRun }), text })),
+  };
 }
 
 /** A wallet-signed action: sign (wallet popup), then wait to be mined. `onMined` applies the effect. */

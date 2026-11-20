@@ -15,6 +15,10 @@ interface JobLike {
   explanation: Explanation | null;
 }
 
+/** Why a red-team plan that passed every shield is still not on the chain. */
+export const HELD_TEXT =
+  "Inside your policy, so every shield let it through. Red-team runs are never sent, so nothing moved: the worst a hijacked agent can do is a trade you already allowed.";
+
 /** "13.3%" (en-US, trailing ".0" dropped). */
 const pct = (p: number) => {
   const tenths = Math.round(Math.min(Math.max(p, 0), 100) * 10);
@@ -32,6 +36,10 @@ export function explanationText(job: JobLike, params: { amount?: string } = {}):
   const e = job.explanation;
   const code = job.reasonCode ?? job.revertError ?? null;
   const blocked = job.status === "rejected" || job.status === "reverted";
+  // A held red-team plan: the server only ever writes the template for it (an LLM could claim it was sent).
+  if (job.status === "held") {
+    return { text: HELD_TEXT, source: e ? "template" : "rules", budgetUsedPct: e?.budgetUsedPct ?? null };
+  }
   if (e?.source === "llm") return { text: e.messageVi, source: "llm", budgetUsedPct: e.budgetUsedPct };
   if (e) {
     const text =

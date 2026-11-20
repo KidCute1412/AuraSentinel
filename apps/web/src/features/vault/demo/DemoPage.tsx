@@ -23,7 +23,7 @@ function Dock({ view }: { view: VaultView }) {
 
 type Mode = "guided" | "free";
 const MODES: { id: Mode; label: string; hint: string }[] = [
-  { id: "guided", label: "Guided", hint: "4 steps, about a minute" },
+  { id: "guided", label: "Guided", hint: "5 steps, about a minute" },
   { id: "free", label: "Free play", hint: "Every control, every attack" },
 ];
 
@@ -49,7 +49,7 @@ function ModeSwitch({ mode, onChange }: { mode: Mode; onChange: (m: Mode) => voi
 }
 
 /**
- * /demo: the public sandbox vault, no wallet and no sign-in. Guided walks a newcomer through four steps with the
+ * /demo: the public sandbox vault, no wallet and no sign-in. Guided walks a newcomer through five steps with the
  * result under each button; Free play is the full vault dashboard.
  */
 export function DemoPage() {

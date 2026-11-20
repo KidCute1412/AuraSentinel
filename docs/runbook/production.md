@@ -18,7 +18,7 @@
 | `AGENT_PRIVATE_KEY` | Key **session** của ví agent (L4 bước 0). Nạp ~0.5 AVAX Fuji cho gas |
 | `ADMIN_ADDRESSES` | Ví người thuyết trình (mở trang `/admin`: preflight, Demo mode, §4c). **Bắt buộc cho buổi demo** |
 | `SIWE_DOMAINS` | Domain Vercel khi web chạy Vercel (§2b); để trống khi dùng nginx `localhost:8080` |
-| `GEMINI_API_KEY`, `TELEGRAM_*` | Tuỳ chọn |
+| `GEMINI_API_KEY`, `TELEGRAM_*` | Tuỳ chọn. **Nên có cho buổi demo:** key Gemini bật cả lời giải thích lẫn "bộ não" Hijacked Agent và Auto red-team (không có key thì dùng template và keyword planner, demo vẫn chạy). Hoặc `LLM_BASE_URL` + `LLM_MODEL` (+ `LLM_KEY`) cho endpoint OpenAI-compatible; khi đặt thì nó thay Gemini. `PLANNER_TIMEOUT_MS` (8000), `AUTO_REDTEAM_COOLDOWN_MS` (60000) có mặc định |
 
 Mọi giá trị công khai **không cần điền**, đã có mặc định trong code: địa chỉ contract + block bắt đầu của indexer (`packages/shared/src/deployments.ts`, khớp `fuji.json`, test kiểm), 3 RPC Fuji công khai (PublicNode, dRPC, RPC chính thức; L10: chỉ RPC chính thức là không đủ vì nó trả Cloudflare 429 cho Docker), địa chỉ agent cho watchdog, các giới hạn. Muốn đổi thì thêm dòng vào `.env.prod`, ví dụ `FUJI_RPC_URLS=<RPC riêng>,https://avalanche-fuji-c-chain-rpc.publicnode.com`; danh sách biến ghi đè được nằm trong `infra/docker-compose.prod.yml`.
 

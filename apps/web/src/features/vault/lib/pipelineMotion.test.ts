@@ -3,7 +3,7 @@ import { gateAt, isSettled, nextPos, nextStop, shownLook, trackTarget, VAULT_STO
 
 describe("trackTarget", () => {
   it("lands in the vault when every gate passed", () => {
-    expect(trackTarget(["pass", "pass", "pass", "pass"])).toEqual({ stop: VAULT_STOP, blocked: false, halted: false, bypass: false });
+    expect(trackTarget(["pass", "pass", "pass", "pass"])).toEqual({ stop: VAULT_STOP, blocked: false, halted: false, bypass: false, held: false });
   });
   it("halts behind the gate that stopped it", () => {
     expect(trackTarget(["fail", "skipped", "skipped", "skipped"])).toMatchObject({ stop: 0, blocked: true });
@@ -14,10 +14,15 @@ describe("trackTarget", () => {
     expect(trackTarget(["pending", "pending", "pending", "pending"])).toMatchObject({ stop: 0, blocked: false });
   });
   it("marks an on-chain attack as a bypass stopped by the contract", () => {
-    expect(trackTarget(["bypassed", "bypassed", "bypassed", "fail"])).toEqual({ stop: 3, blocked: true, halted: false, bypass: true });
+    expect(trackTarget(["bypassed", "bypassed", "bypassed", "fail"])).toEqual({ stop: 3, blocked: true, halted: false, bypass: true, held: false });
   });
   it("halts grey, with no barrier, when our side failed", () => {
-    expect(trackTarget(["pass", "skipped", "skipped", "skipped"], true)).toEqual({ stop: 1, blocked: false, halted: true, bypass: false });
+    expect(trackTarget(["pass", "skipped", "skipped", "skipped"], true)).toEqual({ stop: 1, blocked: false, halted: true, bypass: false, held: false });
+  });
+  it("parks a held red-team plan in front of the chain, never in the vault", () => {
+    expect(trackTarget(["pass", "pass", "pass", "held"])).toEqual({ stop: 3, blocked: false, halted: false, bypass: false, held: true });
+    // A direct call the dry run accepted: over the website, then held at the contract.
+    expect(trackTarget(["bypassed", "bypassed", "bypassed", "held"])).toEqual({ stop: 3, blocked: false, halted: false, bypass: true, held: true });
   });
 });
 

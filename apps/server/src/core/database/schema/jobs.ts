@@ -9,6 +9,7 @@ export const jobStatus = pgEnum('job_status', [
   'rejected',
   'reverted',
   'failed',
+  'held',
 ]);
 
 /** Owned by modules/jobs. Money fields are base-unit strings (invariant 4). */
@@ -25,6 +26,8 @@ export const jobs = pgTable(
     precheck: jsonb('precheck'),
     simResult: jsonb('sim_result'),
     explanation: jsonb('explanation'),
+    /** Hijacked Agent runs: the brain's plan (AgentPlan). Display data, never a decision input. */
+    agentPlan: jsonb('agent_plan'),
     reasonCode: text('reason_code'),
     txHash: text('tx_hash'),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),

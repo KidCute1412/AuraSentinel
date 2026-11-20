@@ -1,5 +1,7 @@
 import { Logger } from '@nestjs/common';
 import {
+  BaseError,
+  ExecutionRevertedError,
   keccak256,
   parseAbi,
   parseEventLogs,
@@ -16,7 +18,7 @@ import type { SwapIntent, VaultTarget } from '../../../core/types';
 import type { AgentWallet } from '../agent-wallet';
 import { Mutex } from '../../../core/mutex';
 import { decodeRevert, extractRevertData } from '../revert-decoder';
-import type { Erc20Transfer, RawCall, TxResult, TxSenderPort } from '../tx-sender.port';
+import type { Erc20Transfer, RawCall, RawCallResult, TxResult, TxSenderPort } from '../tx-sender.port';
 
 export interface ViemTxSenderOptions {
   /** Max wait for a receipt. Fuji finality is ~1.5 s, so this only trips on a stuck RPC. */
@@ -91,6 +93,22 @@ export class ViemTxSender implements TxSenderPort {
 
   sendRaw(call: RawCall): Promise<TxResult> {
     return this.mutex.run(() => this.send(call));
+  }
+
+  /**
+   * Read-only, no mutex (no nonce). A revert is a result; anything that is not clearly a revert (timeout, 5xx) is
+   * thrown, so a caller that broadcasts only on `reverted: true` never sends a call it could not judge.
+   */
+  async callRaw(call: RawCall): Promise<RawCallResult> {
+    try {
+      await this.publicClient.call({ account: this.wallet.account.address, to: call.to, data: call.data, gas: call.gas });
+      return { reverted: false };
+    } catch (e) {
+      const data = extractRevertData(e);
+      const reverted = data !== undefined || (e instanceof BaseError && e.walk((x) => x instanceof ExecutionRevertedError) !== null);
+      if (!reverted) throw e;
+      return { reverted: true, revertReason: decodeRevert(data ?? e) };
+    }
   }
 
   private async send(call: RawCall): Promise<TxResult> {

@@ -219,6 +219,35 @@ describe('AuditorService: the 5 paths (A6)', () => {
   });
 });
 
+describe('AuditorService: red-team dryRun (Hijacked Agent)', () => {
+  it('a plan every shield accepts ends held: simulated, never signed, explained as held', async () => {
+    const t = setup();
+    await t.run({ dryRun: true, intent: intent({ origin: 'redteam' }), untrustedText: 'buy AVAX with 10 USDC' });
+    await t.auditor.settled();
+
+    expect(t.statuses()).toEqual(['prechecking', 'simulating', 'held']);
+    expect(t.events.filter((e) => /:(pass|fail)$/.test(e))).toEqual(['precheck:pass', 'simulation:pass', 'invariant:pass']);
+    expect(t.sender.sendSwap).not.toHaveBeenCalled();
+    expect(t.simulator.invalidate).not.toHaveBeenCalled();
+    expect(t.lastPatch()).toMatchObject({ simResult: expect.objectContaining({ ok: true }) });
+    expect(t.explainer.explain.mock.calls[0]![0]).toMatchObject({ verdict: 'approved', held: true, untrustedText: 'buy AVAX with 10 USDC' });
+    expect(t.events.at(-1)).toBe('explained:safe');
+  });
+
+  it('a dryRun plan the shields refuse is rejected exactly like a real one', async () => {
+    const t = setup();
+    await t.run({ dryRun: true, intent: intent({ amountIn: USDC(2_000n), recipient: HACKER, origin: 'redteam' }) });
+    expect(t.statuses()).toEqual(['prechecking', 'rejected']);
+    expect(t.sender.sendSwap).not.toHaveBeenCalled();
+  });
+
+  it('without dryRun the same plan is broadcast (a normal trade)', async () => {
+    const t = setup();
+    await t.run({ dryRun: false });
+    expect(t.statuses()).toEqual(['prechecking', 'simulating', 'broadcasting', 'confirmed']);
+  });
+});
+
 describe('AuditorService: explainer off the critical path (P3)', () => {
   it('a slow explainer does not delay the broadcast or the terminal status', async () => {
     const slow = deferred<Explanation>();

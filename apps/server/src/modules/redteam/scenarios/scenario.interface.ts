@@ -1,4 +1,4 @@
-import type { AttackScenario } from '@agentshield/shared';
+import type { FixedAttackScenario } from '@agentshield/shared';
 import type { Env } from '../../../core/config/env.schema';
 import type { SwapIntent } from '../../../core/types';
 
@@ -29,16 +29,19 @@ export interface AttackContext {
  *   Shield 1, with manual gas so the revert is mined (Snowtrace evidence).
  */
 export type AttackPlan =
-  | { mode: 'shield1'; intent: SwapIntent; untrustedText?: string }
+  | { mode: 'shield1'; intent: SwapIntent }
   | { mode: 'onchain'; call: 'guarded-swap-direct'; tokenIn: Address; tokenOut: Address; amountIn: bigint; minOut: bigint }
   | { mode: 'onchain'; call: 'approve-via-safe'; token: Address; spender: Address; amount: bigint };
 
 export type OnchainPlan = Extract<AttackPlan, { mode: 'onchain' }>;
 
+/**
+ * One of the four fixed attacks. Prompt injection is not here: the Hijacked Agent's brain decides what it tries
+ * (modules/agent-brain, redteam HijackService).
+ */
 export interface AttackScenarioDef {
-  readonly id: AttackScenario;
-  /** `text` is only set for prompt-injection (validated by CreateAttackRequest). */
-  plan(ctx: AttackContext, text?: string): AttackPlan;
+  readonly id: FixedAttackScenario;
+  plan(ctx: AttackContext): AttackPlan;
 }
 
 export class AttackConfigError extends Error {}

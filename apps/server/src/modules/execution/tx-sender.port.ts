@@ -26,6 +26,12 @@ export interface TxResult {
   transfers?: Erc20Transfer[];
 }
 
+/**
+ * A dry run of a raw call (eth_call from the session key on the latest block). `reverted: false` means the chain would
+ * have ACCEPTED it, so a red-team run must not send it. Infra errors are thrown, never reported as a result.
+ */
+export type RawCallResult = { reverted: false } | { reverted: true; revertReason: ReasonCode };
+
 export interface Erc20Transfer {
   token: Address;
   from: Address;
@@ -44,4 +50,6 @@ export interface TxSenderPort {
   sendSwap(intent: SwapIntent, target: VaultTarget): Promise<TxResult>;
   /** Sends a pre-built call with manual gas so a revert is mined, not caught by estimation. */
   sendRaw(call: RawCall): Promise<TxResult>;
+  /** eth_call of the same call from the session key: would the chain refuse it? Signs nothing, sends nothing. */
+  callRaw(call: RawCall): Promise<RawCallResult>;
 }

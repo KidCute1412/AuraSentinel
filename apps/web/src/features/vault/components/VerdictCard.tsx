@@ -11,6 +11,7 @@ import { SnowtraceLink } from "@/shared/ui/SnowtraceLink";
 import { Stamp } from "@/shared/ui/Stamp";
 import { StatusBadge } from "@/shared/ui/StatusBadge";
 import { isTerminal } from "../lib/timeline";
+import { AgentBrainCard } from "./AgentBrainCard";
 import { ShieldPipeline } from "./ShieldPipeline";
 
 function headline(job: JobDetailDto): string {
@@ -19,13 +20,19 @@ function headline(job: JobDetailDto): string {
   // GS### is the Safe itself refusing a caller that is not an enabled module (attack #3), not the policy module.
   if (job.status === "reverted") return job.revertError?.startsWith("GS") ? "The Safe blocked this on-chain" : "Shield 2 blocked this on-chain";
   if (job.status === "failed") return "Infrastructure error";
+  if (job.status === "held") return job.agentPlan?.action.type === "none" ? "The hijacked agent did nothing" : "Held: inside your policy, never sent";
   return "Auditing…";
 }
 
-/** The verdict for one job: stamp, plain-language explanation, source badge, pipeline timeline and the proof link. */
-export function VerdictCard({ job, detailsTo, showTimes = false }: { job: JobDetailDto; detailsTo?: string; showTimes?: boolean }) {
+/**
+ * The verdict for one job: stamp, plain-language explanation, source badge, pipeline timeline and the proof link.
+ * A Hijacked Agent run also shows what the fooled AI decided, above the shields that judged it; `expectBrain` shows
+ * its placeholder while the brain is still reading the feed (the page knows it started an injection).
+ */
+export function VerdictCard({ job, detailsTo, showTimes = false, expectBrain = false }: { job: JobDetailDto; detailsTo?: string; showTimes?: boolean; expectBrain?: boolean }) {
   const done = isTerminal(job.status);
-  const safe = job.status === "confirmed";
+  const held = job.status === "held";
+  const safe = job.status === "confirmed" || held;
   const blocked = job.status === "rejected" || job.status === "reverted";
   const reason = job.reasonCode && job.reasonCode in REASONS ? REASONS[job.reasonCode as ReasonCode] : null;
   const shown = done ? explanationText(job) : null;
@@ -39,7 +46,7 @@ export function VerdictCard({ job, detailsTo, showTimes = false }: { job: JobDet
     >
       <div className="flex flex-wrap items-center justify-between gap-2">
         <StatusBadge job={job.status} />
-        {done && (safe || blocked) && <Stamp tone={safe ? "ok" : "danger"}>{safe ? "Approved" : "Blocked"}</Stamp>}
+        {done && (safe || blocked) && <Stamp tone={safe ? "ok" : "danger"}>{held ? "Held" : safe ? "Approved" : "Blocked"}</Stamp>}
       </div>
 
       <h3 className="mt-3 text-xl leading-tight">{headline(job)}</h3>
@@ -70,6 +77,12 @@ export function VerdictCard({ job, detailsTo, showTimes = false }: { job: JobDet
           <span className="mx-2 text-muted">·</span>
           {reason.title}
         </p>
+      )}
+
+      {(job.agentPlan || ((expectBrain || job.scenario === "prompt-injection") && !done)) && (
+        <div className="mt-5">
+          <AgentBrainCard plan={job.agentPlan} />
+        </div>
       )}
 
       <div className="mt-5 border-t border-line pt-4">

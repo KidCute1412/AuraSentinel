@@ -1,9 +1,10 @@
 import { JOB_TERMINAL_STATUSES, type CreateAttackRequest } from "@agentshield/shared";
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
-import { applyServerEvent } from "./cache";
+import { applyServerEvent, keepFresherJobs } from "./cache";
 import {
   createAttack,
+  createAutoRedTeam,
   createRebalanceJob,
   getAdminJobs,
   getAdminOverview,
@@ -39,6 +40,8 @@ export function useJobs(safe: string | null | undefined) {
     queryKey: queryKeys.vaultJobs(safe ?? ""),
     queryFn: ({ signal }) => getJobs(safe as string, { limit: JOBS_PAGE_SIZE }, signal),
     enabled: Boolean(safe),
+    // A refetch never undoes a newer state the SSE stream already delivered.
+    structuralSharing: keepFresherJobs,
   });
 }
 
@@ -114,6 +117,15 @@ export function useLaunchAttack(safe: string) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (body: CreateAttackRequest) => createAttack(safe, body),
+    onSuccess: () => void qc.invalidateQueries({ queryKey: queryKeys.vaultJobs(safe) }),
+  });
+}
+
+/** POST /vaults/{safe}/attacks/auto: five LLM-written attacks, queued one after the other. */
+export function useAutoRedTeam(safe: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: () => createAutoRedTeam(safe),
     onSuccess: () => void qc.invalidateQueries({ queryKey: queryKeys.vaultJobs(safe) }),
   });
 }

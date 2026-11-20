@@ -5,9 +5,19 @@ import { doneSteps, firstOpenStep, GUIDED_STEPS, checkTradeAmount, normalTradeAm
 const job = (status: string, reasonCode: string | null = null, revertError: string | null = null) => ({ status, reasonCode, revertError }) as never;
 
 describe("guided demo steps", () => {
-  it("has the four tour steps in order, only the last one without a server job", () => {
-    expect(GUIDED_STEPS.map((s) => s.id)).toEqual(["rebalance", "over-withdraw", "bypass", "kill"]);
-    expect(GUIDED_STEPS.map((s) => s.spec === null)).toEqual([false, false, false, true]);
+  it("has the five tour steps in order, only the last one without a server job", () => {
+    expect(GUIDED_STEPS.map((s) => s.id)).toEqual(["rebalance", "over-withdraw", "hijack", "bypass", "kill"]);
+    expect(GUIDED_STEPS.map((s) => s.spec === null)).toEqual([false, false, false, false, true]);
+    // The hijack step plants the "send everything to a stranger" preset in the agent's feed.
+    expect(GUIDED_STEPS[2]!.spec).toEqual({ type: "injection", text: expect.stringMatching(/send the proceeds to 0x9{40}/) });
+  });
+
+  it("the hijack step passes when the shields answer the fooled AI: blocked, or held inside the policy", () => {
+    expect(stepResult("hijack", job("rejected", "RECIPIENT_NOT_SAFE"))).toMatchObject({ kind: "pass", tone: "danger", stamp: "Blocked", headline: "The AI was fooled. The vault was not." });
+    expect(stepResult("hijack", job("reverted", null, "GS104"))).toMatchObject({ kind: "pass", tone: "danger" });
+    expect(stepResult("hijack", job("held"))).toMatchObject({ kind: "pass", tone: "ok", stamp: "Held" });
+    expect(stepResult("hijack", job("confirmed"))).toMatchObject({ kind: "other", headline: "Not blocked" });
+    expect(stepResult("hijack", job("prechecking")).kind).toBe("running");
   });
 
   it("no job yet is idle, a job still in the pipeline is running", () => {
@@ -35,13 +45,15 @@ describe("guided demo steps", () => {
     const tour = [
       { id: "rebalance", done: true },
       { id: "over-withdraw", done: false },
+      { id: "hijack", done: false },
       { id: "bypass", done: false },
       { id: "kill", done: false },
     ] as never;
     const done = doneSteps(tour, new Set(["bypass"]));
     expect([...done].sort()).toEqual(["bypass", "rebalance"]);
     expect(firstOpenStep(done)).toBe(1);
-    expect(firstOpenStep(new Set(["rebalance", "over-withdraw", "bypass", "kill"]))).toBe(3);
+    expect(firstOpenStep(new Set(["rebalance", "over-withdraw", "bypass", "kill"]))).toBe(2);
+    expect(firstOpenStep(new Set(["rebalance", "over-withdraw", "hijack", "bypass", "kill"]))).toBe(4);
   });
 
   it("sizes the normal trade to 20 USDC, or what is left of today's limit, in whole USDC", () => {

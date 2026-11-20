@@ -24,6 +24,8 @@ export interface ExplainFacts {
   budgetPct?: string;
   /** Explanation.budgetUsedPct, passed through unchanged. */
   budgetUsedPct: number;
+  /** Safe verdict, but a red-team run: it was never sent (job status `held`). */
+  held?: boolean;
 }
 
 /** 13.3 -> "13,3%", 50 -> "50%". Display only: the input is already a bounded percentage. */
@@ -77,5 +79,6 @@ export function buildFacts(input: ExplainInput): ExplainFacts {
     received,
     budgetPct: input.budgetUsedPct === undefined ? undefined : formatPctVi(budgetUsedPct),
     budgetUsedPct,
+    ...(verdict === 'safe' && input.held ? { held: true } : {}),
   };
 }

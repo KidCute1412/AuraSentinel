@@ -26,6 +26,11 @@ export interface ExplainInput {
   expiry?: bigint;
   /** Text a visitor typed into the red-team injection box. Untrusted: prompt data only. */
   untrustedText?: string;
+  /**
+   * A red-team plan that passed every shield and was stopped before broadcast on purpose (job status `held`). Only
+   * with verdict `approved`. The template explains it: an LLM could claim the trade was sent.
+   */
+  held?: boolean;
 }
 
 /** The LLM only writes messageVi; verdict/amounts are decided elsewhere (invariant 3). */

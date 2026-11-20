@@ -1,4 +1,4 @@
-import { ATTACK_EXPECTATIONS, AttackScenario } from "@agentshield/shared";
+import { ATTACK_EXPECTATIONS, AttackScenario, FIXED_ATTACK_SCENARIOS } from "@agentshield/shared";
 import { act, renderHook } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ApiError } from "@/shared/api";
@@ -20,15 +20,9 @@ describe("attack catalog", () => {
 
   // Labels are derived from ATTACK_EXPECTATIONS; the assertions are too, so a contract change
   // (e.g. the prompt-injection expectation) keeps the panel and these tests honest without edits.
-  it.each(AttackScenario.options)("labels %s from ATTACK_EXPECTATIONS", (scenario) => {
+  it.each(FIXED_ATTACK_SCENARIOS)("labels %s from ATTACK_EXPECTATIONS", (scenario) => {
     const e = ATTACK_EXPECTATIONS[scenario];
     const label = expectationLabel(scenario);
-    const blocks = e.status === "rejected" || e.status === "reverted";
-    if (e.stoppedBy === "llm-guard") {
-      expect(label.startsWith("LLM has no authority")).toBe(true);
-      expect(label.includes("still blocked")).toBe(blocks);
-      return;
-    }
     expect(label).toContain({ shield1: "Shield 1", shield2: "Shield 2", safe: "Safe" }[e.stoppedBy]);
     if (e.reasonCode) expect(label).toContain(REASON_COPY[e.reasonCode].title);
     expect(label.includes("Snowtrace link")).toBe(e.onchainEvidence);
@@ -36,10 +30,17 @@ describe("attack catalog", () => {
 });
 
 describe("compareOutcome", () => {
-  it.each(AttackScenario.options)("%s: expected status and reason count as a pass", (scenario) => {
+  it.each(FIXED_ATTACK_SCENARIOS)("%s: expected status and reason count as a pass", (scenario) => {
     const e = ATTACK_EXPECTATIONS[scenario];
     const done = job({ status: e.status, reasonCode: e.reasonCode });
     expect(compareOutcome(done, scenario).kind).toBe("expected");
+  });
+
+  it("prompt injection: blocked or held both count, a confirmed run never does", () => {
+    expect(expectationLabel("prompt-injection")).toMatch(/brain/);
+    expect(compareOutcome(job({ status: "held" }), "prompt-injection").kind).toBe("expected");
+    expect(compareOutcome(job({ status: "rejected", reasonCode: "RECIPIENT_NOT_SAFE" }), "prompt-injection").kind).toBe("expected");
+    expect(compareOutcome(job({ status: "confirmed" }), "prompt-injection").kind).toBe("unexpected");
   });
 
   it("waits for a terminal status", () => {

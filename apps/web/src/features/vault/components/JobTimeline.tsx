@@ -1,4 +1,4 @@
-import { Check, Circle, Minus, X } from "lucide-react";
+import { Check, Circle, Hand, Minus, X } from "lucide-react";
 import type { JobDetailDto } from "@agentshield/shared";
 import { cn } from "@/shared/lib/cn";
 import { clockTime } from "@/shared/lib/time";
@@ -10,6 +10,7 @@ const MARK: Record<StepState, { box: string; label: string }> = {
   pass: { box: "border-accent bg-accent text-on-accent", label: "passed" },
   fail: { box: "border-danger bg-danger text-white", label: "blocked" },
   skipped: { box: "border-line text-muted", label: "skipped" },
+  held: { box: "border-accent border-dashed text-accent-text", label: "held · not sent" },
 };
 
 function Icon({ state }: { state: StepState }) {
@@ -17,6 +18,7 @@ function Icon({ state }: { state: StepState }) {
   if (state === "pass") return <Check aria-hidden strokeWidth={3} className={cls} />;
   if (state === "fail") return <X aria-hidden strokeWidth={3} className={cls} />;
   if (state === "skipped") return <Minus aria-hidden className={cls} />;
+  if (state === "held") return <Hand aria-hidden strokeWidth={2.5} className={cls} />;
   return <Circle aria-hidden className={cn(cls, "size-3")} />;
 }
 

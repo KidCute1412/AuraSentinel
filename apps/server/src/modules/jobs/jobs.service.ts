@@ -1,4 +1,4 @@
-import type { CheckRow, Explanation, JobDetailDto, JobDto, JobListDto } from '@agentshield/shared';
+import type { AgentPlan, CheckRow, Explanation, JobDetailDto, JobDto, JobListDto, SwapIntent as SwapIntentWire } from '@agentshield/shared';
 import { Injectable } from '@nestjs/common';
 import { EventBus } from '../../core/redis/event-bus';
 import type { JobStatus } from '../../core/types';
@@ -40,6 +40,19 @@ export class JobsService {
   /** One Shield verdict for GET /jobs/{id}.audit, with the rule table behind it (shown on the job page as evidence). */
   recordShield(jobId: string, shield: Shield, result: 'pass' | 'fail', reason: string | null = null, checks: readonly CheckRow[] = []) {
     return this.repo.appendAudit(jobId, shield, { result, reason, checks });
+  }
+
+  /**
+   * Hijacked Agent: the brain's plan, plus the intent code built from it when it is a swap, so the job page shows
+   * what the agent tried before any shield ran. Publishes job.updated. Status is left alone.
+   */
+  async attachAgentPlan(jobId: string, agentPlan: AgentPlan, intent?: SwapIntentWire): Promise<JobDto | undefined> {
+    const row = await this.repo.update(jobId, intent ? { agentPlan, intent } : { agentPlan });
+    await this.repo.appendAudit(jobId, 'agent-plan', { source: agentPlan.source, action: agentPlan.action.type, flags: agentPlan.flags });
+    if (!row) return undefined;
+    const dto = toJobDto(row);
+    await this.publishUpdated(dto);
+    return dto;
   }
 
   /**
