@@ -1,5 +1,5 @@
 import { Bug, Lock, Play, Swords } from "lucide-react";
-import { useState, type KeyboardEvent } from "react";
+import { useEffect, useState, type KeyboardEvent } from "react";
 import { DEMO_TRADE_MAX, HIJACK_PRESETS, INJECTION_TEXT_MAX, type AttackScenario as Scenario, type CreateAutoRedTeamResponse } from "@agentshield/shared";
 import { ApiError } from "@/shared/api/client";
 import { describeApiError } from "@/shared/api/errorCopy";
@@ -32,6 +32,8 @@ interface Props {
   onStarted: (jobId: string, scenario: Scenario | null) => void;
   /** "stack" = three cards (red-team page); "tabs" = one compact card, one kind of move at a time (/demo Free play). */
   layout?: "stack" | "tabs";
+  /** Told whether the Auto red-team board is on screen, so the page can shorten what would repeat it. */
+  onAutoShown?: (shown: boolean) => void;
 }
 
 type Tab = "attacks" | "injection" | "trade";
@@ -47,7 +49,7 @@ const btn = "min-h-11 border border-line-strong px-4 text-left text-sm font-bold
  * Run a rebalance, fire one of the four attacks, or hijack the agent's AI with a poisoned feed item (one, or five
  * written by the attacker model). The AI may plan anything; every result is decided by the shields.
  */
-export function RedTeamPanel({ view, canAct, onStarted, layout = "stack" }: Props) {
+export function RedTeamPanel({ view, canAct, onStarted, layout = "stack", onAutoShown }: Props) {
   const { launch, autoRedTeam } = useJobLauncher(view);
   // The shared demo vault: small default, 100 USDC at most (its daily limit is everyone's). Own vaults: as before.
   const demo = view.isDemo;
@@ -63,6 +65,8 @@ export function RedTeamPanel({ view, canAct, onStarted, layout = "stack" }: Prop
   const lowGas = view.agentGas === "low";
   const off = !canAct || lowGas || busy || cooldown > 0;
   const tabs = layout === "tabs";
+  const autoShown = auto !== null && (!tabs || tab === "injection");
+  useEffect(() => onAutoShown?.(autoShown), [autoShown, onAutoShown]);
 
   const guarded = async (start: () => Promise<void>) => {
     if (busy) return;

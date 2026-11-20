@@ -5,6 +5,7 @@ import type { VaultView } from "@/shared/api/vaultSource";
 import { cn } from "@/shared/lib/cn";
 import { Skeleton } from "@/shared/ui/Skeleton";
 import { Panel } from "@/shared/ui/Panel";
+import { StickyColumn } from "@/shared/ui/StickyColumn";
 import type { VaultRole } from "../guards/access";
 import { canRunJobs, sectionPath } from "../guards/access";
 import { firstIncompleteStep, completedSteps, wizardPath } from "../guards/wizard";
@@ -57,15 +58,16 @@ function Incomplete({ view, role }: { view: VaultView; role: VaultRole }) {
 }
 
 /**
- * The Overview: "is this vault safe right now?" on one screen. Policy and Kill-Switch on the left, balances, budget
- * and the verdict of the selected job in the middle, the red-team tools on the right (stacked in that order on phones).
+ * The Overview: "is this vault safe right now?". The vault (budget and balances, policy, Kill-Switch and funds) in three
+ * even columns, then the jobs: the moves and recent jobs beside the verdict of the selected one.
  * Policy, Kill-Switch, deposit and withdraw are all signed in the owner's wallet straight to the chain
  * (useOwnerControl, useFundsControl).
  */
 export function VaultDashboard({ view, role, mode }: Props) {
   const feed = useVaultFeed(view);
   const [selectedId, setSelectedId] = useState<string | undefined>();
-  const verdictRef = useRef<HTMLDivElement>(null);
+  const verdictRef = useRef<HTMLElement>(null);
+  const [autoShown, setAutoShown] = useState(false);
 
   const live = feed.source === "live";
   const demo = mode === "demo";
@@ -115,53 +117,85 @@ export function VaultDashboard({ view, role, mode }: Props) {
     </Panel>
   );
 
+  /*
+   * Both pages read the same way: the loop "press a move, read the verdict" side by side (each column sticks while it
+   * fits on the screen, so a short one stays beside a long one), then the vault itself in a balanced three-column grid.
+   * The public sandbox puts the loop first (that is what a visitor came for); an owner's page puts the vault first.
+   */
+  const started = (id: string) => {
+    setSelectedId(id);
+    // Phones: the verdict sits below the moves, so bring it up.
+    requestAnimationFrame(() => {
+      const el = verdictRef.current;
+      if (el && el.getBoundingClientRect().top > window.innerHeight * 0.6) {
+        const reduce = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ?? true;
+        el.scrollIntoView?.({ block: "start", behavior: reduce ? "auto" : "smooth" });
+      }
+    });
+  };
+  const offset = demo ? "header" : "app";
+  // The Auto red-team board already lists its five runs, so the recent jobs under it shrink to the two before them.
+  const historyLimit = autoShown ? 2 : 4;
+
+  const loop = (
+    <div className="grid grid-cols-[minmax(0,1fr)] gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)]">
+      <StickyColumn offset={offset} className="space-y-3">
+        {demo && <StepLabel n="01" title="Pick a move" hint={live ? "Runs for real on Avalanche Fuji. Presses are rate-limited." : "A simulation: nothing real moves."} />}
+        <RedTeamPanel view={view} canAct={canAct} onStarted={started} onAutoShown={setAutoShown} layout="tabs" />
+        <JobHistory jobs={feed.jobs} selectedId={selectedJobId} onSelect={setSelectedId} limit={historyLimit} allHref={demo && !live ? undefined : sectionPath(view.safe, "activity")} />
+      </StickyColumn>
+      <StickyColumn ref={verdictRef} offset={offset} className="scroll-mt-20 space-y-3">
+        {demo && <StepLabel n="02" title="Read the verdict" hint="Decided by rules, never by the AI." />}
+        {verdict}
+      </StickyColumn>
+    </div>
+  );
+
+  const budget = state ? <BudgetBar state={state} /> : <StatePending title="Daily budget" status={feed.stateStatus} />;
+  const balances = state ? <BalancesPanel state={state} lastChange={feed.lastChange} /> : <StatePending title="Vault balances" status={feed.stateStatus} />;
+  const policy = state ? <PolicyPanel state={state} control={control} /> : <StatePending title="Policy" status={feed.stateStatus} />;
+  const showKill = canSign || live;
+  // Deposit and withdraw: a vault's own owner only, never on the public sandbox.
+  const showFunds = !demo && !!state && funds.canAct;
+  /*
+   * Three even columns. With a Kill-Switch (and funds) to show: budget over balances, the policy, then those controls.
+   * Without them (a guest on the simulation): budget, balances and policy side by side, so no column is left empty.
+   */
+  const vault =
+    showKill || showFunds ? (
+      <div className="grid grid-cols-[minmax(0,1fr)] gap-6 md:grid-cols-2 lg:grid-cols-3">
+        <div className="space-y-6">
+          {budget}
+          {balances}
+        </div>
+        {policy}
+        <div className="space-y-6">
+          {/* Phones get the Kill-Switch dock instead when they can sign. */}
+          {showKill && (
+            <div className={cn(canSign && "hidden lg:block")}>
+              <OwnerKill control={control} fallbackActive={state?.isActive} />
+            </div>
+          )}
+          {showFunds && <FundsPanel control={funds} />}
+        </div>
+      </div>
+    ) : (
+      <div className="grid grid-cols-[minmax(0,1fr)] gap-6 md:grid-cols-2 lg:grid-cols-3">
+        {budget}
+        {balances}
+        {policy}
+      </div>
+    );
+
   if (demo) {
-    /*
-     * Free play: the loop "press a move, read the verdict" fits on the first screen. Moves and recent jobs on the
-     * left, the verdict beside them (sticky on desktop), then the vault itself, read from the chain.
-     */
-    const started = (id: string) => {
-      setSelectedId(id);
-      // Phones: the verdict sits below the moves, so bring it up.
-      requestAnimationFrame(() => {
-        const el = verdictRef.current;
-        if (el && el.getBoundingClientRect().top > window.innerHeight * 0.6) {
-          const reduce = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ?? true;
-          el.scrollIntoView?.({ block: "start", behavior: reduce ? "auto" : "smooth" });
-        }
-      });
-    };
     return (
       <div className="space-y-6">
         <VaultNotices state={state} stateStatus={feed.stateStatus} source={feed.source} />
-
-        <div className="grid grid-cols-[minmax(0,1fr)] gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)]">
-          <div className="space-y-3">
-            <StepLabel n="01" title="Pick a move" hint={live ? "Runs for real on Avalanche Fuji. Presses are rate-limited." : "A simulation: nothing real moves."} />
-            <RedTeamPanel view={view} canAct={canAct} onStarted={started} layout="tabs" />
-            <JobHistory jobs={feed.jobs} selectedId={selectedJobId} onSelect={setSelectedId} limit={4} allHref={live ? sectionPath(view.safe, "activity") : undefined} />
-          </div>
-          <div ref={verdictRef} className="scroll-mt-20 space-y-3 lg:sticky lg:top-20 lg:self-start">
-            <StepLabel n="02" title="Read the verdict" hint="Decided by rules, never by the AI." />
-            {verdict}
-          </div>
-        </div>
-
+        {loop}
         <section aria-label="The vault right now" className="space-y-3">
           <StepLabel n="03" title="Watch the vault" hint="Read from the blockchain. Trades and the Kill-Switch change it." />
           <VaultHeaderBar view={view} status={headerStatus(view, feed.source, control.isActive, state?.isActive)} roleText="Public sandbox" />
-          <div className="grid grid-cols-[minmax(0,1fr)] gap-6 md:grid-cols-2 lg:grid-cols-3">
-            <div className="space-y-6">
-              {state ? <BudgetBar state={state} /> : <StatePending title="Daily budget" status={feed.stateStatus} />}
-              {state ? <BalancesPanel state={state} lastChange={feed.lastChange} /> : <StatePending title="Vault balances" status={feed.stateStatus} />}
-            </div>
-            {state ? <PolicyPanel state={state} control={control} /> : <StatePending title="Policy" status={feed.stateStatus} />}
-            {(canSign || live) && (
-              <div className={cn(canSign && "hidden lg:block")}>
-                <OwnerKill control={control} fallbackActive={state?.isActive} />
-              </div>
-            )}
-          </div>
+          {vault}
         </section>
       </div>
     );
@@ -170,33 +204,8 @@ export function VaultDashboard({ view, role, mode }: Props) {
   return (
     <div className="space-y-6">
       <VaultNotices state={state} stateStatus={feed.stateStatus} source={feed.source} />
-
-      <div className="grid grid-cols-[minmax(0,1fr)] gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.35fr)_minmax(0,1fr)]">
-        {/* Column 1: owner controls */}
-        <div className="space-y-6">
-          {state ? <PolicyPanel state={state} control={control} /> : <StatePending title="Policy" status={feed.stateStatus} />}
-          {(canSign || live) && (
-            <div className={cn(canSign && "hidden lg:block")}>
-              <OwnerKill control={control} fallbackActive={state?.isActive} />
-            </div>
-          )}
-          {/* Not on the public sandbox: only a vault's own owner moves its funds. */}
-          {state && funds.canAct && <FundsPanel control={funds} />}
-        </div>
-
-        {/* Column 2: what is happening */}
-        <div className="space-y-6">
-          {state ? <BudgetBar state={state} /> : <StatePending title="Daily budget" status={feed.stateStatus} />}
-          {state ? <BalancesPanel state={state} lastChange={feed.lastChange} /> : <StatePending title="Vault balances" status={feed.stateStatus} />}
-          {verdict}
-          <JobHistory jobs={feed.jobs} selectedId={selectedJobId} onSelect={setSelectedId} allHref={sectionPath(view.safe, "activity")} />
-        </div>
-
-        {/* Column 3: red team */}
-        <div>
-          <RedTeamPanel view={view} canAct={canAct} onStarted={setSelectedId} />
-        </div>
-      </div>
+      <section aria-label="The vault right now">{vault}</section>
+      <section aria-label="Jobs and verdicts">{loop}</section>
     </div>
   );
 }

@@ -39,7 +39,7 @@ export function PipelineTrack({ ids, looks, pos, target, label }: { ids: readonl
 
   return (
     // The whole track jolts once when the packet hits a barrier (the class appears at that moment).
-    <div aria-hidden className={cn("relative h-[4.5rem] select-none", stopped && "animate-shake")}>
+    <div aria-hidden className={cn("@container relative h-[4.5rem] select-none", stopped && "animate-shake")}>
       {/* The packet's tag rides above it. In the vault a SAFE stamp takes over; at a barrier, BLOCKED. */}
       {parked && (
         <Stamp tone="ok" animate className="absolute -top-1 right-0 whitespace-nowrap bg-bg">
@@ -57,9 +57,10 @@ export function PipelineTrack({ ids, looks, pos, target, label }: { ids: readonl
         </Stamp>
       )}
 
-      {/* Start: the word on wide screens, a small square marker on phones (the word would run into the path). */}
-      <span className="absolute left-0 top-[1.95rem] hidden font-mono text-[10px] uppercase tracking-widest text-muted sm:block">Agent</span>
-      <span className="absolute left-0 top-[2.05rem] size-2.5 border-2 border-line-strong bg-surface sm:hidden" />
+      {/* Words need room: they show when the track itself is at least 32rem wide (a container query, not the screen
+          width), so a narrow column on a wide screen never prints them on top of each other. */}
+      <span className="absolute left-0 top-[1.95rem] hidden font-mono text-[10px] uppercase tracking-widest text-muted @lg:block">Agent</span>
+      <span className="absolute left-0 top-[2.05rem] size-2.5 border-2 border-line-strong bg-surface @lg:hidden" />
 
       {/* Path: a quiet base line, then the walked part drawn in behind the packet. */}
       {GATE_AT.map((g, i) => {
@@ -104,7 +105,7 @@ export function PipelineTrack({ ids, looks, pos, target, label }: { ids: readonl
               {Icon && <Icon strokeWidth={3} className={cn("size-3.5", (look === "pass" || barrier) && "animate-pop-in")} />}
               {look === "active" && <span className="animate-scan absolute inset-x-0 top-0 h-1.5 bg-highlight" />}
             </span>
-            <span className={cn("absolute left-1/2 top-[2rem] hidden -translate-x-1/2 whitespace-nowrap font-mono text-[9px] uppercase tracking-widest sm:block", post.name)}>
+            <span className={cn("absolute left-1/2 top-[2rem] hidden -translate-x-1/2 whitespace-nowrap font-mono text-[9px] uppercase tracking-widest @lg:block", post.name)}>
               {GATE_INFO[id].title}
             </span>
             {barrier && stopped && (
@@ -124,7 +125,7 @@ export function PipelineTrack({ ids, looks, pos, target, label }: { ids: readonl
         )}
       >
         <Landmark strokeWidth={2.5} className="size-3.5" />
-        <span className="hidden sm:inline">Vault</span>
+        <span className="hidden @lg:inline">Vault</span>
       </span>
 
       {/* The packet */}

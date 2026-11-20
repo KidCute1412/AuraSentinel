@@ -7,6 +7,7 @@ import type { VaultView } from "@/shared/api/vaultSource";
 import { Skeleton } from "@/shared/ui/Skeleton";
 import { Panel } from "@/shared/ui/Panel";
 import { Stamp, type StampTone } from "@/shared/ui/Stamp";
+import { StickyColumn } from "@/shared/ui/StickyColumn";
 import { RedTeamPanel } from "../components/RedTeamPanel";
 import { VerdictCard } from "../components/VerdictCard";
 import { canRunJobs, sectionPath, type VaultRole } from "../guards/access";
@@ -67,7 +68,7 @@ function WhatEachTestProves({ canAct }: { canAct: boolean }) {
 export function RedTeam({ view, role }: { view: VaultView; role: VaultRole }) {
   const [last, setLast] = useState<{ id: string; scenario: AttackScenario | null } | null>(null);
   const { job, status } = useJobDetail(view, last?.id);
-  const resultRef = useRef<HTMLDivElement>(null);
+  const resultRef = useRef<HTMLElement>(null);
   // On phones the result sits below the buttons: bring its top (the expected/actual stamp) into view. On desktop it is
   // already beside the buttons, so nothing moves unless the visitor scrolled past it.
   useEffect(() => {
@@ -91,8 +92,10 @@ export function RedTeam({ view, role }: { view: VaultView; role: VaultRole }) {
 
   return (
     <div className="grid grid-cols-[minmax(0,1fr)] gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)]">
-      <RedTeamPanel view={view} canAct={canAct} onStarted={(id, scenario) => setLast({ id, scenario })} />
-      <div ref={resultRef} className="scroll-mt-20 space-y-6">
+      <StickyColumn offset="app">
+        <RedTeamPanel view={view} canAct={canAct} onStarted={(id, scenario) => setLast({ id, scenario })} />
+      </StickyColumn>
+      <StickyColumn ref={resultRef} offset="app" className="scroll-mt-20 space-y-6">
         {job && last ? (
           <>
             {last.scenario && <OutcomeCard job={job} scenario={last.scenario} />}
@@ -112,7 +115,7 @@ export function RedTeam({ view, role }: { view: VaultView; role: VaultRole }) {
         ) : (
           <WhatEachTestProves canAct={canAct} />
         )}
-      </div>
+      </StickyColumn>
     </div>
   );
 }

@@ -18,10 +18,11 @@ import { Panel } from "@/shared/ui/Panel";
 import { Skeleton } from "@/shared/ui/Skeleton";
 import { SnowtraceLink } from "@/shared/ui/SnowtraceLink";
 import { Stamp } from "@/shared/ui/Stamp";
+import { StickyColumn } from "@/shared/ui/StickyColumn";
 import type { SentTx } from "@/shared/ui/TxButton";
 import { BalancesPanel } from "../components/BalancesPanel";
 import { BudgetBar } from "../components/BudgetBar";
-import { AgentBrainCard } from "../components/AgentBrainCard";
+import { AgentBrainCard, AttackStep } from "../components/AgentBrainCard";
 import { ShieldPipeline } from "../components/ShieldPipeline";
 import { KillSwitch } from "../components/KillSwitch";
 import { useOwnerControl } from "../hooks/useOwnerControl";
@@ -67,14 +68,20 @@ function StepRail({ current, done, onPick }: { current: number; done: ReadonlySe
 /** The verdict of the step's job, in plain words, with every check behind a toggle and the public proof link. */
 function ResultBlock({ result, job, brain }: { result: StepResult; job: Parameters<typeof ShieldPipeline>[0]["job"] | undefined; brain: boolean }) {
   if (result.kind === "idle" || !job) return null;
-  // The hijack step: first what the fooled AI decided, then the shields that judged it.
-  const thinking = brain && <AgentBrainCard plan={job.agentPlan} />;
+  // The hijack step reads as a story: ① the bait, ② what the fooled AI planned, ③ the shields that judged it.
+  const pipeline = brain ? (
+    <AttackStep n={3} title="The shields">
+      <ShieldPipeline job={job} />
+    </AttackStep>
+  ) : (
+    <ShieldPipeline job={job} />
+  );
   if (result.kind === "running") {
     return (
-      <div className="space-y-3 border border-line-strong bg-bg p-4">
+      <div className="space-y-4 border border-line-strong bg-bg p-4">
         <p className="mono-label">{brain && !job.agentPlan ? "The AI is reading the fake message" : "Checking it now, step by step"}</p>
-        {thinking}
-        {(!brain || job.agentPlan) && <ShieldPipeline job={job} />}
+        {brain && <AgentBrainCard plan={job.agentPlan} />}
+        {(!brain || job.agentPlan) && pipeline}
       </div>
     );
   }
@@ -94,15 +101,20 @@ function ResultBlock({ result, job, brain }: { result: StepResult; job: Paramete
         <p className="text-lg font-bold leading-tight">{result.headline}</p>
       </div>
       <p className="mt-2 text-soft">{result.detail}</p>
-      {thinking && <div className="mt-3">{thinking}</div>}
       {job.txHash && (
         <p className="mt-3">
           <SnowtraceLink kind="tx" value={job.txHash}>{job.status === "reverted" ? "See the failed transaction" : "See it on Snowtrace"}</SnowtraceLink>
         </p>
       )}
       {/* Every check, with the numbers it compared: the point of the demo is to see why. */}
-      <div className="mt-3 border-t border-line pt-3">
-        <ShieldPipeline job={job} />
+      <div className="mt-3 space-y-4 border-t border-line pt-3">
+        {brain && (
+          <>
+            <p className="mono-label">How the attack went</p>
+            <AgentBrainCard plan={job.agentPlan} />
+          </>
+        )}
+        {pipeline}
       </div>
     </div>
   );
@@ -337,8 +349,9 @@ export function GuidedDemo({ view, onFreePlay }: { view: VaultView; onFreePlay: 
         )}
       </div>
 
-      {/* The vault itself, read from the chain: every press above visibly changes something here. */}
-      <aside aria-label="The vault right now" className="space-y-6">
+      {/* The vault itself, read from the chain: every press visibly changes something here. It stays beside the step
+          while the result below the button grows (sticky while it fits on the screen). */}
+      <StickyColumn as="aside" label="The vault right now" className="space-y-6">
         {state ? (
           <>
             <AgentRules state={state} isActive={isActive} />
@@ -351,7 +364,7 @@ export function GuidedDemo({ view, onFreePlay }: { view: VaultView; onFreePlay: 
             <Skeleton className="h-40 w-full" />
           </>
         )}
-      </aside>
+      </StickyColumn>
     </div>
   );
 }

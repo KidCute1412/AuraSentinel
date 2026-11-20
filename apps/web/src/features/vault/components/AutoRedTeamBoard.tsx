@@ -30,7 +30,7 @@ export function AutoRedTeamBoard({ view, run, selectedId, onPick }: { view: Vaul
       <header className="border-b border-line px-3 py-2">
         <span className="inline-flex items-center gap-2">
           <Swords aria-hidden className="size-4 shrink-0" />
-          <span className="mono-label">Auto red-team · written by {run.source === "llm" ? "the attacker AI" : "the preset list"}</span>
+          <span className="mono-label">Auto red-team · {run.source === "llm" ? "attacks written by an AI" : "preset attacks"}</span>
         </span>
         {/* Its own row with room around it: the stamp is tilted, it must not touch the label or the border. */}
         <div aria-live="polite" className="mt-1 flex min-h-11 items-center px-1">
@@ -44,22 +44,30 @@ export function AutoRedTeamBoard({ view, run, selectedId, onPick }: { view: Vaul
             </span>
           )}
         </div>
+        <p className="mt-1.5 text-xs text-muted">Pick a run to see what the AI planned and which shield stopped it.</p>
       </header>
       <ol className="divide-y divide-line">
         {rows.map((r, i) => {
           const o = runOutcome(r.job);
+          const on = r.jobId === selectedId;
           return (
             <li key={r.jobId}>
               <button
                 type="button"
                 onClick={() => onPick(r.jobId)}
-                aria-current={r.jobId === selectedId ? "true" : undefined}
-                className={cn("grid w-full grid-cols-[auto_minmax(0,1fr)] gap-x-3 gap-y-1.5 px-3 py-2.5 text-left hover:bg-hover sm:grid-cols-[auto_minmax(0,1fr)_auto]", r.jobId === selectedId && "bg-hover")}
+                aria-current={on ? "true" : undefined}
+                className={cn(
+                  "grid w-full grid-cols-[auto_minmax(0,1fr)] gap-x-3 gap-y-1.5 border-l-4 px-3 py-2.5 text-left sm:grid-cols-[auto_minmax(0,1fr)_auto]",
+                  on ? "border-fg bg-hover" : "border-transparent hover:bg-hover",
+                )}
               >
                 <span className="mono-label pt-0.5">0{i + 1}</span>
                 <span className="min-w-0">
-                  <span className="line-clamp-2 break-words text-sm">{r.text}</span>
-                  {r.job?.agentPlan && <span className="mt-0.5 block font-mono text-[11px] uppercase tracking-widest text-muted">Plan: {r.job.agentPlan.action.type}</span>}
+                  <span className="line-clamp-1 break-all text-sm" title={r.text}>{r.text}</span>
+                  <span className="mt-0.5 block font-mono text-[11px] uppercase tracking-widest text-muted">
+                    {r.job?.agentPlan ? `AI plan: ${r.job.agentPlan.action.type}` : "AI is reading…"}
+                    {on && <span className="ml-2 font-bold text-fg">· Viewing</span>}
+                  </span>
                 </span>
                 <span className={cn("col-start-2 justify-self-start border px-2 py-0.5 font-mono text-[11px] font-bold uppercase tracking-widest sm:col-start-auto sm:self-center", TONE[o.tone])}>
                   {o.label}
