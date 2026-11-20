@@ -51,7 +51,7 @@ export class OpenAiCompatibleExplainer implements LlmExplainer {
           ],
           response_format: RESPONSE_FORMAT,
           temperature: 0.3,
-          max_tokens: 256,
+          max_tokens: 400,
         }),
       });
       if (!res.ok) throw new Error(`LLM endpoint returned HTTP ${res.status}`);

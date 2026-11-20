@@ -27,6 +27,11 @@ export interface ExplainInput {
   /** Text a visitor typed into the red-team injection box. Untrusted: prompt data only. */
   untrustedText?: string;
   /**
+   * Hijacked Agent runs: what the fooled agent planned, in words written by code from the validated plan
+   * (describeAction), e.g. "swap all the USDC for WAVAX, proceeds to 0x9999...9999". Display fact only.
+   */
+  agentAction?: string;
+  /**
    * A red-team plan that passed every shield and was stopped before broadcast on purpose (job status `held`). Only
    * with verdict `approved`. The template explains it: an LLM could claim the trade was sent.
    */

@@ -56,7 +56,7 @@ export class BrainService {
     try {
       const raw = await generateWithTimeout(
         this.llm,
-        { name: 'agent_action', system: BRAIN_SYSTEM_PROMPT, user: buildBrainPrompt(snapshot, feed), schema: BRAIN_SCHEMA, temperature: 0.4, maxTokens: 400 },
+        { name: 'agent_action', system: BRAIN_SYSTEM_PROMPT, user: buildBrainPrompt(snapshot, feed), schema: BRAIN_SCHEMA, temperature: 0.4, maxTokens: 600 },
         this.env.PLANNER_TIMEOUT_MS,
       );
       const out = normalizeBrainOutput(RawBrainOutput.parse(JSON.parse(raw ?? '')), safe);

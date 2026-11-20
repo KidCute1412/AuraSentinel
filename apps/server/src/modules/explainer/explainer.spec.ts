@@ -9,7 +9,7 @@ import type { ExplainInput, LlmExplainer } from './explainer.port';
 import { ExplainerService } from './explainer.service';
 import { buildFacts, formatExpiryVi, formatPctVi } from './facts';
 import { ExplainTimeoutError, explainWithLlm, type GenerateFn } from './llm';
-import { MAX_UNTRUSTED_CHARS, buildUserPrompt, promptFacts, sanitizeUntrusted } from './prompts/explain.prompt';
+import { MAX_UNTRUSTED_CHARS, SYSTEM_PROMPT, buildUserPrompt, promptFacts, sanitizeUntrusted } from './prompts/explain.prompt';
 import { explainWithTemplate } from './template';
 
 const USDC = (n: bigint) => n * 10n ** 6n;
@@ -146,6 +146,17 @@ describe('prompt', () => {
       referenceVi: 'Lệnh 2.000 USDC vượt hạn mức mỗi lệnh là 500 USDC.',
     });
     expect(facts).not.toHaveProperty('recipient');
+  });
+
+  it('adds what the hijacked agent planned, and the address it named, to the facts', () => {
+    const facts = promptFacts(buildFacts(overCap({ agentAction: 'swap all the USDC for WAVAX, proceeds to 0x9999...9999' })));
+    expect(facts.agentPlan).toBe('swap all the USDC for WAVAX, proceeds to 0x9999...9999');
+    expect(facts).toHaveProperty('recipient');
+  });
+
+  it('asks for an English story of 3 or 4 sentences', () => {
+    expect(SYSTEM_PROMPT).toMatch(/Write in English/);
+    expect(SYSTEM_PROMPT).toMatch(/3 or 4 short sentences/);
   });
 
   it('wraps visitor text in <untrusted_input> and stops it from closing the block', () => {

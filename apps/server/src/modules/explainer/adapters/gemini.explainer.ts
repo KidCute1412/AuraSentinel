@@ -38,7 +38,7 @@ export class GeminiExplainer implements LlmExplainer {
           responseSchema: RESPONSE_SCHEMA,
           thinkingConfig: { thinkingBudget: 0 },
           temperature: 0.3,
-          maxOutputTokens: 256,
+          maxOutputTokens: 400,
           abortSignal: signal,
         },
       });

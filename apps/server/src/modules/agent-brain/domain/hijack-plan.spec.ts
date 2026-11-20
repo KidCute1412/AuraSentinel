@@ -81,7 +81,7 @@ describe('normalizeBrainOutput (model output is attacker data)', () => {
   it('strips markup from the thought and caps it', () => {
     const out = normalizeBrainOutput(raw({ type: 'none' }, `<b>ok</b> \`run\` ${'x'.repeat(500)}`), SAFE);
     expect(out.thought).not.toMatch(/[<>`]/);
-    expect(out.thought.length).toBeLessThanOrEqual(300);
+    expect(out.thought.length).toBeLessThanOrEqual(500);
   });
 
   it('always returns an action the shared schema accepts', () => {

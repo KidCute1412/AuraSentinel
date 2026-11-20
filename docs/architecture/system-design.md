@@ -157,6 +157,7 @@ Worker sinh event (job đổi trạng thái, event chain), API giữ kết nối
 |---|---|
 | **Gemini 2.5 Flash, `thinkingBudget = 0`** | Timeout 2s: bật thinking sẽ thường xuyên vượt ngưỡng. Flash-Lite là model dự phòng nhanh hơn. |
 | **Structured output** (`responseMimeType: application/json` + `responseSchema`) **+ Zod** | Schema ở 2 lớp: ép model trả JSON, rồi Zod validate lại (không tin model). |
+| **Ngôn ngữ và độ dài** | LLM viết **tiếng Anh** (đồng bộ UI), 3–4 câu ≤ 600 ký tự (`messageVi` ≤ 700, giữ tên cũ): AI định làm gì (Hijacked Agent: "tin giả đã lừa AI…") → luật nào chặn, kèm số → tiền ra sao. Guard nhận cả từ khoá tiếng Anh. Dòng template thì web tự kể lại bằng tiếng Anh từ reason code, số tiền và kế hoạch của agent. |
 | **Numeric-consistency check** | Trích các số trong `messageVi`, so với sim (`200`, `8`, `13.3`). Lệch → fallback. Chặn hallucination & injection “nói sai số”. |
 | **Port `Explainer` + 2 adapter** | `GeminiExplainer` → khi timeout/invalid → `TemplateExplainer`. Fallback là đổi adapter, không phải `if` rải rác. |
 | **Prompt injection (explainer)** | Text người dùng nhét vào prompt trong block delimit `<untrusted_input>`, system prompt nói rõ đó là dữ liệu. Nhưng an toàn thật đến từ P3: dù LLM bị lừa hoàn toàn, nó không có quyền gì. |
